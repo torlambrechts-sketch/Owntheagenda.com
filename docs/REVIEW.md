@@ -28,7 +28,7 @@ Fixed during review:
 ## Security & RLS
 
 - **RLS coverage is complete**: all 26 public tables have RLS enabled with policies. Tables with a single policy are read-only-to-clients by design (writes go through SECURITY DEFINER RPCs).
-- **Security advisors clean**: the only notices are the by-design "authenticated can execute SECURITY DEFINER RPC" set (every one is internally guarded — `can_read_session` / `is_session_facilitator` / `can_manage_*`) and one project-level Auth toggle (leaked-password protection — owner action).
+- **Security advisors**: the only notices are the by-design "authenticated can execute SECURITY DEFINER RPC" set (every one is internally guarded — `can_read_session` / `is_session_facilitator` / `can_manage_*`), one project-level Auth toggle (leaked-password protection — owner action), and `extension_in_public` for `pg_net` (the async HTTP client behind reminder-email dispatch — `extrelocatable = false`, so it can't be moved; its API lives under the `net` schema). The cron→Edge-Function call is guarded by a DB-stored shared secret, and `verify_cron_secret` is revoked from `anon`/`authenticated`.
 - **Anti-theatre gates proven** by rolled-back role tests: commit requires a named decider + resourcing note + no unresolved opposition (or written override); actions need owner + due; close requires no draft decisions, an owned+dated action per committed decision, and an objective.
 - **Psychological safety enforced in RLS**, not just UI: silent blocks hide others' cards until reveal; anonymous cards mask the author name.
 
@@ -54,5 +54,5 @@ Fixed during review:
 - **AI synthesis** uses the deterministic fallback until `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) is set and outbound to `api.anthropic.com` is allowed; the persisted draft + facilitator-approval gate work either way.
 - **Anonymity** masks the author *name*; `author_id` is retained for access control + own-delete (same trade-off as the existing fist-of-five). Full unlinkability would need a masking view/RPC.
 - **Not built (deferred scope)**: async participation + low-friction guest access; enterprise SSO/SCIM/data-residency/audit-on-decisions; Slack/Teams/Jira integrations; consultant mode + template marketplace; live multiplayer cursors; server-side PDF (browser print covers the readout today).
-- **Email/scheduled reminders** are in-app only; delivery + time-based nudges await a background-job runner (`pg_cron` + Edge Functions).
+- **Scheduled reminders are live** (`pg_cron` daily): `private.generate_due_reminders()` posts in-app nudges for due-soon and overdue open actions to the owner (else the creator), idempotently. **Email delivery is built and dormant** — a `due-reminders` Edge Function digests them via Resend, triggered by a second cron job through `pg_net` (shared-secret authed); it activates the moment `RESEND_API_KEY` is set on the function. See `docs/REMINDERS.md`.
 - DB types are hand-maintained (simplified). Low drift risk given the test + typecheck gate; regenerate via the Supabase CLI if it grows.

@@ -11,6 +11,7 @@ export type ActionRow = {
   id: string;
   text: string;
   owner: string | null;
+  ownerId: string | null;
   status: "open" | "done";
   dueAt: string | null;
   teamId: string | null;
@@ -19,6 +20,9 @@ export type ActionRow = {
   workshopTitle: string | null;
 };
 export type TeamOpt = { id: string; name: string };
+export type MemberOpt = { id: string; name: string };
+
+const OTHER = "__other";
 
 type Filter = "open" | "done" | "all";
 
@@ -52,9 +56,11 @@ function dueInfo(dueAt: string | null, status: string) {
 export function ActionsClient({
   rows,
   teams,
+  members,
 }: {
   rows: ActionRow[];
   teams: TeamOpt[];
+  members: MemberOpt[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -66,7 +72,9 @@ export function ActionsClient({
   const [editId, setEditId] = useState<string | null>(null);
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [text, setText] = useState("");
-  const [owner, setOwner] = useState("");
+  // ownerSel: "" = unassigned, a member id, or OTHER (free-text name)
+  const [ownerSel, setOwnerSel] = useState("");
+  const [ownerText, setOwnerText] = useState("");
   const [due, setDue] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -124,7 +132,8 @@ export function ActionsClient({
     setEditId(null);
     setTeamId(teams[0]?.id ?? "");
     setText("");
-    setOwner("");
+    setOwnerSel("");
+    setOwnerText("");
     setDue("");
     setError(null);
     setOpen(true);
@@ -133,16 +142,34 @@ export function ActionsClient({
     setEditId(r.id);
     setTeamId(r.teamId ?? teams[0]?.id ?? "");
     setText(r.text);
-    setOwner(r.owner ?? "");
+    // Linked teammate → select them; free-text name → "Someone else"; neither → unassigned.
+    if (r.ownerId && members.some((m) => m.id === r.ownerId)) {
+      setOwnerSel(r.ownerId);
+      setOwnerText("");
+    } else if (r.owner) {
+      setOwnerSel(OTHER);
+      setOwnerText(r.owner);
+    } else {
+      setOwnerSel("");
+      setOwnerText("");
+    }
     setDue(r.dueAt ?? "");
     setError(null);
     setOpen(true);
   }
   async function save() {
     setError(null);
+    let ownerId: string | null = null;
+    let ownerName: string | null = null;
+    if (ownerSel === OTHER) {
+      ownerName = ownerText.trim() || null;
+    } else if (ownerSel) {
+      ownerId = ownerSel;
+      ownerName = members.find((m) => m.id === ownerSel)?.name ?? null;
+    }
     const res = editId
-      ? await editAction({ id: editId, text, owner, dueAt: due || null })
-      : await addAction({ teamId, text, owner, dueAt: due || null });
+      ? await editAction({ id: editId, text, owner: ownerName, ownerId, dueAt: due || null })
+      : await addAction({ teamId, text, owner: ownerName, ownerId, dueAt: due || null });
     if (res.error) return setError(res.error);
     setOpen(false);
     flash(editId ? "Action updated" : "Action added");
@@ -352,12 +379,28 @@ export function ActionsClient({
             <label>
               Owner <span className="opt">(optional)</span>
             </label>
-            <input
+            <select
               className="inp"
-              value={owner}
-              onChange={(e) => setOwner(e.target.value)}
-              placeholder="Name"
-            />
+              value={ownerSel}
+              onChange={(e) => setOwnerSel(e.target.value)}
+            >
+              <option value="">— Unassigned —</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
+              <option value={OTHER}>Someone else…</option>
+            </select>
+            {ownerSel === OTHER ? (
+              <input
+                className="inp"
+                style={{ marginTop: 6 }}
+                value={ownerText}
+                onChange={(e) => setOwnerText(e.target.value)}
+                placeholder="Name"
+              />
+            ) : null}
           </div>
           <div className="field">
             <label>
@@ -371,6 +414,11 @@ export function ActionsClient({
             />
           </div>
         </div>
+        {ownerSel && ownerSel !== OTHER ? (
+          <p className="form-note">
+            We&rsquo;ll remind {members.find((m) => m.id === ownerSel)?.name ?? "them"} when this is due.
+          </p>
+        ) : null}
       </SideWindow>
 
       <div className={`toast${toast ? " show" : ""}`}>

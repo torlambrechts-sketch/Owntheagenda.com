@@ -586,6 +586,7 @@ export type Database = {
           decision_id: string | null
           text: string
           owner_name: string | null
+          owner_id: string | null
           status: Database["public"]["Enums"]["action_status"]
           due_at: string | null
           created_by: string | null
@@ -697,6 +698,7 @@ export type Database = {
           entity_type: string | null
           entity_id: string | null
           read_at: string | null
+          emailed_at: string | null
           created_at: string
         }
         Insert: { [k: string]: unknown }

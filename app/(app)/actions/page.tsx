@@ -18,9 +18,27 @@ export default async function ActionsPage() {
 
   const { data: acts } = await supabase
     .from("action_item")
-    .select("id, text, owner_name, status, due_at, team_id, workshop_id, created_at")
+    .select("id, text, owner_name, owner_id, status, due_at, team_id, workshop_id, created_at")
     .eq("workspace_id", wsId);
   const actsList = acts ?? [];
+
+  // Workspace members — owners we can attach a real account to (so reminders reach them).
+  const { data: mem } = await supabase
+    .from("membership")
+    .select("user_id")
+    .eq("workspace_id", wsId)
+    .eq("status", "active");
+  const memberIds = (mem ?? []).map((m) => m.user_id);
+  const { data: profs } = memberIds.length
+    ? await supabase
+        .from("profile")
+        .select("id, full_name, display_name, email")
+        .in("id", memberIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const members = (profs ?? []).map((p) => ({
+    id: p.id,
+    name: p.full_name || p.display_name || p.email || "Member",
+  }));
 
   // Resolve source-workshop titles for the actions that came out of a session.
   const wsIds = Array.from(
@@ -35,6 +53,7 @@ export default async function ActionsPage() {
     id: a.id,
     text: a.text,
     owner: a.owner_name,
+    ownerId: a.owner_id,
     status: a.status,
     dueAt: a.due_at,
     teamId: a.team_id,
@@ -54,7 +73,7 @@ export default async function ActionsPage() {
       {teamOpts.length === 0 ? (
         <div className="card empty">Create a team first to track actions.</div>
       ) : (
-        <ActionsClient rows={rows} teams={teamOpts} />
+        <ActionsClient rows={rows} teams={teamOpts} members={members} />
       )}
     </div>
   );

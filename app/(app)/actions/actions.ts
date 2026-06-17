@@ -9,6 +9,7 @@ export async function addAction(input: {
   teamId: string;
   text: string;
   owner?: string | null;
+  ownerId?: string | null;
   dueAt?: string | null;
 }): Promise<{ error?: string }> {
   const text = input.text.trim();
@@ -22,6 +23,7 @@ export async function addAction(input: {
     team_id: input.teamId,
     text,
     owner_name: input.owner?.trim() || null,
+    owner_id: input.ownerId || null,
     due_at: input.dueAt || null,
     status: "open",
     created_by: ctx.userId,
@@ -35,6 +37,7 @@ export async function editAction(input: {
   id: string;
   text: string;
   owner?: string | null;
+  ownerId?: string | null;
   dueAt?: string | null;
 }): Promise<{ error?: string }> {
   const text = input.text.trim();
@@ -46,6 +49,7 @@ export async function editAction(input: {
     .update({
       text,
       owner_name: input.owner?.trim() || null,
+      owner_id: input.ownerId || null,
       due_at: input.dueAt || null,
     })
     .eq("id", input.id);
