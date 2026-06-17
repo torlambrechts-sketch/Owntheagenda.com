@@ -95,7 +95,7 @@ header.nav{position:sticky;top:0;z-index:50;background:rgba(243,241,232,.86);bac
 .stage-card .steps span{flex:1;height:5px;border-radius:4px;background:rgba(255,255,255,.16)}
 .stage-card .steps span.done{background:rgba(255,255,255,.55)}
 .stage-card .steps span.now{background:var(--green)}
-.float-chip{position:absolute;left:-16px;bottom:26px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:11px 13px;display:flex;align-items:center;gap:10px;max-width:230px}
+.float-chip{position:absolute;left:-16px;bottom:-18px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:11px 13px;display:flex;align-items:center;gap:10px;max-width:230px}
 .float-chip .ico{width:30px;height:30px;border-radius:8px;background:var(--open-bg);display:flex;align-items:center;justify-content:center;flex:none}
 .float-chip .tt{font-size:12px;line-height:1.35}
 .float-chip .tt b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
@@ -108,7 +108,7 @@ header.nav{position:sticky;top:0;z-index:50;background:rgba(243,241,232,.86);bac
 .proof-in .item svg{flex:none}
 
 /* ---------- section scaffolding ---------- */
-section.band{padding:clamp(56px,8vw,92px) 0}
+section.slab{padding:clamp(56px,8vw,92px) 0}
 .sec-head{max-width:680px;margin:0 0 44px}
 .sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
 .sec-head h2{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.8px;margin:12px 0 0}
@@ -210,9 +210,9 @@ footer{padding:40px 0 48px}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--ink);color:#fff;font-size:14px;padding:12px 17px;border-radius:9px;display:inline-flex;align-items:center;gap:9px;opacity:0;visibility:hidden;transition:opacity .22s,transform .22s;z-index:90}
 .toast.show{opacity:1;visibility:visible;transform:translate(-50%,0)}
 
-.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
-.reveal.in{opacity:1;transform:none}
-@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+@keyframes riseIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.reveal{animation:riseIn .55s ease both}
+@media(prefers-reduced-motion:reduce){.reveal{animation:none}html{scroll-behavior:auto}}
 
 @media(max-width:860px){.hero-grid{grid-template-columns:1fr}.hero .lede{max-width:none}.float-chip{display:none}}
 </style>
@@ -288,7 +288,7 @@ footer{padding:40px 0 48px}
 </div>
 
 <!-- ============ THE LOOP / HOW IT WORKS ============ -->
-<section class="band" id="how">
+<section class="slab" id="how">
   <div class="wrap">
     <div class="sec-head center reveal">
       <span class="eyebrow">How it works</span>
@@ -337,7 +337,7 @@ footer{padding:40px 0 48px}
 </section>
 
 <!-- ============ FEATURES / WHY ============ -->
-<section class="band" id="features" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<section class="slab" id="features" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-head reveal">
       <span class="eyebrow">Why OwnTheAgenda</span>
@@ -371,7 +371,7 @@ footer{padding:40px 0 48px}
 </section>
 
 <!-- ============ SCIENCE / ASSESSMENT ============ -->
-<section class="band">
+<section class="slab">
   <div class="wrap">
     <div class="science reveal">
       <div>
@@ -424,7 +424,7 @@ footer{padding:40px 0 48px}
 </section>
 
 <!-- ============ BRAND / LOGO ============ -->
-<section class="band" id="brand" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<section class="slab" id="brand" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-head reveal">
       <span class="eyebrow">The brand</span>
@@ -504,7 +504,7 @@ footer{padding:40px 0 48px}
 </section>
 
 <!-- ============ FINAL CTA ============ -->
-<section class="band" id="get-started">
+<section class="slab" id="get-started">
   <div class="wrap">
     <div class="final reveal">
       <h2>Run your next leadership session like you own it.</h2>
@@ -559,16 +559,6 @@ function showToast(msg){
   t.classList.add('show');
   clearTimeout(window._tt); window._tt=setTimeout(function(){t.classList.remove('show');},3200);
 }
-
-/* reveal on scroll */
-(function(){
-  var els=document.querySelectorAll('.reveal');
-  if(!('IntersectionObserver' in window)){els.forEach(function(el){el.classList.add('in')});return;}
-  var io=new IntersectionObserver(function(entries){
-    entries.forEach(function(en){ if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);} });
-  },{rootMargin:'0px 0px -8% 0px',threshold:.08});
-  els.forEach(function(el){io.observe(el)});
-})();
 </script>
 </body>
 </html>
