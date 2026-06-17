@@ -11,6 +11,7 @@ import {
   deleteBlock,
   reorderBlocks,
   updateWorkshopTitle,
+  scheduleWorkshop,
 } from "../actions";
 
 type Activity = Enums<"activity_type">;
@@ -48,13 +49,22 @@ const ACT_HINT: Partial<Record<Activity, string>> = {
   outcome: "Capture commitments as tracked actions.",
 };
 
+function toLocalInput(iso: string | null): string {
+  const d = iso ? new Date(iso) : new Date(Date.now() + 24 * 3600 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function fmtSched(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 export function BuilderClient({
   workshop,
   teamName,
   canManage,
   blocks,
 }: {
-  workshop: { id: string; title: string };
+  workshop: { id: string; title: string; scheduledAt: string | null };
   teamName: string;
   canManage: boolean;
   blocks: BlockRow[];
@@ -79,6 +89,23 @@ export function BuilderClient({
   // title editor
   const [titleOpen, setTitleOpen] = useState(false);
   const [wsTitle, setWsTitle] = useState(workshop.title);
+
+  // schedule editor
+  const [schedOpen, setSchedOpen] = useState(false);
+  const [schedAt, setSchedAt] = useState("");
+  function openSchedule() {
+    setSchedAt(toLocalInput(workshop.scheduledAt));
+    setSchedOpen(true);
+  }
+  async function saveSchedule() {
+    const res = await scheduleWorkshop(workshop.id, schedAt);
+    if (res.error) flash(res.error);
+    else {
+      setSchedOpen(false);
+      flash("Session scheduled — team notified");
+      router.refresh();
+    }
+  }
 
   const totalMin = blocks.reduce((s, b) => s + b.duration, 0);
 
@@ -188,10 +215,24 @@ export function BuilderClient({
           <div className="num">{blocks.length}</div>
           <div className="lab">Blocks</div>
         </div>
+        {workshop.scheduledAt ? (
+          <>
+            <div className="vr" />
+            <div className="stat">
+              <div className="num" style={{ fontSize: 15 }}>{fmtSched(workshop.scheduledAt)}</div>
+              <div className="lab">Scheduled</div>
+            </div>
+          </>
+        ) : null}
         <div className="actions">
           {canManage ? (
             <button className="btn-sec" onClick={() => { setWsTitle(workshop.title); setTitleOpen(true); }}>
               Rename
+            </button>
+          ) : null}
+          {canManage ? (
+            <button className="btn-sec" onClick={openSchedule}>
+              {workshop.scheduledAt ? "Reschedule" : "Schedule"}
             </button>
           ) : null}
           <button
@@ -360,6 +401,29 @@ export function BuilderClient({
         <div className="field">
           <label>Workshop title</label>
           <input className="inp" value={wsTitle} onChange={(e) => setWsTitle(e.target.value)} />
+        </div>
+      </SideWindow>
+
+      {/* schedule */}
+      <SideWindow
+        open={schedOpen}
+        onClose={() => setSchedOpen(false)}
+        title="Schedule session"
+        subtitle={workshop.title}
+        size="compact"
+        footer={
+          <>
+            <button className="btn-sec" onClick={() => setSchedOpen(false)}>Cancel</button>
+            <div className="right">
+              <button className="btn-prim" disabled={!schedAt} onClick={saveSchedule}>Schedule &amp; notify</button>
+            </div>
+          </>
+        }
+      >
+        <div className="field">
+          <label>Date &amp; time</label>
+          <input className="inp" type="datetime-local" value={schedAt} onChange={(e) => setSchedAt(e.target.value)} />
+          <div className="form-note">Everyone on {teamName} gets an in-app heads-up.</div>
         </div>
       </SideWindow>
 

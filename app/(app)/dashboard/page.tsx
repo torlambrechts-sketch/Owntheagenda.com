@@ -15,6 +15,15 @@ export default async function DashboardPage() {
     supabase.from("action_item").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).eq("status", "open"),
   ]);
 
+  const { data: upcoming } = await supabase
+    .from("workshop")
+    .select("id, title, scheduled_at")
+    .eq("workspace_id", wsId)
+    .not("scheduled_at", "is", null)
+    .gte("scheduled_at", new Date(Date.now() - 3600 * 1000).toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(5);
+
   return (
     <div>
       <h1 className="page-title">{ctx.workspace.name}</h1>
@@ -50,6 +59,31 @@ export default async function DashboardPage() {
           <div className="lab">Plan · {ctx.workspace.data_region.toUpperCase()}</div>
         </div>
       </div>
+
+      {(upcoming ?? []).length ? (
+        <div style={{ marginBottom: 24 }}>
+          <div className="cat-head" style={{ fontSize: 16, marginTop: 8 }}>Upcoming sessions</div>
+          <div className="tbl-card">
+            <table className="tbl">
+              <tbody>
+                {(upcoming ?? []).map((w) => (
+                  <tr key={w.id}>
+                    <td>
+                      <Link href={`/workshops/${w.id}`} style={{ fontWeight: 600, textDecoration: "none" }}>{w.title}</Link>
+                    </td>
+                    <td style={{ color: "var(--muted)", width: 220 }}>
+                      {new Date(w.scheduled_at!).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                    </td>
+                    <td className="r" style={{ width: 110 }}>
+                      <Link className="linkbtn" href={`/run/${w.id}`}>Start ▸</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       <div className="cardgrid">
         <Link href="/members" className="card" style={{ textDecoration: "none" }}>

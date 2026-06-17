@@ -2,11 +2,19 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { signout } from "@/app/auth/actions";
-import { setActiveWorkspace } from "@/app/(app)/actions";
+import { setActiveWorkspace, markNotificationsRead } from "@/app/(app)/actions";
 import { initials } from "@/lib/util";
+
+export type ShellNotification = {
+  id: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read: boolean;
+};
 
 export type ShellChrome = {
   workspaceName: string;
@@ -14,6 +22,7 @@ export type ShellChrome = {
   workspaces: { id: string; name: string }[];
   userName: string;
   userEmail: string | null;
+  notifications: ShellNotification[];
 };
 
 const ICONS = {
@@ -86,7 +95,10 @@ export function Shell({
   children: React.ReactNode;
 }) {
   const path = usePathname();
+  const router = useRouter();
   const [wsOpen, setWsOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
   const groups = ["Workspace", "People", "Effectiveness"];
@@ -153,6 +165,51 @@ export function Shell({
             )}
           </div>
           <div className="right">
+            <div className="bell-wrap">
+              <button
+                className="bell"
+                onClick={() => setNotifOpen((o) => !o)}
+                aria-label="Notifications"
+                aria-expanded={notifOpen}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+                {unread > 0 ? <span className="bell-badge">{unread > 9 ? "9+" : unread}</span> : null}
+              </button>
+              {notifOpen ? (
+                <div className="notif-menu">
+                  <div className="notif-head">
+                    <span>Notifications</span>
+                    {unread > 0 ? (
+                      <button className="linkbtn" onClick={() => markNotificationsRead()}>Mark all read</button>
+                    ) : null}
+                  </div>
+                  {chrome.notifications.length === 0 ? (
+                    <div className="notif-empty">You&rsquo;re all caught up.</div>
+                  ) : (
+                    chrome.notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        className={`notif-item${n.read ? "" : " unread"}`}
+                        onClick={() => {
+                          if (!n.read) markNotificationsRead(n.id);
+                          setNotifOpen(false);
+                          if (n.link) router.push(n.link);
+                        }}
+                      >
+                        <span className="dotn" />
+                        <span className="nbody">
+                          <span className="nt">{n.title}</span>
+                          {n.body ? <span className="nb">{n.body}</span> : null}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
             <div className="ws-switch">
               <button
                 className="org-chip"

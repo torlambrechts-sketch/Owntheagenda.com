@@ -29,6 +29,23 @@ export async function deleteWorkshop(id: string): Promise<{ error?: string }> {
   return {};
 }
 
+export async function scheduleWorkshop(
+  id: string,
+  at: string,
+): Promise<{ error?: string }> {
+  const when = new Date(at);
+  if (isNaN(when.getTime())) return { error: "Pick a valid date and time." };
+  const supabase = createClient();
+  const { error } = await supabase.rpc("schedule_workshop", {
+    p_workshop: id,
+    p_at: when.toISOString(),
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/workshops/${id}`);
+  revalidatePath("/workshops");
+  return {};
+}
+
 export async function updateWorkshopTitle(
   id: string,
   title: string,

@@ -655,6 +655,24 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      notification: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          kind: string
+          title: string
+          body: string | null
+          link: string | null
+          entity_type: string | null
+          entity_id: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -769,6 +787,11 @@ export type Database = {
         Args: { p_session: string; p_block_ord: number; p_texts: string[] }
         Returns: undefined
       }
+      schedule_workshop: {
+        Args: { p_workshop: string; p_at: string }
+        Returns: Database["public"]["Tables"]["workshop"]["Row"]
+      }
+      mark_notifications_read: { Args: { p_id?: string }; Returns: undefined }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined

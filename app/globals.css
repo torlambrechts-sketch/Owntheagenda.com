@@ -384,6 +384,23 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .rec .btn-prim{flex:none}
 .rb-grounded{display:inline-flex;align-items:center;gap:5px;margin-left:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#bfe3cc;background:rgba(255,255,255,.12);border-radius:20px;padding:3px 9px;vertical-align:middle}
 
+/* Notifications (appbar bell) --------------------------------------- */
+.bell-wrap{position:relative}
+.bell{position:relative;width:34px;height:34px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);cursor:pointer;color:var(--muted);display:inline-flex;align-items:center;justify-content:center}
+.bell:hover{color:var(--ink)}
+.bell-badge{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;border-radius:9px;background:var(--rust);color:#fff;font-size:9.5px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 4px;border:1.5px solid var(--surface)}
+.notif-menu{position:absolute;right:0;top:42px;width:310px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);z-index:60;overflow:hidden}
+.notif-head{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--line);font-size:12px;font-weight:700;color:var(--ink)}
+.notif-empty{padding:24px;text-align:center;color:var(--faint);font-size:12.5px}
+.notif-item{display:flex;gap:9px;align-items:flex-start;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line);padding:11px 13px;cursor:pointer}
+.notif-item:last-child{border-bottom:none}
+.notif-item:hover{background:var(--canvas)}
+.notif-item .dotn{width:7px;height:7px;border-radius:50%;background:transparent;margin-top:5px;flex:none}
+.notif-item.unread .dotn{background:var(--green)}
+.notif-item .nbody{display:flex;flex-direction:column;gap:2px;min-width:0}
+.notif-item .nt{font-size:12.5px;font-weight:600;color:var(--ink)}
+.notif-item .nb{font-size:11.5px;color:var(--muted)}
+
 /* Session readout --------------------------------------------------- */
 .readout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:6px}
 .ro-block{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}
