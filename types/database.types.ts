@@ -621,6 +621,18 @@ export type Database = {
           color: string
           x: number
           y: number
+          w: number | null
+          h: number | null
+          points: Json | null
+          src_id: string | null
+          dst_id: string | null
+          src_anchor: string | null
+          dst_anchor: string | null
+          line_style: string | null
+          stroke: string | null
+          fill: string | null
+          stroke_w: number | null
+          variant: string | null
           author_id: string | null
           author_name: string | null
           created_at: string

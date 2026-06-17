@@ -308,6 +308,36 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .sticky.sky{background:#cadcef}
 .sticky.blush{background:#f1d3ca}
 .sticky.lilac{background:#dcd2ec}
+.sticky.sel{outline:2px solid var(--forest);outline-offset:2px;z-index:5}
+
+/* Run · canvas tools, shapes, connectors ----------------------------- */
+.ctools{position:absolute;left:14px;top:14px;z-index:20;display:flex;flex-direction:column;gap:3px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;box-shadow:0 6px 20px rgba(0,0,0,.10)}
+.ctool{width:38px;height:38px;border-radius:9px;border:none;background:none;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.ctool:hover{background:var(--canvas-2);color:var(--ink)}
+.ctool.active{background:var(--forest);color:#fff}
+.cdiv{height:1px;background:var(--line);margin:4px 4px}
+.csub{position:absolute;left:66px;top:14px;z-index:20;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:7px 10px;box-shadow:0 6px 20px rgba(0,0,0,.10)}
+.csub-grp{display:flex;align-items:center;gap:6px}
+.csub-grp + .csub-grp{padding-left:12px;border-left:1px solid var(--line)}
+.swatch{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.swatch.on{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--forest)}
+.lstyle{width:34px;height:26px;border-radius:7px;border:1px solid var(--line-2);background:var(--surface);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.lstyle:hover{background:var(--canvas)}
+.lstyle.on{background:var(--forest);color:#fff;border-color:var(--forest)}
+.clayer{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.conn{pointer-events:stroke;cursor:pointer}
+.cshape{position:absolute;box-sizing:border-box;border:1.5px solid rgba(0,0,0,.16);background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center;cursor:grab;user-select:none}
+.cshape.diamond{box-shadow:none}
+.cshape.sel{outline:2px solid var(--forest);outline-offset:2px;z-index:5}
+.cshape .clabel{font-size:12.5px;line-height:1.35;color:#33312a;text-align:center;padding:6px 8px;white-space:pre-wrap;word-break:break-word;overflow:hidden;width:100%}
+.cshape textarea{width:100%;height:100%;border:none;background:none;resize:none;font:inherit;font-size:12.5px;line-height:1.35;text-align:center;color:#33312a;outline:none;cursor:text;padding:6px 8px;box-sizing:border-box}
+.cshape .clabel .ph{color:rgba(0,0,0,.3)}
+.ctext{border:none!important;box-shadow:none;justify-content:flex-start;align-items:flex-start;background:transparent}
+.ctext .clabel,.ctext textarea{text-align:left;color:var(--ink);font-size:14px;height:auto}
+.ctext.sel{outline:1px dashed var(--forest)}
+.canchor{position:absolute;width:11px;height:11px;border-radius:50%;background:var(--surface);border:2px solid var(--forest);transform:translate(-50%,-50%);cursor:crosshair;z-index:6}
+.canchor:hover{background:var(--forest)}
+.cresize{position:absolute;left:100%;top:100%;width:12px;height:12px;border-radius:3px;background:var(--surface);border:2px solid var(--forest);transform:translate(-50%,-50%);cursor:nwse-resize;z-index:6}
 
 /* Run · idea modules (brainstorm / poll / feedback) ------------------ */
 .dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}
