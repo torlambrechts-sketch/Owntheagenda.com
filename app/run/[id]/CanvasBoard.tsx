@@ -1048,6 +1048,12 @@ export function CanvasBoard({
           <button className="zlabel" onClick={resetView} title="Reset view">{Math.round(view.zoom * 100)}%</button>
           <button onClick={() => zoomBy(1.2)} title="Zoom in" aria-label="Zoom in">+</button>
         </div>
+        {selectedIds.length > 1 && canEdit ? (
+          <div className="selchip" onPointerDown={(e) => e.stopPropagation()}>
+            <span>{selectedIds.length} selected</span>
+            <button onClick={() => { for (const id of [...selectedIds]) delObj(id); }}>Delete</button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

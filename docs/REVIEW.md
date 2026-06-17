@@ -53,6 +53,23 @@ Fixed during review:
 
 - **AI synthesis** uses the deterministic fallback until `ANTHROPIC_API_KEY` (+ `ANTHROPIC_MODEL`) is set and outbound to `api.anthropic.com` is allowed; the persisted draft + facilitator-approval gate work either way.
 - **Anonymity** masks the author *name*; `author_id` is retained for access control + own-delete (same trade-off as the existing fist-of-five). Full unlinkability would need a masking view/RPC.
-- **Not built (deferred scope)**: async participation + low-friction guest access; enterprise SSO/SCIM/data-residency/audit-on-decisions; Slack/Teams/Jira integrations; consultant mode + template marketplace; live multiplayer cursors; server-side PDF (browser print covers the readout today).
+- **Not built (deferred scope)**: async participation + low-friction guest access; enterprise SSO/SCIM/data-residency/audit-on-decisions; Slack/Teams/Jira integrations; consultant mode + template marketplace; server-side PDF (browser print covers the readout today).
 - **Scheduled reminders are live** (`pg_cron` daily): `private.generate_due_reminders()` posts in-app nudges for due-soon and overdue open actions to the owner (else the creator), idempotently. **Email delivery is built and dormant** — a `due-reminders` Edge Function digests them via Resend, triggered by a second cron job through `pg_net` (shared-secret authed); it activates the moment `RESEND_API_KEY` is set on the function. See `docs/REMINDERS.md`.
 - DB types are hand-maintained (simplified). Low drift risk given the test + typecheck gate; regenerate via the Supabase CLI if it grows.
+
+---
+
+## Addendum — Start Smart + canvas (second pass)
+
+Two further batches shipped to the same cadence (migration → advisors → rolled-back RLS role tests → lint/typecheck/tests/build → merge):
+
+**Start Smart (NHH).** A native team-charter framework: durable `team_charter` + `user_manual` (RLS, guarded RPCs), run-mode Personal User Manual / Charter / dual-mode Assessment modules, three seeded `kickoff` templates, a team-page charter + dynamics readout, and a one-click "schedule follow-up". The dual-mode assessment runs live in-session **or** as a scheduled prerequisite — same pulse data + min-3 mask either way. Verified by 11- and 8-assertion rolled-back tests; `ensure_workshop_pulse` role-tested; new RPCs anon-revoked. See `docs/SMARTSTART.md`.
+
+**Canvas (the deferred list, now closed).** Live multiplayer cursors (broadcast), grid snapping (Shift bypass), duplicate (⌘/Ctrl+D), z-order (front/back), eraser, marquee multi-select + group move/delete (with a floating selection chip), pan & zoom (Hand tool + 40–250% control), and local undo (⌘/Ctrl+Z — create/delete/move/resize). Geometry/colour helpers extracted to `lib/canvas.ts` with unit tests (31 total); `screenToContent` keeps hit-testing/snapping/cursors/marquee correct at any zoom.
+
+- **Quality gate:** lint / typecheck / 31 tests / build all green.
+- **Security/RLS:** new tables enforce member-read / owner-or-lead-write; undo's recreate-with-original-id verified under a member's RLS; advisors show only the standing by-design set (guarded SECURITY DEFINER RPCs, `pg_net`-in-public, leaked-password toggle).
+- **Performance:** advisors are INFO-level only (unindexed FKs on small tables; a few unused indexes) — left as-is by design.
+- **Design:** new controls reuse the token set + component classes (`.btn-*`, `.lstyle`, `.pill`, forest/cream); icon-only controls carry `title`/`aria-label`; lock/cursor/zoom/selection chrome sits outside the zoom transform.
+- **Remaining canvas niceties (non-blocking, deliberate):** undo is local + keyboard-only (no shared undo/redo); group ops undo one item at a time; the dot-grid is screen-fixed (doesn't zoom).
+- **Caveat carried forward:** the authenticated `/run` multiplayer route can't be driven headlessly here, so cursors/lock/marquee/pan-zoom were verified via DB role tests + pure-logic unit tests + typecheck/lint/build + code review rather than a live click-through.
