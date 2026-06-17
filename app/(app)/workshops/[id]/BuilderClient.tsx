@@ -164,7 +164,7 @@ export function BuilderClient({
           ) : null}
           <button
             className="btn-prim"
-            onClick={() => flash("Live session mode arrives in Phase 5")}
+            onClick={() => router.push(`/run/${workshop.id}`)}
           >
             Start session ▸
           </button>
