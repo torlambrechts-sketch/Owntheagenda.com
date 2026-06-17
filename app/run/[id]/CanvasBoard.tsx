@@ -18,6 +18,7 @@ import {
   snapToGrid,
   distToSegment,
   rectsIntersect,
+  screenToContent,
   type Pt,
   type Side,
 } from "@/lib/canvas";
@@ -56,7 +57,7 @@ type Obj = {
   z: number;
 };
 
-type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser";
+type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser" | "hand";
 
 const COLS =
   "id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, author_id, author_name, z";
@@ -122,6 +123,7 @@ export function CanvasBoard({
   const selectedId = selectedIds.length ? selectedIds[selectedIds.length - 1] : null;
   const setSelectedId = (id: string | null) => setSelectedIds(id ? [id] : []);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [view, setView] = useState({ zoom: 1, panX: 0, panY: 0 });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [size, setSize] = useState({ bw: 1, bh: 1 });
   const [draftPts, setDraftPts] = useState<number[][] | null>(null);
@@ -147,6 +149,8 @@ export function CanvasBoard({
   const eraserRef = useRef(false);
   const marqueeRef = useRef<{ sx: number; sy: number } | null>(null);
   const selectedIdsRef = useRef<string[]>([]);
+  const viewRef = useRef(view);
+  const panRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
   useEffect(() => { objectsRef.current = objects; }, [objects]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
@@ -261,7 +265,7 @@ export function CanvasBoard({
   // ---- geometry helpers tied to current board size --------------------------
   const boardPoint = (e: React.PointerEvent | React.MouseEvent): Pt => {
     const r = boardRef.current!.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    return screenToContent(e.clientX - r.left, e.clientY - r.top, viewRef.current);
   };
   const shapeAt = (p: Pt, excludeId?: string): Obj | undefined => {
     const { bw, bh } = sizeRef.current;
@@ -340,6 +344,11 @@ export function CanvasBoard({
     const t = toolRef.current;
     const el = e.target as HTMLElement;
     if (el.closest("textarea")) return; // let text editing capture its own events
+    if (t === "hand") {
+      panRef.current = { sx: e.clientX, sy: e.clientY, px: viewRef.current.panX, py: viewRef.current.panY };
+      boardRef.current!.setPointerCapture(e.pointerId);
+      return;
+    }
     if (!canEdit) {
       // board is locked for non-facilitators — selection only
       const cidEl = el.closest("[data-cid]") as HTMLElement | null;
@@ -428,6 +437,11 @@ export function CanvasBoard({
   }
 
   function onBoardPointerMove(e: React.PointerEvent) {
+    if (panRef.current) {
+      const pr = panRef.current;
+      setView((v) => ({ ...v, panX: pr.px + (e.clientX - pr.sx), panY: pr.py + (e.clientY - pr.sy) }));
+      return;
+    }
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
     const nowt = Date.now();
@@ -486,6 +500,7 @@ export function CanvasBoard({
   async function onBoardPointerUp(e: React.PointerEvent) {
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
+    if (panRef.current) { panRef.current = null; return; }
     if (eraserRef.current) { eraserRef.current = false; return; }
     if (marqueeRef.current) {
       const m = marqueeRef.current;
@@ -572,6 +587,7 @@ export function CanvasBoard({
   }
 
   useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+  useEffect(() => { viewRef.current = view; }, [view]);
 
   // delete selected with the keyboard
   useEffect(() => {
@@ -662,6 +678,18 @@ export function CanvasBoard({
     patchObj(sel.id, { z });
   }
 
+  // Zoom toward the board centre, keeping that point fixed; clamp 40–250%.
+  function zoomBy(factor: number) {
+    setView((v) => {
+      const z = Math.min(2.5, Math.max(0.4, v.zoom * factor));
+      const k = z / v.zoom;
+      const cx = sizeRef.current.bw / 2;
+      const cy = sizeRef.current.bh / 2;
+      return { zoom: z, panX: cx - (cx - v.panX) * k, panY: cy - (cy - v.panY) * k };
+    });
+  }
+  function resetView() { setView({ zoom: 1, panX: 0, panY: 0 }); }
+
   const { bw, bh } = size;
   const shapes = objects.filter((o) => SHAPE_KINDS.has(o.kind)).sort((a, b) => a.z - b.z);
   const connectors = objects.filter((o) => o.kind === "connector");
@@ -677,7 +705,7 @@ export function CanvasBoard({
   const showFills = SHAPE_KINDS.has(tool) && tool !== "text" ? true : selObj ? SHAPE_KINDS.has(selObj.kind) && selObj.kind !== "text" : false;
   const showStrokes = tool === "pen" || tool === "marker" || tool === "connector" || selObj?.kind === "connector" || selObj?.kind === "draw";
   const showLineStyles = tool === "connector" || selObj?.kind === "connector";
-  const cursor = tool === "select" ? "default" : tool === "connector" ? "crosshair" : "crosshair";
+  const cursor = tool === "hand" ? "grab" : tool === "select" ? "default" : "crosshair";
 
   const TOOLS: { key: Tool; label: string; icon: React.ReactNode }[] = [
     { key: "select", label: "Select / move", icon: <path d="M4 3l7 16 2-7 7-2z" /> },
@@ -690,6 +718,7 @@ export function CanvasBoard({
     { key: "pen", label: "Pen", icon: <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /> },
     { key: "marker", label: "Marker", icon: <><path d="M9 14l-3 6 6-3" /><path d="M9 14l8-8 4 4-8 8z" /></> },
     { key: "eraser", label: "Eraser — drag to remove", icon: <><path d="M7 21h11" /><path d="M5 14l6-6 7 7-4 4H9z" /></> },
+    { key: "hand", label: "Pan — drag to move the view", icon: <><path d="M12 3v18M3 12h18" /><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3" /></> },
   ];
 
   return (
@@ -835,6 +864,10 @@ export function CanvasBoard({
         ) : null}
 
         {/* connectors + freehand drawings */}
+        <div
+          className="board-content"
+          style={{ transform: `translate(${view.panX}px, ${view.panY}px) scale(${view.zoom})`, transformOrigin: "0 0" }}
+        >
         <svg className="clayer" width={bw} height={bh}>
           <defs>
             <marker id="oa-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -956,6 +989,12 @@ export function CanvasBoard({
           </div>
         ))}
         {marquee ? <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} /> : null}
+        </div>
+        <div className="zoomctl" onPointerDown={(e) => e.stopPropagation()}>
+          <button onClick={() => zoomBy(1 / 1.2)} title="Zoom out" aria-label="Zoom out">−</button>
+          <button className="zlabel" onClick={resetView} title="Reset view">{Math.round(view.zoom * 100)}%</button>
+          <button onClick={() => zoomBy(1.2)} title="Zoom in" aria-label="Zoom in">+</button>
+        </div>
       </div>
     </div>
   );

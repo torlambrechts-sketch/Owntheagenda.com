@@ -52,6 +52,15 @@ export function snapToGrid(px: number, grid = 16): number {
   return Math.round(px / grid) * grid;
 }
 
+// Invert the pan/zoom viewport transform: board-pixel → content coordinate.
+export function screenToContent(
+  sx: number,
+  sy: number,
+  view: { zoom: number; panX: number; panY: number },
+): Pt {
+  return { x: (sx - view.panX) / view.zoom, y: (sy - view.panY) / view.zoom };
+}
+
 // Axis-aligned rectangle overlap (marquee multi-select).
 export function rectsIntersect(a: Rect, b: Rect): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;

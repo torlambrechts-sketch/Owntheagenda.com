@@ -11,6 +11,7 @@ import {
   snapToGrid,
   distToSegment,
   rectsIntersect,
+  screenToContent,
   CURSOR_COLORS,
 } from "@/lib/canvas";
 
@@ -123,5 +124,12 @@ describe("rectsIntersect", () => {
     expect(rectsIntersect(box(0, 0, 10, 10), box(5, 5, 15, 15))).toBe(true);
     expect(rectsIntersect(box(0, 0, 10, 10), box(20, 20, 30, 30))).toBe(false);
     expect(rectsIntersect(box(0, 0, 10, 10), box(10, 0, 20, 10))).toBe(false);
+  });
+});
+
+describe("screenToContent", () => {
+  it("inverts pan and zoom", () => {
+    expect(screenToContent(100, 50, { zoom: 1, panX: 0, panY: 0 })).toEqual({ x: 100, y: 50 });
+    expect(screenToContent(120, 60, { zoom: 2, panX: 20, panY: 0 })).toEqual({ x: 50, y: 30 });
   });
 });
