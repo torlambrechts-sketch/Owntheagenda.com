@@ -820,6 +820,25 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      assessment_template: {
+        Row: {
+          id: string
+          workspace_id: string | null
+          key: string
+          name: string
+          category: string
+          scope: string
+          source: string | null
+          description: string | null
+          definition: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
