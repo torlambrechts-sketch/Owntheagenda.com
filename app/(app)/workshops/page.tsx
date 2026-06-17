@@ -1,7 +1,8 @@
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
-import { WorkshopsClient, type TemplateCard, type WorkshopRow } from "./WorkshopsClient";
+import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
+import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation } from "./WorkshopsClient";
 
 export default async function WorkshopsPage() {
   const ctx = await requireSession();
@@ -18,7 +19,7 @@ export default async function WorkshopsPage() {
 
   const { data: templates } = await supabase
     .from("template")
-    .select("id, name, category, source, description, default_duration, definition")
+    .select("id, key, name, category, source, description, default_duration, definition")
     .order("category", { ascending: true });
 
   const tplCards: TemplateCard[] = (templates ?? []).map((t) => {
@@ -26,6 +27,7 @@ export default async function WorkshopsPage() {
     const minutes = phases.reduce((s, p) => s + (p?.minutes ?? 0), 0);
     return {
       id: t.id,
+      key: t.key,
       name: t.name,
       category: t.category,
       source: t.source,
@@ -50,6 +52,35 @@ export default async function WorkshopsPage() {
     }));
   }
 
+  // Grounded recommendation: steer the weakest pulse dynamic to a framework.
+  let recommendation: Recommendation | null = null;
+  if (team) {
+    const { data: dyn } = await supabase.rpc("team_dynamics", { p_team: team.id });
+    const weak = weakestDynamic((dyn ?? []) as any[]);
+    const rec = weak ? RECOMMENDED[weak.dynamic] : null;
+    const card = rec ? tplCards.find((c) => c.key === rec.key) : null;
+    if (weak && rec && card) {
+      const { data: lp } = await supabase
+        .from("pulse")
+        .select("id")
+        .eq("team_id", team.id)
+        .eq("status", "closed")
+        .order("closed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      recommendation = {
+        templateId: card.id,
+        templateName: card.name,
+        dynamicLabel: weak.label,
+        why: rec.why,
+        pct: weak.pct,
+        targetLow: weak.target_low,
+        belowBand: weak.in_band === false && (weak.pct ?? 0) < weak.target_low,
+        pulseId: lp?.id ?? null,
+      };
+    }
+  }
+
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
@@ -65,6 +96,7 @@ export default async function WorkshopsPage() {
           canManage={canManage}
           templates={tplCards}
           workshops={workshops}
+          recommendation={recommendation}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>

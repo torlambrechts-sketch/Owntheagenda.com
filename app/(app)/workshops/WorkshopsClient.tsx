@@ -8,6 +8,7 @@ import { useTemplate, deleteWorkshop } from "./actions";
 
 export type TemplateCard = {
   id: string;
+  key: string | null;
   name: string;
   category: string;
   source: string | null;
@@ -17,17 +18,29 @@ export type TemplateCard = {
   types: string[];
 };
 export type WorkshopRow = { id: string; title: string; status: string };
+export type Recommendation = {
+  templateId: string;
+  templateName: string;
+  dynamicLabel: string;
+  why: string;
+  pct: number | null;
+  targetLow: number;
+  belowBand: boolean;
+  pulseId: string | null;
+};
 
 export function WorkshopsClient({
   teamId,
   canManage,
   templates,
   workshops,
+  recommendation,
 }: {
   teamId: string;
   canManage: boolean;
   templates: TemplateCard[];
   workshops: WorkshopRow[];
+  recommendation: Recommendation | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -38,9 +51,9 @@ export function WorkshopsClient({
     setTimeout(() => setToast(null), 2400);
   }
 
-  function use(templateId: string) {
+  function use(templateId: string, pulseId?: string | null) {
     startTransition(async () => {
-      const res = await useTemplate(teamId, templateId);
+      const res = await useTemplate(teamId, templateId, pulseId ?? undefined);
       if (res.error) flash(res.error);
       else if (res.id) router.push(`/workshops/${res.id}`);
     });
@@ -61,6 +74,29 @@ export function WorkshopsClient({
 
   return (
     <>
+      {recommendation ? (
+        <div className="rec">
+          <div className="rec-l">
+            <div className="rec-eyebrow">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+              Grounded recommendation
+            </div>
+            <div className="rec-title">
+              {recommendation.dynamicLabel} {recommendation.belowBand ? "is below target" : "is your lowest reading"}
+              {recommendation.pct != null ? ` · ${recommendation.pct}% vs ${recommendation.targetLow}%+` : ""}
+            </div>
+            <div className="rec-why">
+              Run <b>{recommendation.templateName}</b> to {recommendation.why}.
+            </div>
+          </div>
+          {canManage ? (
+            <button className="btn-prim" disabled={pending} onClick={() => use(recommendation.templateId, recommendation.pulseId)}>
+              Build it ▸
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
       {workshops.length > 0 ? (
         <>
           <div className="cat-head">

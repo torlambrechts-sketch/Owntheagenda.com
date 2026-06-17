@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY, initials } from "@/lib/util";
 import { CanvasBoard } from "./CanvasBoard";
 import { IdeaModule, type ModuleConfig } from "./IdeaModule";
+import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
 
 export type RunBlock = {
@@ -229,7 +230,15 @@ export function RunClient({
           onClick={() => phase(session.currentBlockOrd - 1)}>‹</button>
         <div className="phase">
           <div className="step">Step {session.currentBlockOrd} of {N}</div>
-          <div className="name">{block?.title}</div>
+          <div className="name">
+            {block?.title}
+            {block?.linkedDynamic ? (
+              <span className="rb-grounded" title="Grounded in a team dynamic">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+                {DYNAMIC_LABEL[block.linkedDynamic] ?? block.linkedDynamic}
+              </span>
+            ) : null}
+          </div>
         </div>
         <button className="runbtn" title="Next step" disabled={!acting || session.currentBlockOrd >= N}
           onClick={() => phase(session.currentBlockOrd + 1)}>›</button>

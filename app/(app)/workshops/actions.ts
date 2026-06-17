@@ -7,12 +7,14 @@ import type { Enums } from "@/types/database.types";
 export async function useTemplate(
   teamId: string,
   templateId: string,
+  pulseId?: string,
 ): Promise<{ error?: string; id?: string }> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("create_workshop_from_template", {
     p_team: teamId,
     p_template: templateId,
     p_title: "",
+    ...(pulseId ? { p_pulse: pulseId } : {}),
   });
   if (error) return { error: error.message };
   revalidatePath("/workshops");
