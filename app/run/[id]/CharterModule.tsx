@@ -81,6 +81,8 @@ export function CharterModule({
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [compiling, setCompiling] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [schedulingFollow, setSchedulingFollow] = useState(false);
+  const [followUp, setFollowUp] = useState<{ date: string; id: string } | null>(null);
 
   const load = useCallback(async () => {
     if (!teamId) return;
@@ -132,6 +134,35 @@ export function CharterModule({
     setCompiling(false);
     flashMsg(error ? error.message : "Charter compiled ✓");
     if (!error) load();
+  }
+
+  // Spin up the Start Smart follow-up session ~6 weeks out — the #1 driver of lasting impact.
+  async function scheduleFollowUp() {
+    if (!teamId) return;
+    setSchedulingFollow(true);
+    const { data: tpl } = await supabase
+      .from("template")
+      .select("id")
+      .eq("key", "start-smart-followup")
+      .maybeSingle();
+    if (!tpl) { setSchedulingFollow(false); flashMsg("Follow-up template not found"); return; }
+    const { data: wk, error } = await supabase.rpc("create_workshop_from_template", {
+      p_team: teamId,
+      p_template: tpl.id,
+      p_title: "Start Smart — Follow-up",
+    });
+    if (error || !wk) { setSchedulingFollow(false); flashMsg(error?.message ?? "Could not create follow-up"); return; }
+    const at = new Date();
+    at.setDate(at.getDate() + 42);
+    at.setHours(10, 0, 0, 0);
+    const { error: e2 } = await supabase.rpc("schedule_workshop", {
+      p_workshop: (wk as { id: string }).id,
+      p_at: at.toISOString(),
+    });
+    setSchedulingFollow(false);
+    if (e2) { flashMsg(e2.message); return; }
+    setFollowUp({ date: at.toLocaleDateString(undefined, { month: "short", day: "numeric" }), id: (wk as { id: string }).id });
+    flashMsg("Follow-up scheduled");
   }
 
   const dval = (k: string, fallback: string) => (draft[k] !== undefined ? draft[k] : fallback);
@@ -225,6 +256,13 @@ export function CharterModule({
             <button className="btn-prim" disabled={compiling} onClick={compile}>
               {compiling ? "Compiling…" : charter.status === "active" ? "Re-compile charter" : "Compile charter ▸"}
             </button>
+            {followUp ? (
+              <span className="chhint" style={{ color: "var(--green)", fontWeight: 600 }}>Follow-up scheduled · {followUp.date} ✓</span>
+            ) : (
+              <button className="btn-sec" disabled={schedulingFollow} onClick={scheduleFollowUp}>
+                {schedulingFollow ? "Scheduling…" : "Schedule follow-up · 6 wks"}
+              </button>
+            )}
             <span className="chhint">Locks it in as the team’s active working agreement.</span>
           </div>
         ) : null}
