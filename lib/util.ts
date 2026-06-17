@@ -19,7 +19,9 @@ export function roleLabel(role: Enums<"workspace_role">) {
 
 export const ACTIVITY: Record<string, { label: string; cls: string }> = {
   canvas: { label: "Canvas", cls: "t-canvas" },
+  brainstorm: { label: "Brainstorm", cls: "t-brainstorm" },
   vote: { label: "Vote", cls: "t-vote" },
+  feedback: { label: "Feedback", cls: "t-feedback" },
   discuss: { label: "Discuss", cls: "t-discuss" },
   checkin: { label: "Check-in", cls: "t-checkin" },
   outcome: { label: "Outcome", cls: "t-outcome" },

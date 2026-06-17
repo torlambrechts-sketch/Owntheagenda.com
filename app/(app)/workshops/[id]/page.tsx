@@ -28,7 +28,7 @@ export default async function BuilderPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic")
+    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
 
@@ -39,6 +39,7 @@ export default async function BuilderPage({
     duration: b.duration,
     prompt: b.prompt,
     linkedDynamic: b.linked_dynamic,
+    config: (b.config ?? {}) as BlockRow["config"],
   }));
 
   const canManage =

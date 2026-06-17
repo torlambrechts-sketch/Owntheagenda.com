@@ -48,6 +48,7 @@ export async function addBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
   const { data: maxRow } = await supabase
@@ -67,6 +68,7 @@ export async function addBlock(input: {
     duration: input.duration,
     prompt: input.prompt || null,
     linked_dynamic: input.linkedDynamic || null,
+    config: (input.config ?? {}) as never,
   });
   if (error) return { error: error.message };
   revalidatePath(`/workshops/${input.workshopId}`);
@@ -81,6 +83,7 @@ export async function updateBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
   const { error } = await supabase
@@ -91,6 +94,7 @@ export async function updateBlock(input: {
       duration: input.duration,
       prompt: input.prompt || null,
       linked_dynamic: input.linkedDynamic || null,
+      config: (input.config ?? {}) as never,
     })
     .eq("id", input.blockId);
   if (error) return { error: error.message };

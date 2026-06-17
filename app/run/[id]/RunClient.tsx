@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY, initials } from "@/lib/util";
 import { CanvasBoard } from "./CanvasBoard";
+import { IdeaModule, type ModuleConfig } from "./IdeaModule";
 import type { Enums } from "@/types/database.types";
 
 export type RunBlock = {
@@ -14,6 +15,7 @@ export type RunBlock = {
   duration: number;
   prompt: string | null;
   linkedDynamic: Enums<"team_dynamic"> | null;
+  config: ModuleConfig;
 };
 export type Participant = {
   userId: string;
@@ -76,6 +78,11 @@ export function RunClient({
   const N = blocks.length;
   const block = blocks.find((b) => b.ord === session.currentBlockOrd) ?? blocks[0];
   const acting = isFacilitator && view === "facilitator";
+  const moduleMode =
+    block?.activityType === "brainstorm" ? "brainstorm" as const
+    : block?.activityType === "vote" ? "poll" as const
+    : block?.activityType === "feedback" ? "feedback" as const
+    : null;
 
   const reloadParticipants = useCallback(async () => {
     const { data: parts } = await supabase
@@ -267,6 +274,25 @@ export function RunClient({
               prompt={block?.prompt ?? null}
               stepLabel={`Canvas · Step ${session.currentBlockOrd} of ${N}`}
               userName={userName}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
+          </div>
+        ) : moduleMode ? (
+          <div className="stage canvasstage">
+            <IdeaModule
+              key={session.currentBlockOrd}
+              sessionId={sid}
+              blockOrd={session.currentBlockOrd}
+              mode={moduleMode}
+              title={block?.title ?? ""}
+              prompt={block?.prompt ?? null}
+              stepLabel={`${ACTIVITY[block!.activityType]?.label ?? ""} · Step ${session.currentBlockOrd} of ${N}`}
+              config={block?.config ?? {}}
+              userId={userId}
+              userName={userName}
+              isFacilitator={isFacilitator}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}

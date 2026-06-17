@@ -228,6 +228,8 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .t-discuss{background:var(--draft-bg);color:var(--draft-fg)}
 .t-checkin{background:var(--open-bg);color:var(--open-fg)}
 .t-outcome{background:var(--reject-bg);color:var(--reject-fg)}
+.t-brainstorm{background:rgba(66,114,158,.14);color:var(--role)}
+.t-feedback{background:rgba(63,125,90,.14);color:var(--green)}
 
 /* ---------- live session (run mode) ---------- */
 .run{display:flex;flex-direction:column;height:100vh;background:var(--canvas-2)}
@@ -306,6 +308,43 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .sticky.sky{background:#cadcef}
 .sticky.blush{background:#f1d3ca}
 .sticky.lilac{background:#dcd2ec}
+
+/* Run · idea modules (brainstorm / poll / feedback) ------------------ */
+.dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}
+.idea-add{display:flex;gap:8px;margin-top:2px}
+.idea-add .inp{flex:1}
+.idea-empty{color:var(--faint);font-size:13px;padding:26px;text-align:center;width:100%}
+.ideagrid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;align-content:start;padding-top:2px}
+.ideacard{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 12px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow)}
+.ideacard.big{min-height:98px}
+.ideacard.voted{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+.ideacard .t{font-size:13px;line-height:1.42;color:var(--ink);word-break:break-word;flex:1}
+.ideacard .m{display:flex;align-items:center;gap:8px}
+.ideacard .m .by{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint)}
+.ideacard .m .sp{flex:1}
+.ideacard .x{border:none;background:none;color:var(--faint);font-size:12px;cursor:pointer;padding:2px;line-height:1}
+.ideacard .x:hover{color:var(--rust)}
+.votebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:20px;padding:4px 11px 4px 9px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums}
+.votebtn .dot{width:9px;height:9px;border-radius:50%;background:var(--line-2)}
+.votebtn.on{background:var(--open-bg);color:var(--green);border-color:var(--green)}
+.votebtn.on .dot{background:var(--green)}
+.ideacols{flex:1;min-height:0;display:grid;gap:12px;overflow:auto;padding-top:2px}
+.ideacol{background:var(--canvas);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:160px;overflow:hidden}
+.ideacol-h{font-size:12px;font-weight:700;color:var(--ink);padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+.ideacol-h .n{font-size:10.5px;font-weight:700;color:var(--faint);background:var(--surface);border-radius:20px;padding:1px 8px}
+.ideacol-add{padding:8px 10px;border-bottom:1px solid var(--line)}
+.ideacol-add .inp{font-size:12.5px;padding:7px 9px}
+.ideacol-list{padding:10px;display:flex;flex-direction:column;gap:8px;overflow:auto}
+.ideacol .ideacard{box-shadow:none}
+.polllist{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:13px;padding-top:6px;max-width:780px}
+.pollrow{display:flex;align-items:center;gap:13px}
+.pollrow .votebtn{padding:7px;border-radius:50%}
+.pollrow .pl{flex:1}
+.pollrow .pl-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px}
+.pollrow .pl-top .lab{font-weight:600;color:var(--ink)}
+.pollrow .pl-top .cnt{font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.pollrow .bar{height:10px;border-radius:6px;background:var(--canvas-2);overflow:hidden}
+.pollrow .bar span{display:block;height:100%;background:var(--green);border-radius:6px;transition:width .25s ease}
 
 /* Actions board ----------------------------------------------------- */
 .act-top{display:flex;align-items:center;gap:14px;margin:2px 0 16px}

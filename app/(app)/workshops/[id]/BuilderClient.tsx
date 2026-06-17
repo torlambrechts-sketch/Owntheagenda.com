@@ -16,6 +16,8 @@ import {
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
 
+export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[] };
+
 export type BlockRow = {
   id: string;
   title: string;
@@ -23,6 +25,7 @@ export type BlockRow = {
   duration: number;
   prompt: string | null;
   linkedDynamic: Enums<"team_dynamic"> | null;
+  config: BlockConfig;
 };
 
 const DYN: [Dyn, string][] = [
@@ -33,7 +36,17 @@ const DYN: [Dyn, string][] = [
   ["role_clarity", "Role clarity"],
   ["decision_rights", "Decision rights"],
 ];
-const ACTS: Activity[] = ["checkin", "canvas", "vote", "discuss", "outcome"];
+const ACTS: Activity[] = ["canvas", "brainstorm", "vote", "feedback", "discuss", "checkin", "outcome"];
+// Short helper text shown under the activity picker per module.
+const ACT_HINT: Partial<Record<Activity, string>> = {
+  canvas: "Free-form sticky-note board.",
+  brainstorm: "Members add idea cards, then dot-vote. Ranked live.",
+  vote: "Dot-vote on a set list of options you define below.",
+  feedback: "Cards posted into named columns (e.g. Start / Stop / Continue).",
+  discuss: "Open discussion against a prompt.",
+  checkin: "A round to open or close the room.",
+  outcome: "Capture commitments as tracked actions.",
+};
 
 export function BuilderClient({
   workshop,
@@ -58,6 +71,9 @@ export function BuilderClient({
   const [duration, setDuration] = useState(10);
   const [prompt, setPrompt] = useState("");
   const [dyn, setDyn] = useState<Dyn>("");
+  const [lanesText, setLanesText] = useState("");
+  const [optionsText, setOptionsText] = useState("");
+  const [budget, setBudget] = useState(3);
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -88,6 +104,9 @@ export function BuilderClient({
     setDuration(10);
     setPrompt("");
     setDyn("");
+    setLanesText("");
+    setOptionsText("");
+    setBudget(3);
     setError(null);
     setOpen(true);
   }
@@ -98,8 +117,20 @@ export function BuilderClient({
     setDuration(b.duration);
     setPrompt(b.prompt ?? "");
     setDyn(b.linkedDynamic ?? "");
+    setLanesText((b.config?.lanes ?? []).join("\n"));
+    setOptionsText((b.config?.options ?? []).join("\n"));
+    setBudget(b.config?.budget ?? 3);
     setError(null);
     setOpen(true);
+  }
+  function buildConfig(): Record<string, unknown> {
+    const lanes = lanesText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const options = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const b = Math.max(1, Number(budget) || 3);
+    if (activity === "feedback") return { lanes };
+    if (activity === "vote") return { options, budget: b };
+    if (activity === "brainstorm") return { budget: b };
+    return {};
   }
   async function saveBlock() {
     setError(null);
@@ -109,6 +140,7 @@ export function BuilderClient({
       duration: Number(duration) || 5,
       prompt: prompt || null,
       linkedDynamic: (dyn || null) as Enums<"team_dynamic"> | null,
+      config: buildConfig(),
     };
     const res = editId
       ? await updateBlock({ workshopId: workshop.id, blockId: editId, ...payload })
@@ -176,6 +208,14 @@ export function BuilderClient({
           const start = acc;
           acc += b.duration;
           const act = ACTIVITY[b.activityType] ?? { label: b.activityType, cls: "" };
+          const cfgHint =
+            b.activityType === "feedback"
+              ? `${b.config?.lanes?.length ?? 0} columns`
+              : b.activityType === "vote"
+                ? `${b.config?.options?.length ?? 0} options · ${b.config?.budget ?? 3} dots each`
+                : b.activityType === "brainstorm"
+                  ? `${b.config?.budget ?? 3} dots each`
+                  : null;
           return (
             <div className="block" key={b.id}>
               <div className="time">
@@ -206,6 +246,9 @@ export function BuilderClient({
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
                     Grounded · {DYN.find((d) => d[0] === b.linkedDynamic)?.[1]}
                   </span>
+                ) : null}
+                {cfgHint ? (
+                  <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 2 }}>{cfgHint}</div>
                 ) : null}
                 {b.prompt ? <div className="desc">{b.prompt}</div> : null}
               </div>
@@ -257,6 +300,33 @@ export function BuilderClient({
             <input className="inp" type="number" min={1} value={duration} onChange={(e) => setDuration(Number(e.target.value))} />
           </div>
         </div>
+        {ACT_HINT[activity] ? (
+          <div className="form-note" style={{ marginTop: -6, marginBottom: 14 }}>{ACT_HINT[activity]}</div>
+        ) : null}
+        {activity === "feedback" ? (
+          <div className="field">
+            <label>Columns <span className="opt">(one per line)</span></label>
+            <textarea className="inp" rows={3} value={lanesText} onChange={(e) => setLanesText(e.target.value)} placeholder={"Start\nStop\nContinue"} />
+          </div>
+        ) : null}
+        {activity === "vote" ? (
+          <>
+            <div className="field">
+              <label>Options to vote on <span className="opt">(one per line)</span></label>
+              <textarea className="inp" rows={4} value={optionsText} onChange={(e) => setOptionsText(e.target.value)} placeholder={"Option A\nOption B\nOption C"} />
+            </div>
+            <div className="field">
+              <label>Votes per person</label>
+              <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+            </div>
+          </>
+        ) : null}
+        {activity === "brainstorm" ? (
+          <div className="field">
+            <label>Votes per person</label>
+            <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+          </div>
+        ) : null}
         <div className="field">
           <label>Facilitator prompt <span className="opt">(optional)</span></label>
           <textarea className="inp" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="The question you'll read aloud…" />

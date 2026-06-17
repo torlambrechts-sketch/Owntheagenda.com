@@ -508,6 +508,7 @@ export type Database = {
           duration: number
           prompt: string | null
           linked_dynamic: Database["public"]["Enums"]["team_dynamic"] | null
+          config: Json
           created_at: string
           updated_at: string
         }
@@ -520,6 +521,7 @@ export type Database = {
           duration?: number
           prompt?: string | null
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
+          config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -532,6 +534,7 @@ export type Database = {
           duration?: number
           prompt?: string | null
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
+          config?: Json
           created_at?: string
           updated_at?: string
         }
@@ -617,6 +620,36 @@ export type Database = {
           author_name: string | null
           created_at: string
           updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      idea: {
+        Row: {
+          id: string
+          session_id: string
+          workspace_id: string
+          block_ord: number
+          lane: string | null
+          text: string
+          author_id: string | null
+          author_name: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      idea_vote: {
+        Row: {
+          id: string
+          idea_id: string
+          session_id: string
+          block_ord: number
+          voter_id: string
+          created_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }
@@ -731,6 +764,11 @@ export type Database = {
         Returns: Database["public"]["Tables"]["action_item"]["Row"]
       }
       toggle_action: { Args: { p_action: string }; Returns: undefined }
+      idea_vote_toggle: { Args: { p_idea: string }; Returns: undefined }
+      idea_seed: {
+        Args: { p_session: string; p_block_ord: number; p_texts: string[] }
+        Returns: undefined
+      }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined
@@ -742,7 +780,7 @@ export type Database = {
     }
     Enums: {
       action_status: "open" | "done"
-      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome"
+      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended"
       plan_tier: "free" | "pro" | "enterprise"
@@ -787,7 +825,7 @@ export const Constants = {
   public: {
     Enums: {
       action_status: ["open", "done"],
-      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome"],
+      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended"],
       plan_tier: ["free", "pro", "enterprise"],

@@ -30,7 +30,7 @@ export default async function RunPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("ord, title, activity_type, duration, prompt, linked_dynamic")
+    .select("ord, title, activity_type, duration, prompt, linked_dynamic, config")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
   const runBlocks: RunBlock[] = (blocks ?? []).map((b) => ({
@@ -40,6 +40,7 @@ export default async function RunPage({
     duration: b.duration,
     prompt: b.prompt,
     linkedDynamic: b.linked_dynamic,
+    config: (b.config ?? {}) as RunBlock["config"],
   }));
 
   const { data: session } = await supabase
