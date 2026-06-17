@@ -463,6 +463,31 @@ export type Database = {
           target_low: number
         }[]
       }
+      team_dynamics_history: {
+        Args: { p_limit?: number; p_team: string }
+        Returns: {
+          pulse_id: string
+          pulse_name: string
+          closed_at: string
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          label: string
+          pct: number
+          target_low: number
+          target_high: number
+        }[]
+      }
+      pulse_participation: {
+        Args: { p_pulse: string }
+        Returns: {
+          user_id: string
+          answered: number
+          completed: boolean
+        }[]
+      }
+      remind_pulse: {
+        Args: { p_pulse: string }
+        Returns: number
+      }
     }
     Enums: {
       invitation_status: "pending" | "accepted" | "revoked" | "expired"

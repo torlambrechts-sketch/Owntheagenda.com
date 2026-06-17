@@ -40,3 +40,14 @@ export async function closePulse(
   revalidatePath("/assessments");
   return {};
 }
+
+export async function remindPulse(
+  pulseId: string,
+): Promise<{ error?: string; pending?: number }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("remind_pulse", {
+    p_pulse: pulseId,
+  });
+  if (error) return { error: error.message };
+  return { pending: (data as unknown as number) ?? 0 };
+}

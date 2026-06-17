@@ -4,7 +4,10 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { initials } from "@/lib/util";
-import { runPulse, respondPulse, closePulse } from "./actions";
+import { runPulse, respondPulse, closePulse, remindPulse } from "./actions";
+
+export type Delta = { delta: number; prevName: string } | null;
+export type Participant = { name: string; completed: boolean };
 
 export type Dynamic = {
   dynamic: string;
@@ -40,7 +43,9 @@ export function AssessmentsClient({
   openPulse,
   latestPulseName,
   dynamics,
+  deltas,
   members,
+  participation,
 }: {
   teamId: string;
   teamName: string;
@@ -49,7 +54,9 @@ export function AssessmentsClient({
   openPulse: { id: string; name: string } | null;
   latestPulseName: string | null;
   dynamics: Dynamic[];
+  deltas: Record<string, Delta>;
   members: FpMember[];
+  participation: Participant[] | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -100,6 +107,14 @@ export function AssessmentsClient({
         flash("Pulse closed");
         router.refresh();
       }
+    });
+  }
+  function doRemind() {
+    if (!openPulse) return;
+    startTransition(async () => {
+      const res = await remindPulse(openPulse.id);
+      if (res.error) flash(res.error);
+      else flash(`Reminder logged for ${res.pending ?? 0} pending member(s)`);
     });
   }
 
@@ -174,7 +189,32 @@ export function AssessmentsClient({
                   {d.responses ? (
                     <>
                       <br />
-                      <span style={{ color: "var(--faint)" }}>{d.pct}%</span>
+                      <span style={{ color: "var(--faint)" }}>
+                        {d.pct}%
+                        {deltas[d.dynamic]
+                          ? (() => {
+                              const dl = deltas[d.dynamic]!;
+                              const up = dl.delta > 0;
+                              const flat = dl.delta === 0;
+                              return (
+                                <span
+                                  title={`vs ${dl.prevName}`}
+                                  style={{
+                                    marginLeft: 6,
+                                    fontWeight: 700,
+                                    color: flat
+                                      ? "var(--faint)"
+                                      : up
+                                        ? "var(--green)"
+                                        : "var(--amber)",
+                                  }}
+                                >
+                                  {flat ? "•" : `${up ? "▲" : "▼"}${Math.abs(dl.delta)}`}
+                                </span>
+                              );
+                            })()
+                          : null}
+                      </span>
                     </>
                   ) : null}
                 </div>
@@ -198,6 +238,56 @@ export function AssessmentsClient({
           </div>
         </div>
       </div>
+
+      {/* participation (open pulse, lead/admin) */}
+      {openPulse && participation ? (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div>
+              <div className="eyebrow">Open pulse · participation</div>
+              <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 600, margin: "2px 0 0" }}>
+                {participation.filter((p) => p.completed).length} of {participation.length} responded
+              </h3>
+            </div>
+            <button
+              className="btn-sec"
+              style={{ marginLeft: "auto" }}
+              disabled={pending}
+              onClick={doRemind}
+            >
+              Remind pending
+            </button>
+          </div>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th style={{ width: 120 }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {participation.map((p) => (
+                <tr key={p.name}>
+                  <td>
+                    <div className="person">
+                      <span className="av">{initials(p.name)}</span>
+                      {p.name}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={`pill sm ${p.completed ? "open" : "internal"}`}>
+                      {p.completed ? "Responded" : "Pending"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="form-note" style={{ marginTop: 10 }}>
+            Email / Slack delivery is a later integration — “Remind” logs the nudge for now.
+          </div>
+        </div>
+      ) : null}
 
       {/* fingerprints */}
       <div className="card">

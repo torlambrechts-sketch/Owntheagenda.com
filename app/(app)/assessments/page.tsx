@@ -41,13 +41,43 @@ export default async function AssessmentsPage({
   });
   const dynamics = (dynData ?? []) as Dynamic[];
 
+  // Trend: per-dynamic movement between the two most recent closed pulses.
+  const { data: histData } = await supabase.rpc("team_dynamics_history", {
+    p_team: teamId,
+  });
+  const byDyn = new Map<string, { name: string; pct: number | null }[]>();
+  for (const h of histData ?? []) {
+    const arr = byDyn.get(h.dynamic) ?? [];
+    arr.push({ name: h.pulse_name, pct: h.pct == null ? null : Number(h.pct) });
+    byDyn.set(h.dynamic, arr);
+  }
+  const deltas: Record<string, { delta: number; prevName: string } | null> = {};
+  for (const [dyn, arr] of byDyn) {
+    if (arr.length >= 2) {
+      const last = arr[arr.length - 1];
+      const prev = arr[arr.length - 2];
+      deltas[dyn] =
+        last.pct != null && prev.pct != null
+          ? { delta: last.pct - prev.pct, prevName: prev.name }
+          : null;
+    } else {
+      deltas[dyn] = null;
+    }
+  }
+
   const { data: pulses } = await supabase
     .from("pulse")
-    .select("id, name, status")
+    .select("id, name, status, closed_at")
     .eq("team_id", teamId)
     .order("created_at", { ascending: false });
   const openPulse = (pulses ?? []).find((p) => p.status === "open") ?? null;
-  const latestNonDraft = (pulses ?? []).find((p) => p.status !== "draft") ?? null;
+  // Bands reflect the latest CLOSED pulse (by close time, not insert order).
+  const closedPulses = (pulses ?? []).filter((p) => p.status === "closed");
+  const latestClosed = closedPulses.length
+    ? closedPulses.reduce((a, b) =>
+        new Date(a.closed_at ?? 0) > new Date(b.closed_at ?? 0) ? a : b,
+      )
+    : null;
 
   const { data: tms } = await supabase
     .from("team_member")
@@ -97,6 +127,18 @@ export default async function AssessmentsPage({
     Boolean(meTm?.is_lead);
   const isTeamMember = Boolean(meTm);
 
+  // Participation roster for an open pulse (lead/admin only): who has responded.
+  let participation: { name: string; completed: boolean }[] | null = null;
+  if (openPulse && canManage) {
+    const { data: part } = await supabase.rpc("pulse_participation", {
+      p_pulse: openPulse.id,
+    });
+    participation = (part ?? []).map((p) => ({
+      name: nameOf(p.user_id),
+      completed: p.completed,
+    }));
+  }
+
   return (
     <div>
       <h1 className="page-title">Assessments</h1>
@@ -125,9 +167,11 @@ export default async function AssessmentsPage({
         canManage={canManage}
         isTeamMember={isTeamMember}
         openPulse={openPulse ? { id: openPulse.id, name: openPulse.name } : null}
-        latestPulseName={latestNonDraft?.name ?? null}
+        latestPulseName={latestClosed?.name ?? null}
         dynamics={dynamics}
+        deltas={deltas}
         members={members}
+        participation={participation}
       />
     </div>
   );
