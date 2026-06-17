@@ -15,7 +15,7 @@ export default async function BuilderPage({
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, status, team_id, workspace_id, scheduled_at")
+    .select("id, title, status, team_id, workspace_id, scheduled_at, objective")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -51,7 +51,7 @@ export default async function BuilderPage({
         ‹ Workshops
       </Link>
       <BuilderClient
-        workshop={{ id: workshop.id, title: workshop.title, scheduledAt: workshop.scheduled_at }}
+        workshop={{ id: workshop.id, title: workshop.title, scheduledAt: workshop.scheduled_at, objective: workshop.objective }}
         teamName={team?.name ?? ""}
         canManage={canManage}
         blocks={rows}

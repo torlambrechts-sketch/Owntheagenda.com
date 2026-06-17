@@ -36,15 +36,21 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
     ? await supabase.from("team").select("name").eq("id", workshop.team_id).maybeSingle()
     : { data: null };
 
-  const [{ data: blocks }, { data: ideas }, { data: votes }, { data: notes }, { data: actions }, { data: parts }] =
+  const [{ data: blocks }, { data: ideas }, { data: votes }, { data: notes }, { data: actions }, { data: parts }, { data: decisions }] =
     await Promise.all([
       supabase.from("block").select("ord, title, activity_type, prompt, config").eq("workshop_id", session.workshop_id).order("ord", { ascending: true }),
       supabase.from("idea").select("id, block_ord, lane, text, author_name").eq("session_id", session.id),
       supabase.from("idea_vote").select("idea_id, block_ord").eq("session_id", session.id),
       supabase.from("canvas_object").select("block_ord, text").eq("session_id", session.id),
-      supabase.from("action_item").select("text, owner_name, status, due_at").eq("session_id", session.id).order("created_at", { ascending: true }),
+      supabase.from("action_item").select("text, owner_name, status, due_at, decision_id").eq("session_id", session.id).order("created_at", { ascending: true }),
       supabase.from("participant").select("user_id, is_facilitator").eq("session_id", session.id),
+      supabase.from("decision").select("id, title, rationale, status, decider_user_id, resource_note, override_note").eq("session_id", session.id).order("created_at", { ascending: true }),
     ]);
+  const decisionList = decisions ?? [];
+  const decIds = decisionList.map((d) => d.id);
+  const { data: decContribs } = decIds.length
+    ? await supabase.from("decision_contributor").select("decision_id, agreement").in("decision_id", decIds)
+    : { data: [] as { decision_id: string; agreement: number | null }[] };
 
   const blockList = blocks ?? [];
   const ideaList = ideas ?? [];
@@ -194,6 +200,52 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
           </div>
         );
       })}
+
+      {decisionList.length > 0 ? (
+        <div className="ro-block">
+          <div className="ro-block-h">
+            <h3>Decisions</h3>
+            <span className="pill sm t-vote">{decisionList.filter((d) => d.status === "committed").length} committed</span>
+          </div>
+          {decisionList.map((d) => {
+            const ags = (decContribs ?? [])
+              .filter((c) => c.decision_id === d.id && c.agreement != null)
+              .map((c) => c.agreement as number);
+            const avg = ags.length ? (ags.reduce((a, b) => a + b, 0) / ags.length).toFixed(1) : null;
+            const opposed = ags.filter((a) => a === 1).length;
+            const dActions = (actions ?? []).filter((a) => a.decision_id === d.id);
+            return (
+              <div className="ro-decision" key={d.id}>
+                <div className="ro-dh">
+                  <span className={`pill sm ${d.status === "committed" ? "open" : d.status === "superseded" ? "reject" : "draft"}`}>
+                    {d.status}
+                  </span>
+                  <span className="ro-text" style={{ fontWeight: 600 }}>{d.title}</span>
+                  {avg ? <span className="ro-agree">agree {avg}<span className="o">/5</span></span> : null}
+                </div>
+                {d.rationale ? <div className="ro-prompt" style={{ margin: "6px 0" }}>{d.rationale}</div> : null}
+                <div className="ro-dmeta">
+                  {d.decider_user_id ? <span>Decider · {nameById.get(d.decider_user_id) ?? "—"}</span> : null}
+                  {opposed > 0 ? <span className="opp">{opposed} opposed</span> : null}
+                </div>
+                {d.resource_note ? <div className="ro-dmeta">Resourcing · {d.resource_note}</div> : null}
+                {d.override_note ? <div className="ro-dmeta">Override · {d.override_note}</div> : null}
+                {dActions.length ? (
+                  <ul className="ro-actions" style={{ marginTop: 8 }}>
+                    {dActions.map((a, i) => (
+                      <li key={i} className={a.status === "done" ? "done" : ""}>
+                        <span className={`ro-dot${a.status === "done" ? " on" : ""}`} />
+                        <span className="ro-text">{a.text}</span>
+                        {a.owner_name ? <span className="ro-by">{a.owner_name}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {ideaList.length > 0 ? <SessionSynthesis sessionId={session.id} /> : null}
 

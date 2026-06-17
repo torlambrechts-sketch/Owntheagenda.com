@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY, initials } from "@/lib/util";
 import { CanvasBoard } from "./CanvasBoard";
 import { IdeaModule, type ModuleConfig } from "./IdeaModule";
+import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
 
@@ -379,7 +380,7 @@ export function RunClient({
               </div>
             ))}
             <div style={{ marginTop: 10 }}>
-              <input className="inp" placeholder="Decision or commitment…" value={actText}
+              <input className="inp" placeholder="Quick commitment…" value={actText}
                 onChange={(e) => setActText(e.target.value)} style={{ marginBottom: 6 }} />
               <div style={{ display: "flex", gap: 6 }}>
                 <input className="inp" placeholder="Owner" value={actOwner} onChange={(e) => setActOwner(e.target.value)} />
@@ -387,6 +388,13 @@ export function RunClient({
               </div>
             </div>
           </div>
+
+          <DecisionsPanel
+            sessionId={sid}
+            userId={userId}
+            isFacilitator={isFacilitator}
+            participants={participants.map((p) => ({ userId: p.userId, name: p.name }))}
+          />
 
           <div className="rs">
             <h5>In the room <span style={{ color: "var(--faint)" }}>{readyCount}/{partCount} ready</span></h5>

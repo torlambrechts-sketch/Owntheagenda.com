@@ -401,6 +401,35 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .notif-item .nt{font-size:12.5px;font-weight:600;color:var(--ink)}
 .notif-item .nb{font-size:11.5px;color:var(--muted)}
 
+/* Run · decisions panel --------------------------------------------- */
+.dcard{border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--surface);overflow:hidden}
+.dcard.done{border-color:var(--green)}
+.dcard.gone{opacity:.55}
+.dtop{display:flex;align-items:center;gap:8px;padding:8px 10px;cursor:pointer}
+.dtop .dt{flex:1;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.3}
+.dtop .caret{color:var(--faint);font-size:11px}
+.dbody{padding:2px 10px 11px;border-top:1px solid var(--line)}
+.dlabel{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:11px 0 5px}
+.dlabel .opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--faint)}
+.inp.sm{font-size:12px;padding:6px 8px}
+.fist.sm{gap:5px}
+.fist.sm button{width:28px;height:28px;font-size:12px}
+.dmeta{font-size:11px;color:var(--muted);margin-top:5px}
+.dmeta .oppose{color:var(--rust);font-weight:700}
+.drow{display:flex;gap:6px;margin-top:8px}
+.drow .inp{flex:1}
+.btn-prim.sm,.btn-sec.sm{padding:6px 11px;font-size:12px}
+.dadd{display:flex;gap:6px;margin-top:6px}
+.dadd .inp{flex:1}
+
+/* Builder · objective banner ---------------------------------------- */
+.objbar{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:9px;padding:12px 16px;margin-bottom:14px}
+.objbar.empty{border-left-color:var(--amber)}
+.objbar .objlab{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);flex:none}
+.objbar .objtext{flex:1;font-size:13.5px;color:var(--ink)}
+.objbar.empty .objtext{color:var(--amber);font-style:italic}
+.objbar .btn-sec{flex:none}
+
 /* Session readout --------------------------------------------------- */
 .readout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:6px}
 .ro-block{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}
@@ -441,6 +470,11 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .syn-act:last-child{border-bottom:none}
 .syn-act .btn-sec{flex:none;padding:5px 12px;font-size:12px}
 .syn-note{font-size:11.5px;color:var(--faint);font-style:italic;margin-top:10px}
+.ro-decision{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:10px}
+.ro-decision:last-child{margin-bottom:0}
+.ro-dh{display:flex;align-items:center;gap:9px}
+.ro-dmeta{font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;gap:12px;flex-wrap:wrap}
+.ro-dmeta .opp{color:var(--rust);font-weight:700}
 
 @media (max-width:980px){
   .app{grid-template-columns:60px 1fr}

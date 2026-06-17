@@ -466,6 +466,7 @@ export type Database = {
           pulse_id: string | null
           status: Database["public"]["Enums"]["workshop_status"]
           scheduled_at: string | null
+          objective: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -479,6 +480,7 @@ export type Database = {
           pulse_id?: string | null
           status?: Database["public"]["Enums"]["workshop_status"]
           scheduled_at?: string | null
+          objective?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -492,6 +494,7 @@ export type Database = {
           pulse_id?: string | null
           status?: Database["public"]["Enums"]["workshop_status"]
           scheduled_at?: string | null
+          objective?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -580,6 +583,7 @@ export type Database = {
           workshop_id: string | null
           team_id: string | null
           session_id: string | null
+          decision_id: string | null
           text: string
           owner_name: string | null
           status: Database["public"]["Enums"]["action_status"]
@@ -668,6 +672,41 @@ export type Database = {
           entity_id: string | null
           read_at: string | null
           created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      decision: {
+        Row: {
+          id: string
+          session_id: string
+          workspace_id: string
+          title: string
+          rationale: string | null
+          decision_type: string
+          decider_user_id: string | null
+          driver_user_id: string | null
+          resource_note: string | null
+          override_note: string | null
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      decision_contributor: {
+        Row: {
+          id: string
+          decision_id: string
+          user_id: string
+          daci_role: string
+          agreement: number | null
+          created_at: string
+          updated_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }
@@ -792,6 +831,33 @@ export type Database = {
         Returns: Database["public"]["Tables"]["workshop"]["Row"]
       }
       mark_notifications_read: { Args: { p_id?: string }; Returns: undefined }
+      create_decision: {
+        Args: { p_session: string; p_title: string; p_rationale?: string }
+        Returns: Database["public"]["Tables"]["decision"]["Row"]
+      }
+      update_decision: {
+        Args: {
+          p_decision: string
+          p_title?: string
+          p_rationale?: string
+          p_type?: string
+          p_decider?: string
+          p_driver?: string
+          p_resource_note?: string
+        }
+        Returns: Database["public"]["Tables"]["decision"]["Row"]
+      }
+      record_agreement: { Args: { p_decision: string; p_level: number }; Returns: undefined }
+      set_daci: { Args: { p_decision: string; p_user: string; p_role: string }; Returns: undefined }
+      commit_decision: {
+        Args: { p_decision: string; p_override_note?: string }
+        Returns: Database["public"]["Tables"]["decision"]["Row"]
+      }
+      supersede_decision: { Args: { p_decision: string }; Returns: undefined }
+      add_decision_action: {
+        Args: { p_decision: string; p_text: string; p_owner: string; p_due: string | null }
+        Returns: Database["public"]["Tables"]["action_item"]["Row"]
+      }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined

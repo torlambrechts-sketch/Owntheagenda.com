@@ -12,6 +12,7 @@ import {
   reorderBlocks,
   updateWorkshopTitle,
   scheduleWorkshop,
+  setWorkshopObjective,
 } from "../actions";
 
 type Activity = Enums<"activity_type">;
@@ -64,7 +65,7 @@ export function BuilderClient({
   canManage,
   blocks,
 }: {
-  workshop: { id: string; title: string; scheduledAt: string | null };
+  workshop: { id: string; title: string; scheduledAt: string | null; objective: string | null };
   teamName: string;
   canManage: boolean;
   blocks: BlockRow[];
@@ -103,6 +104,19 @@ export function BuilderClient({
     else {
       setSchedOpen(false);
       flash("Session scheduled — team notified");
+      router.refresh();
+    }
+  }
+
+  // objective editor (anti-theatre: a session that makes decisions needs one)
+  const [objOpen, setObjOpen] = useState(false);
+  const [obj, setObj] = useState(workshop.objective ?? "");
+  async function saveObjective() {
+    const res = await setWorkshopObjective(workshop.id, obj);
+    if (res.error) flash(res.error);
+    else {
+      setObjOpen(false);
+      flash("Objective saved");
       router.refresh();
     }
   }
@@ -198,6 +212,18 @@ export function BuilderClient({
 
   return (
     <>
+      <div className={`objbar${workshop.objective ? "" : " empty"}`}>
+        <div className="objlab">Objective</div>
+        <div className="objtext">
+          {workshop.objective || "Set a single objective — what must be true when this session ends?"}
+        </div>
+        {canManage ? (
+          <button className="btn-sec" onClick={() => { setObj(workshop.objective ?? ""); setObjOpen(true); }}>
+            {workshop.objective ? "Edit" : "Set objective"}
+          </button>
+        ) : null}
+      </div>
+
       <div className="summary" style={{ marginTop: 8 }}>
         <div className="stat">
           <div className="num" style={{ fontSize: 24 }}>
@@ -424,6 +450,29 @@ export function BuilderClient({
           <label>Date &amp; time</label>
           <input className="inp" type="datetime-local" value={schedAt} onChange={(e) => setSchedAt(e.target.value)} />
           <div className="form-note">Everyone on {teamName} gets an in-app heads-up.</div>
+        </div>
+      </SideWindow>
+
+      {/* objective */}
+      <SideWindow
+        open={objOpen}
+        onClose={() => setObjOpen(false)}
+        title="Session objective"
+        subtitle={workshop.title}
+        size="compact"
+        footer={
+          <>
+            <button className="btn-sec" onClick={() => setObjOpen(false)}>Cancel</button>
+            <div className="right">
+              <button className="btn-prim" onClick={saveObjective}>Save</button>
+            </div>
+          </>
+        }
+      >
+        <div className="field">
+          <label>What must be true when this session ends?</label>
+          <textarea className="inp" rows={3} value={obj} onChange={(e) => setObj(e.target.value)} placeholder="e.g. Decide Q2 scope and name owners" />
+          <div className="form-note">A clear single objective is required before a session that makes decisions can close.</div>
         </div>
       </SideWindow>
 
