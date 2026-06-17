@@ -38,9 +38,58 @@ export const PSYCH_SAFETY_BANG: SurveyInstrument = {
   strengthDimension: "safety",
 };
 
+// Team effectiveness (Bang & Midelfart): task performance + member satisfaction.
+export const TEAM_EFFECTIVENESS_BANG: SurveyInstrument = {
+  kind: "team_effectiveness_bang",
+  name: "Team Effectiveness — Leadership Teams",
+  scale: { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
+  dimensions: [
+    { key: "task", label: "Task performance", blurb: "Do we create value, decide well and follow through?" },
+    { key: "satisfaction", label: "Member satisfaction", blurb: "Does being on this team help us learn, grow and stay motivated?" },
+  ],
+  items: [
+    { key: "task_1", dimension: "task", text: "This team's work creates real value for the organisation." },
+    { key: "task_2", dimension: "task", text: "We make high-quality decisions." },
+    { key: "task_3", dimension: "task", text: "We give the organisation clear direction." },
+    { key: "task_4", dimension: "task", text: "We're aligned on what matters most." },
+    { key: "task_5", dimension: "task", text: "We follow through on what we commit to." },
+    { key: "sat_1", dimension: "satisfaction", text: "Being on this team helps me learn and grow." },
+    { key: "sat_2", dimension: "satisfaction", text: "I feel good about how we work together." },
+    { key: "sat_3", dimension: "satisfaction", text: "This team motivates me to do my best." },
+  ],
+  strengthDimension: "task",
+};
+
+// Team learning behaviour (Edmondson): feedback, error discussion, experimentation, reflection.
+export const TEAM_LEARNING_EDMONDSON: SurveyInstrument = {
+  kind: "team_learning_edmondson",
+  name: "Team Learning",
+  scale: { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
+  dimensions: [
+    { key: "learning", label: "Team learning", blurb: "Do we seek feedback, learn from mistakes and adapt how we work?" },
+  ],
+  items: [
+    { key: "learn_1", dimension: "learning", text: "We regularly ask for feedback on how we're doing." },
+    { key: "learn_2", dimension: "learning", text: "We openly discuss mistakes so we can learn from them." },
+    { key: "learn_3", dimension: "learning", text: "We try new ways of working and experiment." },
+    { key: "learn_4", dimension: "learning", text: "We take time to reflect on how we work, not just what we deliver." },
+    { key: "learn_5", dimension: "learning", text: "We seek out information and views from outside the team." },
+  ],
+  strengthDimension: "learning",
+};
+
 export const INSTRUMENTS: Record<string, SurveyInstrument> = {
   [PSYCH_SAFETY_BANG.kind]: PSYCH_SAFETY_BANG,
+  [TEAM_EFFECTIVENESS_BANG.kind]: TEAM_EFFECTIVENESS_BANG,
+  [TEAM_LEARNING_EDMONDSON.kind]: TEAM_LEARNING_EDMONDSON,
 };
+
+// Instruments offered in the standalone "send an assessment" picker.
+export const INSTRUMENT_LIST: SurveyInstrument[] = [
+  PSYCH_SAFETY_BANG,
+  TEAM_EFFECTIVENESS_BANG,
+  TEAM_LEARNING_EDMONDSON,
+];
 
 export type ItemStat = { item_key: string; mean: number; n: number };
 

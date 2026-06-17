@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   PSYCH_SAFETY_BANG,
+  TEAM_EFFECTIVENESS_BANG,
+  TEAM_LEARNING_EDMONDSON,
+  INSTRUMENTS,
+  INSTRUMENT_LIST,
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
@@ -45,5 +49,25 @@ describe("climateStrength", () => {
 describe("strengthItemKeys", () => {
   it("returns the safety-dimension item keys", () => {
     expect(strengthItemKeys(PSYCH_SAFETY_BANG)).toEqual(["safety_1", "safety_2", "safety_3", "safety_4"]);
+  });
+});
+
+describe("instrument registry", () => {
+  it("registers every listed instrument by kind", () => {
+    for (const inst of INSTRUMENT_LIST) {
+      expect(INSTRUMENTS[inst.kind]).toBe(inst);
+    }
+  });
+  it("each instrument's items reference declared dimensions", () => {
+    for (const inst of INSTRUMENT_LIST) {
+      const dims = new Set(inst.dimensions.map((d) => d.key));
+      expect(inst.items.length).toBeGreaterThan(0);
+      for (const it of inst.items) expect(dims.has(it.dimension)).toBe(true);
+      expect(dims.has(inst.strengthDimension)).toBe(true);
+    }
+  });
+  it("has the new effectiveness + learning instruments", () => {
+    expect(TEAM_EFFECTIVENESS_BANG.items).toHaveLength(8);
+    expect(TEAM_LEARNING_EDMONDSON.items).toHaveLength(5);
   });
 });
