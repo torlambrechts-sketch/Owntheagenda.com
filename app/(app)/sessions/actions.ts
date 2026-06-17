@@ -4,17 +4,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export type Theme = { title: string; points: string[] };
-export type Synthesis = { ai: boolean; note?: string; themes: Theme[]; actions: string[] };
+export type Synthesis = { ai: boolean; note?: string; themes: Theme[]; actions: string[]; divergent: string[] };
 
 type IdeaRow = { id: string; block_ord: number; lane: string | null; text: string; votes: number };
 type BlockRow = { ord: number; title: string; activity_type: string; config: any };
+type Opposed = { id: string; title: string };
 
-// Add one of the synthesised actions to the tracked Actions board,
-// stamped to this session via the workspace-guarded RPC.
-export async function addSessionAction(
-  sessionId: string,
-  text: string,
-): Promise<{ error?: string }> {
+// Add one of the synthesised actions to the tracked Actions board.
+export async function addSessionAction(sessionId: string, text: string): Promise<{ error?: string }> {
   const t = text.trim();
   if (!t) return { error: "Empty action." };
   const supabase = createClient();
@@ -25,21 +22,27 @@ export async function addSessionAction(
   return {};
 }
 
+// Facilitator approves the current draft as final.
+export async function approveSummary(sessionId: string): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("approve_summary", { p_session: sessionId });
+  if (error) return { error: error.message };
+  revalidatePath(`/sessions/${sessionId}`);
+  return {};
+}
+
 export async function synthesizeSession(
   sessionId: string,
 ): Promise<{ error?: string } & Partial<Synthesis>> {
   const supabase = createClient();
-  const { data: session } = await supabase
-    .from("session")
-    .select("id, workshop_id")
-    .eq("id", sessionId)
-    .maybeSingle();
+  const { data: session } = await supabase.from("session").select("id, workshop_id").eq("id", sessionId).maybeSingle();
   if (!session) return { error: "Session not found." };
 
-  const [{ data: blocks }, { data: ideas }, { data: votes }] = await Promise.all([
+  const [{ data: blocks }, { data: ideas }, { data: votes }, { data: decisions }] = await Promise.all([
     supabase.from("block").select("ord, title, activity_type, config").eq("workshop_id", session.workshop_id).order("ord", { ascending: true }),
     supabase.from("idea").select("id, block_ord, lane, text").eq("session_id", sessionId),
     supabase.from("idea_vote").select("idea_id").eq("session_id", sessionId),
+    supabase.from("decision").select("id, title, status").eq("session_id", sessionId),
   ]);
 
   const voteCount = new Map<string, number>();
@@ -47,8 +50,17 @@ export async function synthesizeSession(
   const ideaList: IdeaRow[] = (ideas ?? []).map((i: any) => ({
     id: i.id, block_ord: i.block_ord, lane: i.lane, text: i.text, votes: voteCount.get(i.id) ?? 0,
   }));
-  if (!ideaList.length) {
-    return { error: "This session has no brainstorm, vote, or feedback content to synthesise." };
+
+  // decisions with recorded opposition (fist-of-five = 1)
+  const decList = (decisions ?? []) as { id: string; title: string; status: string }[];
+  const decIds = decList.map((d) => d.id);
+  const { data: contribs } = decIds.length
+    ? await supabase.from("decision_contributor").select("decision_id, agreement").in("decision_id", decIds)
+    : { data: [] as { decision_id: string; agreement: number | null }[] };
+  const opposed: Opposed[] = decList.filter((d) => (contribs ?? []).some((c) => c.decision_id === d.id && c.agreement === 1));
+
+  if (!ideaList.length && !decList.length) {
+    return { error: "This session has no brainstorm, vote, feedback, or decision content to synthesise." };
   }
 
   const blockList = (blocks ?? []) as BlockRow[];
@@ -59,26 +71,30 @@ export async function synthesizeSession(
   const ranked = ideaList.filter((i) => isVotey(i.block_ord)).sort((a, b) => b.votes - a.votes);
   const feedbackBlocks = blockList.filter((b) => b.activity_type === "feedback");
 
+  let result: { themes: Theme[]; actions: string[]; divergent: string[] } | null = null;
+  let ai = false;
   const key = process.env.ANTHROPIC_API_KEY;
   if (key) {
     try {
-      const ai = await callClaude(key, buildContent(ranked, feedbackBlocks, ideaList));
-      if (ai) return { ai: true, themes: ai.themes, actions: ai.actions };
+      const r = await callClaude(key, buildContent(ranked, feedbackBlocks, ideaList, opposed));
+      if (r) { result = r; ai = true; }
     } catch {
       /* fall through to the deterministic synthesis */
     }
   }
+  if (!result) result = heuristic(ranked, feedbackBlocks, ideaList, opposed);
 
-  const h = heuristic(ranked, feedbackBlocks, ideaList);
+  const content = { themes: result.themes, actions: result.actions, divergent: result.divergent };
+  await supabase.rpc("save_summary", { p_session: sessionId, p_content: content as any, p_ai: ai });
+  revalidatePath(`/sessions/${sessionId}`);
   return {
-    ai: false,
-    note: "Quick synthesis. Set ANTHROPIC_API_KEY to have Claude write the themes.",
-    themes: h.themes,
-    actions: h.actions,
+    ai,
+    note: ai ? undefined : "Quick synthesis. Set ANTHROPIC_API_KEY to have Claude write the themes.",
+    ...content,
   };
 }
 
-function buildContent(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[]) {
+function buildContent(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[], opposed: Opposed[]) {
   const lines: string[] = [];
   if (ranked.length) {
     lines.push("VOTED IDEAS (highest first):");
@@ -95,18 +111,28 @@ function buildContent(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: I
       }
     }
   }
+  const minority = ranked.filter((i) => i.votes > 0).slice(3);
+  if (minority.length) {
+    lines.push("\nMINORITY-SUPPORTED IDEAS (some votes, did not top the list):");
+    minority.slice(0, 8).forEach((i) => lines.push(`- ${i.text} [${i.votes}]`));
+  }
+  if (opposed.length) {
+    lines.push("\nDECISIONS WITH RECORDED OPPOSITION:");
+    opposed.forEach((d) => lines.push(`- ${d.title}`));
+  }
   return lines.join("\n");
 }
 
 async function callClaude(
   key: string,
   content: string,
-): Promise<{ themes: Theme[]; actions: string[] } | null> {
+): Promise<{ themes: Theme[]; actions: string[]; divergent: string[] } | null> {
   const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
   const system =
-    "You are an executive team facilitator. Synthesise a leadership session's raw output into clear themes and concrete next actions. " +
-    'Respond with ONLY minified JSON of shape {"themes":[{"title":string,"points":[string]}],"actions":[string]}. ' +
-    "Give 2-4 themes (each 1-3 short points) and 3-5 actions; each action must be concrete and ownable. No prose outside the JSON.";
+    "You are an executive team facilitator. Synthesise a leadership session's raw output faithfully — never invent decisions. " +
+    'Respond with ONLY minified JSON of shape {"themes":[{"title":string,"points":[string]}],"actions":[string],"divergent":[string]}. ' +
+    "themes: 2-4 affinity clusters of what was raised. actions: 3-5 concrete, ownable next steps. " +
+    "divergent: minority or dissenting views worth NOT losing (low-vote-but-supported ideas, recorded opposition) — surface them, never smooth them over. No prose outside the JSON.";
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
@@ -123,11 +149,14 @@ async function callClaude(
   const themes: Theme[] = parsed.themes
     .filter((t: any) => t && typeof t.title === "string")
     .map((t: any) => ({ title: t.title, points: Array.isArray(t.points) ? t.points.map(String) : [] }));
-  const actions: string[] = Array.isArray(parsed.actions) ? parsed.actions.map(String) : [];
-  return { themes, actions };
+  return {
+    themes,
+    actions: Array.isArray(parsed.actions) ? parsed.actions.map(String) : [],
+    divergent: Array.isArray(parsed.divergent) ? parsed.divergent.map(String) : [],
+  };
 }
 
-function heuristic(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[]) {
+function heuristic(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[], opposed: Opposed[]) {
   const themes: Theme[] = [];
   if (ranked.length) {
     themes.push({
@@ -143,5 +172,9 @@ function heuristic(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: Idea
     }
   }
   const actions = ranked.filter((i) => i.votes > 0).slice(0, 3).map((i) => i.text);
-  return { themes, actions: actions.length ? actions : ranked.slice(0, 3).map((i) => i.text) };
+  const divergent = [
+    ...ranked.filter((i) => i.votes > 0).slice(3, 6).map((i) => `${i.text} (${i.votes} votes) — supported but not top`),
+    ...opposed.map((d) => `Opposition logged on decision: ${d.title}`),
+  ];
+  return { themes, actions: actions.length ? actions : ranked.slice(0, 3).map((i) => i.text), divergent };
 }

@@ -478,6 +478,10 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .syn-act:last-child{border-bottom:none}
 .syn-act .btn-sec{flex:none;padding:5px 12px;font-size:12px}
 .syn-note{font-size:11.5px;color:var(--faint);font-style:italic;margin-top:10px}
+.syn-divergent{border-left:3px solid var(--amber);padding-left:12px;margin:0 0 12px}
+.syn-divergent .syn-t{color:var(--amber)}
+.syn-divergent ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.syn-divergent ul li{font-size:13px;color:var(--ink);line-height:1.45}
 .ro-decision{border:1px solid var(--line);border-radius:9px;padding:12px;margin-bottom:10px}
 .ro-decision:last-child{margin-bottom:0}
 .ro-dh{display:flex;align-items:center;gap:9px}

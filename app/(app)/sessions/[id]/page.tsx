@@ -22,7 +22,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
 
   const { data: session } = await supabase
     .from("session")
-    .select("id, workshop_id, workspace_id, status, started_at, ended_at")
+    .select("id, workshop_id, workspace_id, status, started_at, ended_at, facilitator_id")
     .eq("id", params.id)
     .maybeSingle();
   if (!session || session.workspace_id !== ctx.workspace.id) notFound();
@@ -51,6 +51,15 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
   const { data: decContribs } = decIds.length
     ? await supabase.from("decision_contributor").select("decision_id, agreement").in("decision_id", decIds)
     : { data: [] as { decision_id: string; agreement: number | null }[] };
+
+  const { data: summary } = await supabase
+    .from("session_summary")
+    .select("content, ai, approved_at")
+    .eq("session_id", session.id)
+    .maybeSingle();
+  const initialSummary = summary
+    ? { ai: !!summary.ai, approved: !!summary.approved_at, ...((summary.content as any) ?? {}) }
+    : null;
 
   const blockList = blocks ?? [];
   const ideaList = ideas ?? [];
@@ -247,7 +256,13 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
         </div>
       ) : null}
 
-      {ideaList.length > 0 ? <SessionSynthesis sessionId={session.id} /> : null}
+      {ideaList.length > 0 || decisionList.length > 0 ? (
+        <SessionSynthesis
+          sessionId={session.id}
+          isFacilitator={session.facilitator_id === ctx.userId}
+          initial={initialSummary}
+        />
+      ) : null}
 
       <div className="ro-block">
         <div className="ro-block-h">

@@ -657,6 +657,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      session_summary: {
+        Row: {
+          session_id: string
+          workspace_id: string
+          content: Json
+          ai: boolean
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       idea_vote: {
         Row: {
           id: string
@@ -870,6 +885,8 @@ export type Database = {
         Returns: Database["public"]["Tables"]["action_item"]["Row"]
       }
       reveal_block: { Args: { p_session: string; p_block_ord: number }; Returns: undefined }
+      save_summary: { Args: { p_session: string; p_content: Json; p_ai: boolean }; Returns: undefined }
+      approve_summary: { Args: { p_session: string }; Returns: undefined }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined
