@@ -799,6 +799,7 @@ export type Database = {
           status: string
           opened_at: string | null
           closed_at: string | null
+          due_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -993,8 +994,12 @@ export type Database = {
         Returns: string
       }
       create_survey: {
-        Args: { p_team: string; p_kind: string; p_name: string }
+        Args: { p_team: string; p_kind: string; p_name: string; p_due?: string }
         Returns: Database["public"]["Tables"]["survey"]["Row"]
+      }
+      remind_survey: {
+        Args: { p_survey: string }
+        Returns: number
       }
       submit_survey_response: {
         Args: { p_survey: string; p_scores: Json }

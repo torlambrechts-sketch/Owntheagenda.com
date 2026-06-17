@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
   const { data: notifs, error: nErr } = await admin
     .from("notification")
     .select("id, user_id, title, body, kind")
-    .in("kind", ["action_due_soon", "action_overdue"])
+    .in("kind", ["action_due_soon", "action_overdue", "survey_open", "survey_due"])
     .is("emailed_at", null)
     .gte("created_at", since);
   if (nErr) return json({ error: nErr.message }, 500);
@@ -93,19 +93,19 @@ Deno.serve(async (req) => {
     const rec = who.get(uid);
     if (!rec?.email) continue; // no address on file — leave for later
     const subject =
-      items.length === 1 ? items[0].title : `${items.length} actions need your attention`;
-    const link = APP_URL ? `${APP_URL}/actions` : "";
+      items.length === 1 ? items[0].title : `${items.length} items need your attention`;
+    const link = APP_URL || "";
     const rowsHtml = items
       .map((it) => `<li><strong>${esc(it.title)}</strong>${it.body ? ` — ${esc(it.body)}` : ""}</li>`)
       .join("");
     const html =
       `<p>Hi ${esc(rec.name)},</p>` +
-      `<p>You have ${items.length} action${items.length > 1 ? "s" : ""} to follow up on:</p>` +
+      `<p>You have ${items.length} item${items.length > 1 ? "s" : ""} that need your attention:</p>` +
       `<ul>${rowsHtml}</ul>` +
-      (link ? `<p><a href="${link}">Open your actions →</a></p>` : "") +
-      `<p style="color:#8a8a8a;font-size:12px;margin-top:18px">You're receiving this because you own or created these actions in OwnTheAgenda.</p>`;
+      (link ? `<p><a href="${link}">Open OwnTheAgenda →</a></p>` : "") +
+      `<p style="color:#8a8a8a;font-size:12px;margin-top:18px">You're receiving this from your team's work in OwnTheAgenda.</p>`;
     const text =
-      `Hi ${rec.name},\n\nYou have ${items.length} action(s) to follow up on:\n\n` +
+      `Hi ${rec.name},\n\nYou have ${items.length} item(s) that need your attention:\n\n` +
       items.map((it) => `• ${it.title}${it.body ? ` — ${it.body}` : ""}`).join("\n") +
       (link ? `\n\n${link}` : "");
 
