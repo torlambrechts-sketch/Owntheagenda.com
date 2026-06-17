@@ -430,6 +430,14 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .objbar.empty .objtext{color:var(--amber);font-style:italic}
 .objbar .btn-sec{flex:none}
 
+/* Psychological safety: anonymity + silent reveal ------------------- */
+.anontoggle{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.anontoggle input{accent-color:var(--green)}
+.silentbar{display:flex;align-items:center;gap:12px;background:var(--internal-bg);border:1px solid var(--internal-fg);border-radius:9px;padding:10px 14px;font-size:12.5px;color:var(--internal-fg);margin-bottom:2px}
+.silentbar span{flex:1}
+.field label.checkrow{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--ink);text-transform:none;letter-spacing:0;cursor:pointer;margin-bottom:0}
+.field label.checkrow input{accent-color:var(--green)}
+
 /* Session readout --------------------------------------------------- */
 .readout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:6px}
 .ro-block{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}

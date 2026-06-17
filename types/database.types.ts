@@ -639,8 +639,19 @@ export type Database = {
           text: string
           author_id: string | null
           author_name: string | null
+          is_anonymous: boolean
           created_at: string
           updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      session_reveal: {
+        Row: {
+          session_id: string
+          block_ord: number
+          revealed_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }
@@ -858,6 +869,7 @@ export type Database = {
         Args: { p_decision: string; p_text: string; p_owner: string; p_due: string | null }
         Returns: Database["public"]["Tables"]["action_item"]["Row"]
       }
+      reveal_block: { Args: { p_session: string; p_block_ord: number }; Returns: undefined }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined

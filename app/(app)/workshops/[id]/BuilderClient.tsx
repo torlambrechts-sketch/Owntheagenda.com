@@ -18,7 +18,7 @@ import {
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
 
-export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[] };
+export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean };
 
 export type BlockRow = {
   id: string;
@@ -85,6 +85,7 @@ export function BuilderClient({
   const [lanesText, setLanesText] = useState("");
   const [optionsText, setOptionsText] = useState("");
   const [budget, setBudget] = useState(3);
+  const [silent, setSilent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -148,6 +149,7 @@ export function BuilderClient({
     setLanesText("");
     setOptionsText("");
     setBudget(3);
+    setSilent(false);
     setError(null);
     setOpen(true);
   }
@@ -161,6 +163,7 @@ export function BuilderClient({
     setLanesText((b.config?.lanes ?? []).join("\n"));
     setOptionsText((b.config?.options ?? []).join("\n"));
     setBudget(b.config?.budget ?? 3);
+    setSilent(!!b.config?.silent);
     setError(null);
     setOpen(true);
   }
@@ -170,7 +173,7 @@ export function BuilderClient({
     const b = Math.max(1, Number(budget) || 3);
     if (activity === "feedback") return { lanes };
     if (activity === "vote") return { options, budget: b };
-    if (activity === "brainstorm") return { budget: b };
+    if (activity === "brainstorm") return { budget: b, silent };
     return {};
   }
   async function saveBlock() {
@@ -281,7 +284,7 @@ export function BuilderClient({
               : b.activityType === "vote"
                 ? `${b.config?.options?.length ?? 0} options · ${b.config?.budget ?? 3} dots each`
                 : b.activityType === "brainstorm"
-                  ? `${b.config?.budget ?? 3} dots each`
+                  ? `${b.config?.budget ?? 3} dots each${b.config?.silent ? " · silent" : ""}`
                   : null;
           return (
             <div className="block" key={b.id}>
@@ -389,10 +392,19 @@ export function BuilderClient({
           </>
         ) : null}
         {activity === "brainstorm" ? (
-          <div className="field">
-            <label>Votes per person</label>
-            <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
-          </div>
+          <>
+            <div className="field">
+              <label>Votes per person</label>
+              <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+            </div>
+            <div className="field">
+              <label className="checkrow">
+                <input type="checkbox" checked={silent} onChange={(e) => setSilent(e.target.checked)} />
+                Silent ideation — write privately, reveal together
+              </label>
+              <div className="form-note">Cards stay hidden from others until the facilitator reveals them — prevents loud-voice anchoring.</div>
+            </div>
+          </>
         ) : null}
         <div className="field">
           <label>Facilitator prompt <span className="opt">(optional)</span></label>

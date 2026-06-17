@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
 
 export type ModuleMode = "brainstorm" | "poll" | "feedback";
-export type ModuleConfig = { budget?: number; lanes?: string[]; options?: string[] };
+export type ModuleConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean };
 
 type Idea = {
   id: string;
@@ -13,13 +13,17 @@ type Idea = {
   text: string;
   authorId: string | null;
   authorName: string | null;
+  anon: boolean;
 };
 type Vote = { ideaId: string; voterId: string };
 
-const IDEA_COLS = "id, lane, text, author_id, author_name";
+const IDEA_COLS = "id, lane, text, author_id, author_name, is_anonymous";
 
 function mapIdea(r: any): Idea {
-  return { id: r.id, lane: r.lane ?? null, text: r.text ?? "", authorId: r.author_id ?? null, authorName: r.author_name ?? null };
+  return {
+    id: r.id, lane: r.lane ?? null, text: r.text ?? "",
+    authorId: r.author_id ?? null, authorName: r.author_name ?? null, anon: !!r.is_anonymous,
+  };
 }
 
 export function IdeaModule({
@@ -52,9 +56,12 @@ export function IdeaModule({
   onToggleReady: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const silent = mode === "brainstorm" && !!config.silent;
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [anon, setAnon] = useState(false);
+  const [revealed, setRevealed] = useState(!silent);
   const [err, setErr] = useState<string | null>(null);
   const seededRef = useRef(false);
 
@@ -63,13 +70,17 @@ export function IdeaModule({
   const lanes = mode === "feedback" ? (config.lanes && config.lanes.length ? config.lanes : ["Notes"]) : [];
 
   const load = useCallback(async () => {
-    const [{ data: ir }, { data: vr }] = await Promise.all([
+    const [{ data: ir }, { data: vr }, rev] = await Promise.all([
       supabase.from("idea").select(IDEA_COLS).eq("session_id", sessionId).eq("block_ord", blockOrd).order("created_at", { ascending: true }),
       supabase.from("idea_vote").select("idea_id, voter_id").eq("session_id", sessionId).eq("block_ord", blockOrd),
+      silent
+        ? supabase.from("session_reveal").select("block_ord").eq("session_id", sessionId).eq("block_ord", blockOrd).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
     setIdeas((ir ?? []).map(mapIdea));
     setVotes((vr ?? []).map((v: any) => ({ ideaId: v.idea_id, voterId: v.voter_id })));
-  }, [supabase, sessionId, blockOrd]);
+    if (silent) setRevealed(!!(rev as any)?.data);
+  }, [supabase, sessionId, blockOrd, silent]);
 
   useEffect(() => {
     load();
@@ -104,6 +115,12 @@ export function IdeaModule({
           setVotes((prev) => prev.filter((v) => !(v.ideaId === r.idea_id && v.voterId === r.voter_id)));
         }
       })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "session_reveal", filter: `session_id=eq.${sessionId}` }, (p) => {
+        if ((p.new as any)?.block_ord === blockOrd) {
+          setRevealed(true);
+          load();
+        }
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
@@ -131,11 +148,20 @@ export function IdeaModule({
     const text = (drafts[key] ?? "").trim();
     if (!text) return;
     setDrafts((d) => ({ ...d, [key]: "" }));
-    const { error } = await supabase.from("idea").insert({ session_id: sessionId, block_ord: blockOrd, lane, text, author_name: userName });
+    const { error } = await supabase.from("idea").insert({
+      session_id: sessionId, block_ord: blockOrd, lane, text,
+      author_name: anon ? null : userName, is_anonymous: anon,
+    });
     if (error) {
       setErr(error.message);
       setDrafts((d) => ({ ...d, [key]: text }));
     }
+  }
+
+  async function reveal() {
+    const { error } = await supabase.rpc("reveal_block", { p_session: sessionId, p_block_ord: blockOrd });
+    if (error) setErr(error.message);
+    else { setRevealed(true); load(); }
   }
 
   async function removeIdea(id: string) {
@@ -164,8 +190,9 @@ export function IdeaModule({
   }
 
   const canRemove = (i: Idea) => i.authorId === userId || isFacilitator;
+  const authorLabel = (i: Idea) => (i.anon ? "Anonymous" : i.authorName ? i.authorName.split(" ")[0] : "");
 
-  const dots = voting ? (
+  const dots = voting && revealed ? (
     <span className="dotsleft" title="Your remaining votes">
       {remaining} {remaining === 1 ? "dot" : "dots"} left
     </span>
@@ -179,6 +206,11 @@ export function IdeaModule({
           <h2>{title}</h2>
         </div>
         <div className="cright">
+          {mode === "brainstorm" || mode === "feedback" ? (
+            <label className="anontoggle" title="Hide your name on cards you add">
+              <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} /> Anonymous
+            </label>
+          ) : null}
           {dots}
           {showReady ? (
             <button className={`ready${ready ? " on" : ""}`} onClick={onToggleReady}>
@@ -213,7 +245,7 @@ export function IdeaModule({
                     <div className="ideacard" key={i.id}>
                       <div className="t">{i.text}</div>
                       <div className="m">
-                        <span className="by">{i.authorName ? i.authorName.split(" ")[0] : ""}</span>
+                        <span className="by">{authorLabel(i)}</span>
                         {canRemove(i) ? (
                           <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button>
                         ) : null}
@@ -239,6 +271,12 @@ export function IdeaModule({
             />
             <button className="btn-prim" disabled={!(drafts["_"] ?? "").trim()} onClick={() => addIdea(null)}>Add</button>
           </div>
+          {silent && !revealed ? (
+            <div className="silentbar">
+              <span>✍️ Writing privately — only you can see your cards until the facilitator reveals them.</span>
+              {isFacilitator ? <button className="btn-prim sm" onClick={reveal}>Reveal cards ▸</button> : null}
+            </div>
+          ) : null}
           <div className="ideagrid">
             {[...ideas]
               .sort((a, b) => countFor(b.id) - countFor(a.id))
@@ -249,17 +287,21 @@ export function IdeaModule({
                   <div className={`ideacard big${mine ? " voted" : ""}`} key={i.id}>
                     <div className="t">{i.text}</div>
                     <div className="m">
-                      <span className="by">{i.authorName ? i.authorName.split(" ")[0] : ""}</span>
+                      <span className="by">{authorLabel(i)}</span>
                       <span className="sp" />
                       {canRemove(i) ? <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button> : null}
-                      <button className={`votebtn${mine ? " on" : ""}`} onClick={() => toggleVote(i.id)} title={mine ? "Remove your dot" : "Add a dot"}>
-                        <span className="dot" /> {c}
-                      </button>
+                      {revealed ? (
+                        <button className={`votebtn${mine ? " on" : ""}`} onClick={() => toggleVote(i.id)} title={mine ? "Remove your dot" : "Add a dot"}>
+                          <span className="dot" /> {c}
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 );
               })}
-            {ideas.length === 0 ? <div className="idea-empty">No ideas yet — add the first one above.</div> : null}
+            {ideas.length === 0 ? (
+              <div className="idea-empty">{silent && !revealed ? "Add your ideas privately above." : "No ideas yet — add the first one above."}</div>
+            ) : null}
           </div>
         </>
       ) : null}
