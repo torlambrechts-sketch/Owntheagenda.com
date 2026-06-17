@@ -144,7 +144,7 @@ export function RunClient({
         (payload) => {
           const r: any = payload.new;
           if (r.status === "ended") {
-            router.push(`/workshops/${workshopId}`);
+            router.push(`/sessions/${sid}`);
             return;
           }
           setSession((prev) => {

@@ -375,6 +375,38 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .aitem:hover .atools{opacity:1}
 @media (max-width:980px){.aitem .atools{opacity:1}}
 
+/* Session readout --------------------------------------------------- */
+.readout-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:6px}
+.ro-block{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}
+.ro-block-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ro-block-h h3{font-family:var(--font-display);font-size:16px;font-weight:600;margin:0}
+.ro-ord{width:22px;height:22px;border-radius:50%;background:var(--canvas-2);color:var(--faint);font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.ro-agree{margin-left:auto;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap}
+.ro-agree .o{color:var(--faint);font-weight:500}
+.ro-prompt{font-size:12.5px;color:var(--muted);border-left:3px solid var(--line);padding-left:12px;margin-bottom:12px}
+.ro-ranked{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ro-ranked li{display:flex;align-items:center;gap:11px;padding:8px 10px;border:1px solid var(--line);border-radius:8px}
+.ro-ranked li:first-child{border-color:var(--green);background:var(--open-bg)}
+.ro-votes{min-width:30px;height:26px;border-radius:6px;background:var(--canvas-2);color:var(--green);font-weight:700;font-size:13px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-variant-numeric:tabular-nums}
+.ro-ranked li:first-child .ro-votes{background:var(--green);color:#fff}
+.ro-text{flex:1;font-size:13px;color:var(--ink)}
+.ro-by{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);flex:none}
+.ro-lanes{display:grid;gap:12px}
+.ro-lane{background:var(--canvas);border:1px solid var(--line);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.ro-lane-h{font-size:12px;font-weight:700;color:var(--ink);display:flex;align-items:center;gap:7px}
+.ro-lane-h .n{font-size:10.5px;color:var(--faint);background:var(--surface);border-radius:20px;padding:1px 8px;font-weight:700}
+.ro-card{background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:8px 10px;font-size:12.5px;color:var(--ink);display:flex;flex-direction:column;gap:4px}
+.ro-card .ro-by{align-self:flex-start}
+.ro-chips{display:flex;flex-wrap:wrap;gap:8px}
+.ro-chip{background:var(--canvas);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:12.5px;color:var(--ink)}
+.ro-empty{color:var(--faint);font-size:12.5px;font-style:italic}
+.ro-actions{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.ro-actions li{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--line);font-size:13px}
+.ro-actions li:last-child{border-bottom:none}
+.ro-actions li.done .ro-text{text-decoration:line-through;color:var(--faint)}
+.ro-dot{width:14px;height:14px;border-radius:50%;border:1.6px solid var(--line-2);flex:none}
+.ro-dot.on{background:var(--green);border-color:var(--green)}
+
 @media (max-width:980px){
   .app{grid-template-columns:60px 1fr}
   .nav{display:none}
