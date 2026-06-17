@@ -537,6 +537,69 @@ export type Database = {
         }
         Relationships: []
       }
+      session: {
+        Row: {
+          id: string
+          workspace_id: string
+          workshop_id: string
+          facilitator_id: string | null
+          status: Database["public"]["Enums"]["session_status"]
+          current_block_ord: number
+          timer_running: boolean
+          timer_ends_at: string | null
+          timer_remaining: number
+          started_at: string
+          ended_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      participant: {
+        Row: {
+          id: string
+          session_id: string
+          user_id: string
+          is_facilitator: boolean
+          ready: boolean
+          joined_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      action_item: {
+        Row: {
+          id: string
+          workspace_id: string
+          workshop_id: string
+          session_id: string | null
+          text: string
+          owner_name: string | null
+          status: Database["public"]["Enums"]["action_status"]
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      agreement: {
+        Row: {
+          id: string
+          session_id: string
+          block_ord: number
+          user_id: string | null
+          value: number
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -623,8 +686,40 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["workshop"]["Row"]
       }
+      start_session: {
+        Args: { p_workshop: string }
+        Returns: Database["public"]["Tables"]["session"]["Row"]
+      }
+      join_session: { Args: { p_session: string }; Returns: undefined }
+      set_ready: {
+        Args: { p_ready: boolean; p_session: string }
+        Returns: undefined
+      }
+      session_phase: {
+        Args: { p_ord: number; p_session: string }
+        Returns: Database["public"]["Tables"]["session"]["Row"]
+      }
+      session_timer: {
+        Args: { p_action: string; p_session: string }
+        Returns: Database["public"]["Tables"]["session"]["Row"]
+      }
+      end_session: { Args: { p_session: string }; Returns: undefined }
+      add_action: {
+        Args: { p_owner?: string; p_session: string; p_text: string }
+        Returns: Database["public"]["Tables"]["action_item"]["Row"]
+      }
+      toggle_action: { Args: { p_action: string }; Returns: undefined }
+      submit_agreement: {
+        Args: { p_block_ord: number; p_session: string; p_value: number }
+        Returns: undefined
+      }
+      agreement_summary: {
+        Args: { p_block_ord: number; p_session: string }
+        Returns: { value: number; count: number }[]
+      }
     }
     Enums: {
+      action_status: "open" | "done"
       activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended"
@@ -640,6 +735,7 @@ export type Database = {
         | "kickoff"
         | "checkin"
       workshop_status: "draft" | "scheduled" | "live" | "done"
+      session_status: "live" | "ended"
       team_dynamic:
         | "psych_safety"
         | "trust"
@@ -668,6 +764,7 @@ export type Enums<T extends keyof DefaultSchema["Enums"]> =
 export const Constants = {
   public: {
     Enums: {
+      action_status: ["open", "done"],
       activity_type: ["canvas", "vote", "discuss", "checkin", "outcome"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended"],
@@ -684,6 +781,7 @@ export const Constants = {
         "checkin",
       ],
       workshop_status: ["draft", "scheduled", "live", "done"],
+      session_status: ["live", "ended"],
       team_dynamic: [
         "psych_safety",
         "trust",
