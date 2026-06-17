@@ -4,8 +4,8 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { TeamDetailClient, type TMRow, type Addable } from "./TeamDetailClient";
-import { resolveInstrument } from "@/lib/assessments";
-import { dimensionMeans, climateStrength, strengthItemKeys, type ItemStat, type SurveyInstrument } from "@/lib/survey";
+import { resolveInstrument, resolveInstruments } from "@/lib/assessments";
+import { dimensionMeans, individualDimensionMeans, climateStrength, strengthItemKeys, type ItemStat, type SurveyInstrument } from "@/lib/survey";
 
 export default async function TeamDetailPage({
   params,
@@ -98,6 +98,39 @@ export default async function TeamDetailPage({
     team.lead_user_id === ctx.userId ||
     Boolean(meTM?.is_lead);
 
+  // Shared individual profiles (opt-in). RLS returns only the rows the viewer
+  // may see — own rows and teammates' shared rows — so filtering on shared=true
+  // gives the team's opted-in profiles.
+  const memberUserIds = teamMembers.map((m) => m.user_id);
+  const { data: sharedRows } = memberUserIds.length
+    ? await supabase
+        .from("individual_response")
+        .select("user_id, template_key, scores")
+        .in("user_id", memberUserIds)
+        .eq("shared", true)
+    : { data: [] as { user_id: string; template_key: string; scores: unknown }[] };
+  let sharedProfiles: SharedProfile[] = [];
+  if ((sharedRows ?? []).length) {
+    const instMap = await resolveInstruments();
+    sharedProfiles = memberUserIds
+      .map((uid) => {
+        const entries = (sharedRows ?? [])
+          .filter((r) => r.user_id === uid)
+          .map((r) => {
+            const inst = instMap[r.template_key];
+            if (!inst) return null;
+            return {
+              instrument: inst.name,
+              max: inst.scale.max,
+              dims: individualDimensionMeans(inst, (r.scores ?? {}) as Record<string, number>),
+            };
+          })
+          .filter((e): e is ProfileEntry => e !== null);
+        return entries.length ? { name: nameOf(uid), entries } : null;
+      })
+      .filter((p): p is SharedProfile => p !== null);
+  }
+
   return (
     <div>
       <Link href="/teams" className="linkbtn" style={{ fontSize: 12 }}>
@@ -120,6 +153,7 @@ export default async function TeamDetailPage({
       {charterRow ? <TeamCharterReadout charter={charterRow} /> : null}
       <TeamDynamicsSnapshot rows={(dynRows ?? []) as DynRow[]} />
       <PsychSafetyReadout results={surveyResults as SurveyResults | null} instrument={psychInst} />
+      <TeamProfiles profiles={sharedProfiles} />
     </div>
   );
 }
@@ -190,6 +224,45 @@ function PsychSafetyReadout({ results, instrument }: { results: SurveyResults | 
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+type ProfileEntry = { instrument: string; max: number; dims: { key: string; label: string; blurb: string; mean: number | null }[] };
+type SharedProfile = { name: string; entries: ProfileEntry[] };
+
+function TeamProfiles({ profiles }: { profiles: SharedProfile[] }) {
+  if (!profiles.length) return null;
+  return (
+    <div className="team-charter" style={{ marginTop: 16 }}>
+      <div className="tc-h">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--role)" strokeWidth="2.2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+        <h2>Team profiles</h2>
+        <span className="libhint" style={{ marginLeft: 4 }}>shared by members</span>
+      </div>
+      <div className="tpl-grid" style={{ marginTop: 10 }}>
+        {profiles.map((p) => (
+          <div className="tpl" key={p.name}>
+            <div className="body">
+              <h3 style={{ marginBottom: 6 }}>{p.name}</h3>
+              {p.entries.map((e) => (
+                <div key={e.instrument} style={{ marginBottom: 10 }}>
+                  <div className="src" style={{ marginBottom: 6 }}>{e.instrument}</div>
+                  {e.dims.map((d) => {
+                    const pct = d.mean == null ? 0 : Math.round((d.mean / e.max) * 100);
+                    return (
+                      <div className="svdim" key={d.key}>
+                        <div className="svdim-top"><span className="svdim-label">{d.label}</span><span className="svdim-val">{d.mean == null ? "· · ·" : `${d.mean.toFixed(1)} / ${e.max}`}</span></div>
+                        <div className="svtrack"><div className="svfill" style={{ width: `${pct}%` }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

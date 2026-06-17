@@ -21,3 +21,20 @@ export async function submitIndividual(
   revalidatePath("/library");
   return {};
 }
+
+// Opt in / out of sharing one of my individual results with teammates.
+export async function setShared(
+  templateKey: string,
+  shared: boolean,
+): Promise<{ error?: string }> {
+  const ctx = await requireSession();
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_individual_shared", {
+    p_workspace: ctx.workspace.id,
+    p_template_key: templateKey,
+    p_shared: shared,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/library");
+  return {};
+}

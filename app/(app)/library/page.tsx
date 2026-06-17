@@ -40,10 +40,14 @@ export default async function LibraryPage() {
 
   const { data: mine } = await supabase
     .from("individual_response")
-    .select("template_key")
+    .select("template_key, scores, shared")
     .eq("user_id", ctx.userId)
     .eq("workspace_id", ctx.workspace.id);
-  const completed = (mine ?? []).map((r) => r.template_key);
+  const myResults = (mine ?? []).map((r) => ({
+    key: r.template_key,
+    scores: (r.scores ?? {}) as Record<string, number>,
+    shared: r.shared,
+  }));
 
   return (
     <div>
@@ -56,7 +60,7 @@ export default async function LibraryPage() {
         templates={templates}
         instruments={instruments}
         manageableTeams={manageableTeams}
-        completed={completed}
+        myResults={myResults}
       />
     </div>
   );

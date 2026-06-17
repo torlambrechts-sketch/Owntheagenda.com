@@ -1043,6 +1043,10 @@ export type Database = {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }
         Returns: undefined
       }
+      set_individual_shared: {
+        Args: { p_workspace: string; p_template_key: string; p_shared: boolean }
+        Returns: undefined
+      }
       survey_results: {
         Args: { p_survey: string; p_strength_items?: string[] }
         Returns: Json

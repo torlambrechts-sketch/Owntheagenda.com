@@ -108,6 +108,16 @@ export function dimensionMeans(
   });
 }
 
+// Per-dimension means for a single person's flat score map (individual scope —
+// each item carries one value, so it reuses dimensionMeans with n=1 stats).
+export function individualDimensionMeans(
+  inst: SurveyInstrument,
+  scores: Record<string, number>,
+): { key: string; label: string; blurb: string; mean: number | null }[] {
+  const items: ItemStat[] = Object.entries(scores).map(([item_key, v]) => ({ item_key, mean: Number(v), n: 1 }));
+  return dimensionMeans(inst, items);
+}
+
 // Interpret the climate-strength dispersion (SD on the instrument's scale).
 export function climateStrength(sd: number | null): { label: string; tone: "aligned" | "mixed" | "split" } | null {
   if (sd == null) return null;

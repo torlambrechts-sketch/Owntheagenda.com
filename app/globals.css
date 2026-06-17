@@ -642,6 +642,9 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .scopetag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);background:var(--canvas);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
 .scopetag.custom{color:var(--role);}
 .libhint{font-size:11.5px;color:var(--faint);font-style:italic}
+.shbtn{flex:1;justify-content:center;display:inline-flex;align-items:center;gap:6px;background:none;border:1px solid var(--line-2);color:var(--muted);border-radius:6px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}
+.shbtn:hover{background:var(--canvas)}
+.shbtn.on{background:var(--forest);border-color:var(--forest);color:#fff}
 .btn-ghost{background:none;border:1px solid var(--line-2);color:var(--muted);border-radius:6px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;flex:1;justify-content:center;display:inline-flex;align-items:center;gap:7px}
 .btn-ghost:hover{background:var(--canvas)}
 .libpanel-backdrop{position:fixed;inset:0;background:rgba(20,28,24,.42);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;z-index:80;overflow-y:auto}

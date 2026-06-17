@@ -6,6 +6,7 @@ import {
   INSTRUMENTS,
   INSTRUMENT_LIST,
   dimensionMeans,
+  individualDimensionMeans,
   climateStrength,
   strengthItemKeys,
   instrumentFromRow,
@@ -70,6 +71,14 @@ describe("instrument registry", () => {
   it("has the new effectiveness + learning instruments", () => {
     expect(TEAM_EFFECTIVENESS_BANG.items).toHaveLength(8);
     expect(TEAM_LEARNING_EDMONDSON.items).toHaveLength(5);
+  });
+});
+
+describe("individualDimensionMeans", () => {
+  it("averages a single person's items per dimension", () => {
+    const dims = individualDimensionMeans(PSYCH_SAFETY_BANG, { safety_1: 6, safety_2: 4, int_1: 2 });
+    expect(dims.find((d) => d.key === "safety")?.mean).toBe(5);
+    expect(dims.find((d) => d.key === "integration")?.mean).toBe(2);
   });
 });
 

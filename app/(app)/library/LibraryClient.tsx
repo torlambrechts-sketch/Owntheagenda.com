@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import type { SurveyInstrument } from "@/lib/survey";
+import { individualDimensionMeans, type SurveyInstrument } from "@/lib/survey";
 import { sendSurvey } from "../assessments/actions";
-import { submitIndividual } from "./actions";
+import { submitIndividual, setShared } from "./actions";
 
 export type LibTemplate = {
   key: string;
@@ -16,6 +16,7 @@ export type LibTemplate = {
   custom: boolean;
 };
 type Team = { id: string; name: string };
+type MyResult = { key: string; scores: Record<string, number>; shared: boolean };
 
 const CATEGORY: Record<string, string> = {
   psych_safety: "Psychological safety",
@@ -33,29 +34,69 @@ export function LibraryClient({
   templates,
   instruments,
   manageableTeams,
-  completed,
+  myResults,
 }: {
   templates: LibTemplate[];
   instruments: Record<string, SurveyInstrument>;
   manageableTeams: Team[];
-  completed: string[];
+  myResults: MyResult[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<Panel>(null);
-  const [done, setDone] = useState<Set<string>>(() => new Set(completed));
+  const [results, setResults] = useState<Record<string, MyResult>>(
+    () => Object.fromEntries(myResults.map((r) => [r.key, r])),
+  );
   const [toast, setToast] = useState<string | null>(null);
 
   const team = useMemo(() => templates.filter((t) => t.scope === "team"), [templates]);
   const individual = useMemo(() => templates.filter((t) => t.scope === "individual"), [templates]);
+  const nameByKey = useMemo(() => Object.fromEntries(templates.map((t) => [t.key, t.name])), [templates]);
+  const myProfileKeys = useMemo(
+    () => Object.keys(results).filter((k) => instruments[k] && results[k]),
+    [results, instruments],
+  );
 
   function flash(m: string) {
     setToast(m);
     setTimeout(() => setToast(null), 2600);
   }
 
+  function toggleShare(key: string) {
+    const next = !results[key]?.shared;
+    setResults((r) => ({ ...r, [key]: { ...r[key], shared: next } }));
+    startTransition(async () => {
+      const res = await setShared(key, next);
+      if (res.error) {
+        flash(res.error);
+        setResults((r) => ({ ...r, [key]: { ...r[key], shared: !next } })); // revert
+      } else {
+        flash(next ? "Shared with your team" : "Sharing stopped — private again");
+      }
+    });
+  }
+
   return (
     <>
+      {myProfileKeys.length > 0 ? (
+        <div>
+          <div className="cat-head" style={{ fontSize: 15 }}>Your profile <span className="n">{myProfileKeys.length}</span></div>
+          <p className="page-sub" style={{ marginTop: -6 }}>Private to you. Share a result to let your teammates see it.</p>
+          <div className="tpl-grid">
+            {myProfileKeys.map((k) => (
+              <ProfileCard
+                key={k}
+                name={nameByKey[k] ?? k}
+                inst={instruments[k]}
+                result={results[k]}
+                pending={pending}
+                onToggleShare={() => toggleShare(k)}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <Section
         title="Team assessments"
         sub="Sent to a team as an anonymous survey — answered live in a workshop or ahead as pre-work."
@@ -77,7 +118,7 @@ export function LibraryClient({
         items={individual}
         render={(t) => (
           <Card key={t.key} t={t}>
-            {done.has(t.key) ? (
+            {results[t.key] ? (
               <button className="btn-ghost" onClick={() => setPanel({ mode: "take", tpl: t })}>✓ Completed · Retake</button>
             ) : (
               <button className="btn-prim" onClick={() => setPanel({ mode: "take", tpl: t })}>Take it ▸</button>
@@ -119,10 +160,11 @@ export function LibraryClient({
                 pending={pending}
                 onSubmit={(scores) =>
                   startTransition(async () => {
-                    const res = await submitIndividual(panel.tpl.key, scores);
+                    const key = panel.tpl.key;
+                    const res = await submitIndividual(key, scores);
                     if (res.error) flash(res.error);
                     else {
-                      setDone((s) => new Set(s).add(panel.tpl.key));
+                      setResults((r) => ({ ...r, [key]: { key, scores, shared: r[key]?.shared ?? false } }));
                       flash("Your read is saved — private to you");
                       setPanel(null);
                       router.refresh();
@@ -176,6 +218,46 @@ function Card({ t, children }: { t: LibTemplate; children: ReactNode }) {
         {t.source ? <div className="src">{t.source}</div> : null}
         <p>{t.description}</p>
         <div className="foot">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function ProfileCard({
+  name,
+  inst,
+  result,
+  pending,
+  onToggleShare,
+}: {
+  name: string;
+  inst: SurveyInstrument;
+  result: MyResult;
+  pending: boolean;
+  onToggleShare: () => void;
+}) {
+  const max = inst.scale.max;
+  const dims = individualDimensionMeans(inst, result.scores);
+  return (
+    <div className="tpl">
+      <div className="body">
+        <h3 style={{ marginBottom: 8 }}>{name}</h3>
+        <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: 0, flex: 1 }}>
+          {dims.map((d) => {
+            const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
+            return (
+              <div className="svdim" key={d.key}>
+                <div className="svdim-top"><span className="svdim-label">{d.label}</span><span className="svdim-val">{d.mean == null ? "· · ·" : `${d.mean.toFixed(1)} / ${max}`}</span></div>
+                <div className="svtrack"><div className="svfill" style={{ width: `${pct}%` }} /></div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="foot" style={{ marginTop: 12 }}>
+          <button className={`shbtn${result.shared ? " on" : ""}`} disabled={pending} onClick={onToggleShare}>
+            {result.shared ? "✓ Shared with team · stop" : "Share with team"}
+          </button>
+        </div>
       </div>
     </div>
   );
