@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
 import { SurveyRespond } from "./SurveyRespond";
+import { SendSurvey } from "./SendSurvey";
 
 export default async function AssessmentsPage({
   searchParams,
@@ -130,7 +131,7 @@ export default async function AssessmentsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-    .select("id, name, kind")
+    .select("id, name, kind, due_at")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
@@ -167,6 +168,13 @@ export default async function AssessmentsPage({
             </Link>
           ))}
         </div>
+      ) : null}
+
+      {canManage ? (
+        <SendSurvey
+          teamId={teamId}
+          openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null }[]}
+        />
       ) : null}
 
       {isTeamMember ? (

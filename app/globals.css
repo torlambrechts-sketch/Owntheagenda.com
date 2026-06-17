@@ -439,6 +439,10 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .svcard-h{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}
 .svcard-h b{font-size:14px}
 .svcard-h .src{font-size:11.5px;color:var(--faint)}
+.osrow{display:flex;align-items:center;gap:12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.osrow:last-child{border-bottom:none}
+.osmain{flex:1;display:flex;align-items:baseline;gap:8px;font-size:13px}
+.osmain .src{font-size:11.5px;color:var(--faint)}
 
 /* Run · idea modules (brainstorm / poll / feedback) ------------------ */
 .dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}
