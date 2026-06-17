@@ -52,6 +52,13 @@ const ICONS = {
       <path d="M3 9h18M8 4v3M16 4v3" />
     </svg>
   ),
+  actions: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="m3 7 2 2 3.5-3.5" />
+      <path d="m3 16 2 2 3.5-3.5" />
+      <path d="M12 7h9M12 17h9" />
+    </svg>
+  ),
 };
 
 const NAV = [
@@ -59,6 +66,7 @@ const NAV = [
   { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
+  { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
 ];
 

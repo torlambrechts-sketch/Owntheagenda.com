@@ -280,6 +280,62 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .presence .pp.ready .dotr{background:var(--green)}
 .lobby{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
 
+/* Run · multiplayer canvas ------------------------------------------ */
+.canvasstage{display:flex;flex-direction:column;padding:20px}
+.canvaswrap{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px}
+.canvashead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.canvashead .pact{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted)}
+.canvashead h2{font-family:var(--font-display);font-size:22px;font-weight:600;margin:3px 0 0;color:var(--ink)}
+.canvashead .cright{display:flex;align-items:center;gap:10px;flex:none}
+.addnote{background:var(--forest);color:#fff;border:none;border-radius:7px;padding:9px 14px;font-size:12px;font-weight:700;letter-spacing:.3px;cursor:pointer}
+.canvashead .ready{background:var(--green);border:none;color:#fff;border-radius:7px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.canvashead .ready.on{background:var(--canvas-2);color:var(--green);border:1px solid var(--green)}
+.canvasprompt{font-size:13.5px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--green);border-radius:8px;padding:10px 14px}
+.board{position:relative;flex:1;min-height:300px;border:1px solid var(--line);border-radius:14px;background-color:var(--surface);background-image:radial-gradient(var(--line) 1.1px,transparent 1.1px);background-size:22px 22px;overflow:hidden;touch-action:none}
+.boardhint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:13px;pointer-events:none;padding:20px;text-align:center}
+.sticky{position:absolute;width:160px;min-height:106px;transform:translate(-50%,-50%);border-radius:4px;box-shadow:0 6px 16px rgba(0,0,0,.13);padding:12px 12px 8px;display:flex;flex-direction:column;cursor:grab;border:1px solid rgba(0,0,0,.06);user-select:none}
+.sticky.drag{cursor:grabbing;box-shadow:0 16px 32px rgba(0,0,0,.24);z-index:5}
+.sticky textarea{flex:1;border:none;background:none;resize:none;font:inherit;font-size:12.5px;line-height:1.42;color:#3a3526;outline:none;width:100%;cursor:text}
+.sticky .stext{flex:1;font-size:12.5px;line-height:1.42;color:#3a3526;white-space:pre-wrap;word-break:break-word;overflow:hidden}
+.sticky .stext .ph{color:rgba(0,0,0,.3)}
+.sticky .seg-by{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(0,0,0,.4);margin-top:6px}
+.sticky .del{position:absolute;top:4px;right:5px;width:18px;height:18px;border:none;background:rgba(0,0,0,.07);border-radius:4px;color:rgba(0,0,0,.55);font-size:11px;line-height:1;cursor:pointer;opacity:0;transition:opacity .12s;display:flex;align-items:center;justify-content:center}
+.sticky:hover .del{opacity:1}
+.sticky.lemon{background:#f3e3a6}
+.sticky.mint{background:#cbe7d4}
+.sticky.sky{background:#cadcef}
+.sticky.blush{background:#f1d3ca}
+.sticky.lilac{background:#dcd2ec}
+
+/* Actions board ----------------------------------------------------- */
+.act-top{display:flex;align-items:center;gap:14px;margin:2px 0 16px}
+.segbar{display:inline-flex;background:var(--canvas-2);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg{background:none;border:none;border-radius:6px;padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+.seg .sn{font-size:10.5px;font-weight:700;color:var(--faint);background:var(--surface);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
+.seg.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.seg.on .sn{color:var(--green)}
+.aitem{display:flex;gap:12px;align-items:flex-start;padding:13px 15px;border-bottom:1px solid var(--line)}
+.aitem:last-child{border-bottom:none}
+.aitem:hover{background:var(--canvas)}
+.aitem .chk{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;background:var(--surface)}
+.aitem .chk svg{opacity:0}
+.aitem .chk.on{background:var(--green)}
+.aitem .chk.on svg{opacity:1}
+.aitem .abody{flex:1;min-width:0}
+.aitem .atext{font-size:13.5px;color:var(--ink);line-height:1.45}
+.aitem.done .atext{text-decoration:line-through;color:var(--faint)}
+.aitem .ameta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--muted)}
+.aitem .ameta .owner{display:inline-flex;align-items:center;gap:7px;font-weight:600;color:var(--ink)}
+.aitem .ameta .unassigned{color:var(--faint);font-style:italic}
+.aitem .ameta .due{display:inline-flex;align-items:center;gap:5px;font-weight:600}
+.aitem .ameta .due.over{color:var(--rust)}
+.aitem .ameta .due.soon{color:var(--amber)}
+.aitem .asrc{color:var(--faint);text-decoration:none}
+.aitem .asrc:hover{color:var(--green)}
+.aitem .atools{display:flex;gap:5px;opacity:0;transition:opacity .15s}
+.aitem:hover .atools{opacity:1}
+@media (max-width:980px){.aitem .atools{opacity:1}}
+
 @media (max-width:980px){
   .app{grid-template-columns:60px 1fr}
   .nav{display:none}

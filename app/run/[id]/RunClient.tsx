@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY, initials } from "@/lib/util";
+import { CanvasBoard } from "./CanvasBoard";
 import type { Enums } from "@/types/database.types";
 
 export type RunBlock = {
@@ -256,22 +257,39 @@ export function RunClient({
       </div>
 
       <div className="runbody">
-        <div className="stage">
-          <div className="stage-prompt">
-            <div className="pact">
-              {ACTIVITY[block?.activityType ?? "canvas"]?.label} · Step {session.currentBlockOrd} of {N}
-            </div>
-            <h2>{block?.title}</h2>
-            <div className="ptext">
-              {block?.prompt || "Discuss this step together. The facilitator advances when you're ready."}
-            </div>
-            {!isFacilitator || view === "participant" ? (
-              <button className={`ready${me?.ready ? " on" : ""}`} onClick={toggleReady}>
-                {me?.ready ? "✓ You're ready" : "I'm ready"}
-              </button>
-            ) : null}
+        {block?.activityType === "canvas" ? (
+          <div className="stage canvasstage">
+            <CanvasBoard
+              key={session.currentBlockOrd}
+              sessionId={sid}
+              blockOrd={session.currentBlockOrd}
+              title={block?.title ?? "Canvas"}
+              prompt={block?.prompt ?? null}
+              stepLabel={`Canvas · Step ${session.currentBlockOrd} of ${N}`}
+              userName={userName}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
           </div>
-        </div>
+        ) : (
+          <div className="stage">
+            <div className="stage-prompt">
+              <div className="pact">
+                {ACTIVITY[block?.activityType ?? "canvas"]?.label} · Step {session.currentBlockOrd} of {N}
+              </div>
+              <h2>{block?.title}</h2>
+              <div className="ptext">
+                {block?.prompt || "Discuss this step together. The facilitator advances when you're ready."}
+              </div>
+              {!isFacilitator || view === "participant" ? (
+                <button className={`ready${me?.ready ? " on" : ""}`} onClick={toggleReady}>
+                  {me?.ready ? "✓ You're ready" : "I'm ready"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
 
         <aside className="runside">
           <div className="rs">

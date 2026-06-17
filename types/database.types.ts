@@ -574,11 +574,13 @@ export type Database = {
         Row: {
           id: string
           workspace_id: string
-          workshop_id: string
+          workshop_id: string | null
+          team_id: string | null
           session_id: string | null
           text: string
           owner_name: string | null
           status: Database["public"]["Enums"]["action_status"]
+          due_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -595,6 +597,26 @@ export type Database = {
           user_id: string | null
           value: number
           created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      canvas_object: {
+        Row: {
+          id: string
+          session_id: string
+          workspace_id: string
+          block_ord: number
+          kind: string
+          text: string
+          color: string
+          x: number
+          y: number
+          author_id: string | null
+          author_name: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }

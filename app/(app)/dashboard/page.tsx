@@ -8,10 +8,11 @@ export default async function DashboardPage() {
   const supabase = createClient();
   const wsId = ctx.workspace.id;
 
-  const [members, teams, pending] = await Promise.all([
+  const [members, teams, pending, openActions] = await Promise.all([
     supabase.from("membership").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).eq("status", "active"),
     supabase.from("team").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).is("deleted_at", null),
     supabase.from("invitation").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).eq("status", "pending"),
+    supabase.from("action_item").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).eq("status", "open"),
   ]);
 
   return (
@@ -35,6 +36,11 @@ export default async function DashboardPage() {
         <div className="stat">
           <div className="num">{pending.count ?? 0}</div>
           <div className="lab">Pending invites</div>
+        </div>
+        <div className="vr" />
+        <div className="stat">
+          <div className="num">{openActions.count ?? 0}</div>
+          <div className="lab">Open actions</div>
         </div>
         <div className="vr" />
         <div className="stat">
@@ -62,6 +68,15 @@ export default async function DashboardPage() {
           </h3>
           <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
             Organize people into leadership teams and the org hierarchy.
+          </p>
+        </Link>
+        <Link href="/actions" className="card" style={{ textDecoration: "none" }}>
+          <div className="eyebrow">Follow-through</div>
+          <h3 style={{ fontFamily: "var(--font-display)", fontSize: 18, margin: "4px 0 6px" }}>
+            Actions
+          </h3>
+          <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
+            Track the commitments your teams made in session through to done.
           </p>
         </Link>
       </div>
