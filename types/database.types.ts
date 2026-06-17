@@ -752,6 +752,42 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      team_charter: {
+        Row: {
+          team_id: string
+          workspace_id: string
+          purpose: string | null
+          goals: Json
+          roles: Json
+          work_methods: Json
+          norms: Json
+          status: string
+          source_session_id: string | null
+          compiled_by: string | null
+          compiled_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      user_manual: {
+        Row: {
+          user_id: string
+          workspace_id: string
+          strengths: string | null
+          working_style: string | null
+          communication_pref: string | null
+          feedback_pref: string | null
+          watch_outs: string | null
+          energizers: string | null
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -901,6 +937,26 @@ export type Database = {
       reveal_block: { Args: { p_session: string; p_block_ord: number }; Returns: undefined }
       save_summary: { Args: { p_session: string; p_content: Json; p_ai: boolean }; Returns: undefined }
       approve_summary: { Args: { p_session: string }; Returns: undefined }
+      upsert_user_manual: {
+        Args: {
+          p_workspace: string
+          p_strengths?: string
+          p_working_style?: string
+          p_communication_pref?: string
+          p_feedback_pref?: string
+          p_watch_outs?: string
+          p_energizers?: string
+        }
+        Returns: Database["public"]["Tables"]["user_manual"]["Row"]
+      }
+      save_charter_section: {
+        Args: { p_team: string; p_section: string; p_value: Json }
+        Returns: Database["public"]["Tables"]["team_charter"]["Row"]
+      }
+      compile_charter: {
+        Args: { p_team: string; p_session?: string }
+        Returns: Database["public"]["Tables"]["team_charter"]["Row"]
+      }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined
