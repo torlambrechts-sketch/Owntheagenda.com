@@ -464,6 +464,7 @@ export type Database = {
           title: string
           template_id: string | null
           pulse_id: string | null
+          survey_id: string | null
           status: Database["public"]["Enums"]["workshop_status"]
           scheduled_at: string | null
           objective: string | null
@@ -788,6 +789,36 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      survey: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string
+          kind: string
+          name: string
+          status: string
+          opened_at: string | null
+          closed_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      survey_response: {
+        Row: {
+          id: string
+          survey_id: string
+          respondent_id: string
+          scores: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -961,6 +992,26 @@ export type Database = {
         Args: { p_workshop: string; p_timing?: string }
         Returns: string
       }
+      create_survey: {
+        Args: { p_team: string; p_kind: string; p_name: string }
+        Returns: Database["public"]["Tables"]["survey"]["Row"]
+      }
+      submit_survey_response: {
+        Args: { p_survey: string; p_scores: Json }
+        Returns: undefined
+      }
+      survey_results: {
+        Args: { p_survey: string; p_strength_items?: string[] }
+        Returns: Json
+      }
+      close_survey: {
+        Args: { p_survey: string }
+        Returns: Database["public"]["Tables"]["survey"]["Row"]
+      }
+      ensure_workshop_survey: {
+        Args: { p_workshop: string; p_kind: string; p_name: string }
+        Returns: string
+      }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined
@@ -972,7 +1023,7 @@ export type Database = {
     }
     Enums: {
       action_status: "open" | "done"
-      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback" | "manual" | "charter" | "assess"
+      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback" | "manual" | "charter" | "assess" | "survey"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended"
       plan_tier: "free" | "pro" | "enterprise"
@@ -1017,7 +1068,7 @@ export const Constants = {
   public: {
     Enums: {
       action_status: ["open", "done"],
-      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback", "manual", "charter", "assess"],
+      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback", "manual", "charter", "assess", "survey"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended"],
       plan_tier: ["free", "pro", "enterprise"],
