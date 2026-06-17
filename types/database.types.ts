@@ -839,6 +839,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      individual_response: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          template_key: string
+          scores: Json
+          shared: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1022,6 +1037,10 @@ export type Database = {
       }
       submit_survey_response: {
         Args: { p_survey: string; p_scores: Json }
+        Returns: undefined
+      }
+      submit_individual_response: {
+        Args: { p_workspace: string; p_template_key: string; p_scores: Json }
         Returns: undefined
       }
       survey_results: {

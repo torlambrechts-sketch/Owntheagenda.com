@@ -55,6 +55,12 @@ const ICONS = {
       <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
     </svg>
   ),
+  library: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 5v14M9 5v14" />
+      <rect x="13" y="4" width="7" height="16" rx="1" transform="rotate(8 16.5 12)" />
+    </svg>
+  ),
   workshops: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -84,6 +90,7 @@ const NAV = [
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/sessions", label: "Sessions", icon: ICONS.sessions, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
+  { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
 ];
 
