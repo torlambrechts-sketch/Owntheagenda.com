@@ -59,6 +59,12 @@ type Obj = {
 
 type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser" | "hand";
 
+type UndoOp =
+  | { type: "create"; id: string }
+  | { type: "delete"; obj: Obj }
+  | { type: "move"; items: { id: string; x: number; y: number }[] }
+  | { type: "resize"; id: string; w: number | null; h: number | null };
+
 const COLS =
   "id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, author_id, author_name, z";
 
@@ -143,7 +149,7 @@ export function CanvasBoard({
   const lineStyleRef = useRef(lineStyle);
   const editingRef = useRef<string | null>(null);
   const dragRef = useRef<{ ids: string[]; sx: number; sy: number; init: Record<string, { x: number; y: number }>; moved: boolean } | null>(null);
-  const resizeRef = useRef<{ id: string } | null>(null);
+  const resizeRef = useRef<{ id: string; w0: number | null; h0: number | null } | null>(null);
   const drawRef = useRef<number[][] | null>(null);
   const connRef = useRef<{ srcId: string; srcAnchor: Side; cur: Pt } | null>(null);
   const eraserRef = useRef(false);
@@ -151,6 +157,8 @@ export function CanvasBoard({
   const selectedIdsRef = useRef<string[]>([]);
   const viewRef = useRef(view);
   const panRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const undoRef = useRef<UndoOp[]>([]);
+  const undoingRef = useRef(false);
   useEffect(() => { objectsRef.current = objects; }, [objects]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
@@ -250,16 +258,53 @@ export function CanvasBoard({
     if (!data) return null;
     const o = mapRow(data);
     setObjects((prev) => (prev.some((x) => x.id === o.id) ? prev : [...prev, o]));
+    if ((patch as { kind?: string }).kind !== "__board") pushUndo({ type: "create", id: o.id });
     return o;
   }
   async function patchObj(id: string, patch: Record<string, unknown>) {
     await supabase.from("canvas_object").update(patch as never).eq("id", id);
   }
   async function delObj(id: string) {
+    const existing = objectsRef.current.find((o) => o.id === id);
+    if (existing && existing.kind !== "__board") pushUndo({ type: "delete", obj: existing });
     setObjects((prev) => prev.filter((o) => o.id !== id));
     setSelectedIds((ids) => ids.filter((x) => x !== id));
     if (editingId === id) setEditingId(null);
     await supabase.from("canvas_object").delete().eq("id", id);
+  }
+
+  // Local undo (this client's recent create / delete / move / resize).
+  function pushUndo(op: UndoOp) {
+    if (undoingRef.current) return;
+    undoRef.current.push(op);
+    if (undoRef.current.length > 60) undoRef.current.shift();
+  }
+  async function recreateObj(o: Obj) {
+    setObjects((prev) => (prev.some((x) => x.id === o.id) ? prev : [...prev, o]));
+    await supabase.from("canvas_object").insert({
+      id: o.id, session_id: sessionId, block_ord: blockOrd, kind: o.kind, text: o.text, color: o.color,
+      x: o.x, y: o.y, w: o.w, h: o.h, points: o.points, src_id: o.srcId, dst_id: o.dstId,
+      src_anchor: o.srcAnchor, dst_anchor: o.dstAnchor, line_style: o.lineStyle, stroke: o.stroke,
+      fill: o.fill, stroke_w: o.strokeW, variant: o.variant, author_name: o.authorName, z: o.z,
+    } as never);
+  }
+  async function applyUndo() {
+    const op = undoRef.current.pop();
+    if (!op) return;
+    undoingRef.current = true;
+    try {
+      if (op.type === "create") await delObj(op.id);
+      else if (op.type === "delete") await recreateObj(op.obj);
+      else if (op.type === "move") {
+        setObjects((prev) => prev.map((o) => { const it = op.items.find((i) => i.id === o.id); return it ? { ...o, x: it.x, y: it.y } : o; }));
+        for (const it of op.items) await patchObj(it.id, { x: it.x, y: it.y });
+      } else if (op.type === "resize") {
+        setObjects((prev) => prev.map((o) => (o.id === op.id ? { ...o, w: op.w, h: op.h } : o)));
+        await patchObj(op.id, { w: op.w, h: op.h });
+      }
+    } finally {
+      undoingRef.current = false;
+    }
   }
 
   // ---- geometry helpers tied to current board size --------------------------
@@ -397,8 +442,10 @@ export function CanvasBoard({
     if (t === "select") {
       const rzEl = el.closest("[data-resize]") as HTMLElement | null;
       if (rzEl) {
-        resizeRef.current = { id: rzEl.getAttribute("data-cid")! };
-        setSelectedId(resizeRef.current.id);
+        const rid = rzEl.getAttribute("data-cid")!;
+        const ro = byId(rid);
+        resizeRef.current = { id: rid, w0: ro?.w ?? null, h0: ro?.h ?? null };
+        setSelectedId(rid);
         boardRef.current!.setPointerCapture(e.pointerId);
         return;
       }
@@ -561,6 +608,7 @@ export function CanvasBoard({
       const d = dragRef.current;
       dragRef.current = null;
       if (d.moved) {
+        pushUndo({ type: "move", items: d.ids.filter((id) => d.init[id]).map((id) => ({ id, x: d.init[id].x, y: d.init[id].y })) });
         for (const id of d.ids) {
           const o = byId(id);
           if (o) await patchObj(id, { x: o.x, y: o.y });
@@ -569,10 +617,10 @@ export function CanvasBoard({
       return;
     }
     if (resizeRef.current) {
-      const id = resizeRef.current.id;
+      const { id, w0, h0 } = resizeRef.current;
       resizeRef.current = null;
       const o = byId(id);
-      if (o) await patchObj(id, { w: o.w, h: o.h });
+      if (o) { pushUndo({ type: "resize", id, w: w0, h: h0 }); await patchObj(id, { w: o.w, h: o.h }); }
     }
   }
 
@@ -593,6 +641,11 @@ export function CanvasBoard({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (editingRef.current) return;
+      if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        applyUndo();
+        return;
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.length) {
         const bo = objectsRef.current.find((o) => o.kind === "__board");
         let s: Record<string, unknown> = {};
