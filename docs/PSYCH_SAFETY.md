@@ -58,6 +58,27 @@ Plus *Psychological Safety — Re-measure (Bang)* (~45m) to see the shift.
   answer on `/assessments`; results ground the session. Switch the first block's
   `config.timing` to `live` to rate in the room instead.
 
+## Send it ahead as date-bound pre-work (assessment-first flow)
+Yes — you can send the assessment to the whole team *before* the workshop:
+- On **/assessments**, a lead picks an instrument + a **due date** and hits
+  **Send to team**. Everyone gets an in-app invite ("Due by …") and answers
+  async; the lead can **Remind** non-responders or **Close** early.
+- The **daily job** auto-reminds anyone still pending within 2 days of the
+  deadline and **auto-closes** the survey once it passes.
+- Then run (or schedule) the workshop: its survey block (prerequisite)
+  **reuses that same open survey**, so the team discusses the read they already
+  gave. Results also show on **/assessments** and the **team page** (min-3 mask
+  + climate strength).
+- Email invites/reminders ride the same digest (dormant until `RESEND_API_KEY`).
+
+**Scope:** an assessment goes to the **team** (the leadership group), not an
+arbitrary org-wide list — run one per team.
+
+## Instruments available
+Psychological Safety (Bang) · Team Effectiveness (Bang) · Team Learning
+(Edmondson). The subsystem is reusable — add an instrument in `lib/survey.ts`
+and it shows up in the picker and works in any survey block.
+
 ## Verification
 - **DB:** 8-assertion rolled-back role test — creation gated (member blocked
   42501); 3-respondent aggregate + climate-strength SD correct; min-3 mask;
