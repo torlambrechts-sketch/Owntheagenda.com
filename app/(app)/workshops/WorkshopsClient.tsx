@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY } from "@/lib/util";
-import { useTemplate, deleteWorkshop } from "./actions";
+import { buildFromTemplate, deleteWorkshop } from "./actions";
 
 export type TemplateCard = {
   id: string;
@@ -53,7 +53,7 @@ export function WorkshopsClient({
 
   function use(templateId: string, pulseId?: string | null) {
     startTransition(async () => {
-      const res = await useTemplate(teamId, templateId, pulseId ?? undefined);
+      const res = await buildFromTemplate(teamId, templateId, pulseId ?? undefined);
       if (res.error) flash(res.error);
       else if (res.id) router.push(`/workshops/${res.id}`);
     });

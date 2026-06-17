@@ -2,13 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import {
+  heuristicSynthesis,
+  buildSynthesisContent,
+  type Theme,
+  type SynthIdea as IdeaRow,
+  type SynthBlock as BlockRow,
+  type Opposed,
+} from "@/lib/synthesis";
 
-export type Theme = { title: string; points: string[] };
 export type Synthesis = { ai: boolean; note?: string; themes: Theme[]; actions: string[]; divergent: string[] };
-
-type IdeaRow = { id: string; block_ord: number; lane: string | null; text: string; votes: number };
-type BlockRow = { ord: number; title: string; activity_type: string; config: any };
-type Opposed = { id: string; title: string };
 
 // Add one of the synthesised actions to the tracked Actions board.
 export async function addSessionAction(sessionId: string, text: string): Promise<{ error?: string }> {
@@ -76,13 +79,13 @@ export async function synthesizeSession(
   const key = process.env.ANTHROPIC_API_KEY;
   if (key) {
     try {
-      const r = await callClaude(key, buildContent(ranked, feedbackBlocks, ideaList, opposed));
+      const r = await callClaude(key, buildSynthesisContent(ranked, feedbackBlocks, ideaList, opposed));
       if (r) { result = r; ai = true; }
     } catch {
       /* fall through to the deterministic synthesis */
     }
   }
-  if (!result) result = heuristic(ranked, feedbackBlocks, ideaList, opposed);
+  if (!result) result = heuristicSynthesis(ranked, feedbackBlocks, ideaList, opposed);
 
   const content = { themes: result.themes, actions: result.actions, divergent: result.divergent };
   await supabase.rpc("save_summary", { p_session: sessionId, p_content: content as any, p_ai: ai });
@@ -92,35 +95,6 @@ export async function synthesizeSession(
     note: ai ? undefined : "Quick synthesis. Set ANTHROPIC_API_KEY to have Claude write the themes.",
     ...content,
   };
-}
-
-function buildContent(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[], opposed: Opposed[]) {
-  const lines: string[] = [];
-  if (ranked.length) {
-    lines.push("VOTED IDEAS (highest first):");
-    ranked.slice(0, 14).forEach((i) => lines.push(`- ${i.text} [${i.votes} vote${i.votes === 1 ? "" : "s"}]`));
-  }
-  for (const fb of feedbackBlocks) {
-    const lanes: string[] = (fb.config?.lanes ?? []) as string[];
-    lines.push(`\nFEEDBACK — ${fb.title}:`);
-    for (const lane of lanes) {
-      const cards = ideaList.filter((i) => i.block_ord === fb.ord && (i.lane ?? "") === lane);
-      if (cards.length) {
-        lines.push(`  ${lane}:`);
-        cards.forEach((c) => lines.push(`   - ${c.text}`));
-      }
-    }
-  }
-  const minority = ranked.filter((i) => i.votes > 0).slice(3);
-  if (minority.length) {
-    lines.push("\nMINORITY-SUPPORTED IDEAS (some votes, did not top the list):");
-    minority.slice(0, 8).forEach((i) => lines.push(`- ${i.text} [${i.votes}]`));
-  }
-  if (opposed.length) {
-    lines.push("\nDECISIONS WITH RECORDED OPPOSITION:");
-    opposed.forEach((d) => lines.push(`- ${d.title}`));
-  }
-  return lines.join("\n");
 }
 
 async function callClaude(
@@ -154,27 +128,4 @@ async function callClaude(
     actions: Array.isArray(parsed.actions) ? parsed.actions.map(String) : [],
     divergent: Array.isArray(parsed.divergent) ? parsed.divergent.map(String) : [],
   };
-}
-
-function heuristic(ranked: IdeaRow[], feedbackBlocks: BlockRow[], ideaList: IdeaRow[], opposed: Opposed[]) {
-  const themes: Theme[] = [];
-  if (ranked.length) {
-    themes.push({
-      title: "Top priorities",
-      points: ranked.slice(0, 4).map((i) => (i.votes ? `${i.text} (${i.votes} votes)` : i.text)),
-    });
-  }
-  for (const fb of feedbackBlocks) {
-    const lanes: string[] = (fb.config?.lanes ?? []) as string[];
-    for (const lane of lanes) {
-      const cards = ideaList.filter((i) => i.block_ord === fb.ord && (i.lane ?? "") === lane).map((i) => i.text);
-      if (cards.length) themes.push({ title: lane, points: cards.slice(0, 5) });
-    }
-  }
-  const actions = ranked.filter((i) => i.votes > 0).slice(0, 3).map((i) => i.text);
-  const divergent = [
-    ...ranked.filter((i) => i.votes > 0).slice(3, 6).map((i) => `${i.text} (${i.votes} votes) — supported but not top`),
-    ...opposed.map((d) => `Opposition logged on decision: ${d.title}`),
-  ];
-  return { themes, actions: actions.length ? actions : ranked.slice(0, 3).map((i) => i.text), divergent };
 }

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Enums } from "@/types/database.types";
 
-export async function useTemplate(
+export async function buildFromTemplate(
   teamId: string,
   templateId: string,
   pulseId?: string,
