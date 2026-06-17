@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OwnTheAgenda — the session-running OS for leadership teams</title>
+<meta name="description" content="A guided, assessment-fueled workshop you can run yourself — and the action loop that proves it worked. Built for the leaders of leadership teams.">
+<meta property="og:title" content="OwnTheAgenda">
+<meta property="og:description" content="The session-running OS for leadership teams. Assess, generate the agenda, run it live, capture commitments, re-measure.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://owntheagenda.com">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44'%3E%3Crect width='44' height='44' rx='10' fill='%233a4d3f'/%3E%3Ccircle cx='13' cy='15' r='3' fill='%233f7d5a'/%3E%3Crect x='19' y='13.5' width='16' height='3' rx='1.5' fill='%23f3f1e8'/%3E%3Crect x='13' y='21.5' width='22' height='3' rx='1.5' fill='%23f3f1e8' opacity='.45'/%3E%3Crect x='13' y='28.5' width='18' height='3' rx='1.5' fill='%23f3f1e8' opacity='.3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --canvas:#f3f1e8; --canvas-2:#eceadf; --surface:#fff;
+  --forest:#3a4d3f; --forest-2:#2f4034; --rail:#2c3b30;
+  --green:#3f7d5a; --ink:#2a2a26; --muted:#8a8a7e; --faint:#a6a698;
+  --line:#e4e1d5; --line-2:#d8d4c6;
+  --open-bg:#dcebdf; --open-fg:#3f7d5a;
+  --draft-bg:#ece7d6; --draft-fg:#8a7a52;
+  --internal-bg:#f3e9cf; --internal-fg:#a8862f;
+  --interview-bg:#dde7f0; --interview-fg:#42729e;
+  --role:#42729e; --amber:#a8862f; --rust:#b8584a;
+  --radius:6px; --radius-lg:8px;
+  --shadow:0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05);
+  --shadow-lg:0 2px 6px rgba(58,77,63,.06),0 18px 50px rgba(58,77,63,.10);
+  --font-display:"Playfair Display",Georgia,serif;
+  --font-ui:"Inter",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:var(--font-ui);font-size:15px;line-height:1.6;color:var(--ink);background:var(--canvas);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+img,svg{display:block}
+:focus-visible{outline:2px solid var(--green);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1120px;margin:0 auto;padding:0 clamp(20px,5vw,40px)}
+.eyebrow{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--green)}
+.muted{color:var(--muted)}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;cursor:pointer;text-decoration:none;border:1px solid transparent;transition:background .15s,border-color .15s,transform .12s}
+.btn:active{transform:translateY(1px)}
+.btn-prim{background:var(--forest);color:#fff;padding:12px 20px}
+.btn-prim:hover{background:var(--forest-2)}
+.btn-sec{background:var(--surface);border-color:var(--line-2);color:var(--ink);padding:12px 20px}
+.btn-sec:hover{background:var(--canvas-2)}
+.btn-ghost{background:transparent;color:var(--ink);padding:10px 4px;text-transform:none;letter-spacing:0;font-weight:600;font-size:14px}
+.btn-light{background:#fff;color:var(--forest);padding:13px 22px}
+.btn-light:hover{background:var(--canvas)}
+.btn-outline-light{background:transparent;border-color:rgba(255,255,255,.3);color:#fff;padding:13px 22px}
+.btn-outline-light:hover{background:rgba(255,255,255,.08)}
+
+/* ---------- chips / pills ---------- */
+.grounded{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--green);background:var(--open-bg);padding:5px 11px;border-radius:20px}
+.pill{display:inline-flex;align-items:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.pill.warm{background:var(--draft-bg);color:var(--draft-fg)}
+.pill.core{background:var(--interview-bg);color:var(--interview-fg)}
+.pill.close{background:var(--open-bg);color:var(--open-fg)}
+
+/* ---------- brand mark / wordmark ---------- */
+.wordmark{font-family:var(--font-display);font-weight:600;letter-spacing:-.5px;line-height:1}
+.wordmark .t{color:var(--muted);font-weight:500}
+
+/* ---------- top nav ---------- */
+header.nav{position:sticky;top:0;z-index:50;background:rgba(243,241,232,.86);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;gap:14px;height:66px}
+.brand{display:flex;align-items:center;gap:11px;text-decoration:none}
+.brand .wordmark{font-size:21px}
+.nav-links{margin-left:auto;display:flex;align-items:center;gap:28px}
+.nav-links a{text-decoration:none;color:var(--muted);font-weight:600;font-size:14px}
+.nav-links a:hover{color:var(--ink)}
+.nav-cta{display:flex;align-items:center;gap:10px}
+@media(max-width:860px){.nav-links a:not(.is-keep){display:none}}
+
+/* ---------- hero ---------- */
+.hero{padding:clamp(56px,8vw,104px) 0 clamp(40px,6vw,72px)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(32px,5vw,64px);align-items:center}
+.hero h1{font-family:var(--font-display);font-weight:600;font-size:clamp(40px,6vw,62px);line-height:1.04;letter-spacing:-1.4px;margin:18px 0 0}
+.hero h1 .accent{color:var(--green)}
+.hero .lede{font-size:clamp(17px,2.1vw,20px);color:#4a4a42;max-width:30ch;margin:20px 0 0}
+.hero .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.hero .trust{display:flex;align-items:center;gap:10px;margin-top:26px;font-size:13px;color:var(--muted)}
+.hero .trust .dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+/* hero visual: forest run-stage card */
+.stage-card{background:var(--forest);border-radius:16px;padding:26px 26px 24px;color:#fff;box-shadow:var(--shadow-lg);position:relative}
+.stage-card .meta{display:flex;align-items:center;justify-content:space-between;font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.66)}
+.stage-card .timer{font-family:var(--font-display);font-size:54px;font-weight:600;letter-spacing:-1px;margin:14px 0 2px}
+.stage-card h3{font-family:var(--font-display);font-size:23px;font-weight:600;margin:0 0 13px}
+.stage-card .rprompt{font-size:14px;line-height:1.55;color:rgba(255,255,255,.92);background:rgba(255,255,255,.07);border-radius:9px;padding:14px 15px;border-left:3px solid var(--green)}
+.stage-card .steps{display:flex;gap:7px;margin-top:18px}
+.stage-card .steps span{flex:1;height:5px;border-radius:4px;background:rgba(255,255,255,.16)}
+.stage-card .steps span.done{background:rgba(255,255,255,.55)}
+.stage-card .steps span.now{background:var(--green)}
+.float-chip{position:absolute;left:-16px;bottom:26px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);padding:11px 13px;display:flex;align-items:center;gap:10px;max-width:230px}
+.float-chip .ico{width:30px;height:30px;border-radius:8px;background:var(--open-bg);display:flex;align-items:center;justify-content:center;flex:none}
+.float-chip .tt{font-size:12px;line-height:1.35}
+.float-chip .tt b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--green)}
+
+/* ---------- logo strip ---------- */
+.proof{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--canvas-2)}
+.proof-in{display:flex;align-items:center;gap:clamp(20px,4vw,48px);flex-wrap:wrap;padding:20px 0}
+.proof-in .lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--faint)}
+.proof-in .item{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--muted)}
+.proof-in .item svg{flex:none}
+
+/* ---------- section scaffolding ---------- */
+section.band{padding:clamp(56px,8vw,92px) 0}
+.sec-head{max-width:680px;margin:0 0 44px}
+.sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.sec-head h2{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4vw,40px);line-height:1.1;letter-spacing:-.8px;margin:12px 0 0}
+.sec-head p{font-size:17px;color:var(--muted);margin:14px 0 0}
+
+/* ---------- the loop ---------- */
+.loop{position:relative}
+.loop-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:20px 18px;box-shadow:var(--shadow);position:relative}
+.step .n{width:30px;height:30px;border-radius:8px;background:var(--forest);color:#fff;font-family:var(--font-display);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.step h4{font-size:15px;font-weight:700;margin:0 0 6px}
+.step p{font-size:13px;color:var(--muted);margin:0}
+.step .arrow{position:absolute;right:-12px;top:32px;color:var(--line-2);z-index:1}
+.step:last-child .arrow{display:none}
+.loop-foot{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:30px;font-size:13.5px;color:var(--muted)}
+.loop-foot .ring{display:inline-flex;align-items:center;gap:7px;font-weight:700;color:var(--green);background:var(--open-bg);padding:7px 14px;border-radius:20px}
+@media(max-width:900px){.loop-grid{grid-template-columns:repeat(2,1fr)}.step .arrow{display:none}}
+@media(max-width:520px){.loop-grid{grid-template-columns:1fr}}
+
+/* ---------- why / features ---------- */
+.feat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.feat{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px;box-shadow:var(--shadow)}
+.feat .ico{width:44px;height:44px;border-radius:11px;background:var(--canvas);display:flex;align-items:center;justify-content:center;color:var(--forest);margin-bottom:16px}
+.feat h3{font-size:18px;font-weight:700;margin:0 0 8px;letter-spacing:-.2px}
+.feat p{font-size:14px;color:var(--muted);margin:0}
+@media(max-width:760px){.feat-grid{grid-template-columns:1fr}}
+
+/* ---------- assessment / science panel ---------- */
+.science{background:var(--forest);border-radius:18px;padding:clamp(28px,4vw,46px);color:#fff;display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,4vw,48px);align-items:center;box-shadow:var(--shadow-lg)}
+.science .eyebrow{color:#9fd3b4}
+.science h2{font-family:var(--font-display);font-weight:600;font-size:clamp(26px,3.4vw,36px);line-height:1.12;letter-spacing:-.6px;margin:12px 0 16px}
+.science p{color:rgba(255,255,255,.82);font-size:15.5px;margin:0 0 14px;max-width:46ch}
+.science ul{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:11px}
+.science li{display:flex;gap:11px;align-items:flex-start;font-size:14.5px;color:rgba(255,255,255,.9)}
+.science li svg{flex:none;margin-top:3px;color:#9fd3b4}
+.bandcard{background:var(--surface);border-radius:14px;padding:22px;color:var(--ink)}
+.bandcard .eyebrow{color:var(--muted)}
+.bandcard h4{font-family:var(--font-display);font-size:18px;font-weight:600;margin:3px 0 14px}
+.bandlegend{display:flex;gap:18px;font-size:11px;color:var(--muted);margin:0 0 16px}
+.bandlegend span{display:inline-flex;align-items:center;gap:6px}
+.swatch-band{width:18px;height:8px;border-radius:4px;background:rgba(66,114,158,.16);border-left:2px solid var(--role);border-right:2px solid var(--role)}
+.swatch-mark{width:11px;height:11px;border-radius:50%;background:var(--green);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+.bandrow{display:grid;grid-template-columns:1fr 1.1fr auto;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}
+.bandrow:last-child{border-bottom:none}
+.bandrow .nm{font-size:13px;font-weight:600}
+.band{position:relative;height:8px;border-radius:6px;background:var(--canvas-2)}
+.band .target{position:absolute;top:0;bottom:0;border-radius:6px;background:rgba(66,114,158,.16);border-left:2px solid var(--role);border-right:2px solid var(--role)}
+.band .marker{position:absolute;top:50%;width:13px;height:13px;border-radius:50%;background:var(--green);border:2.5px solid #fff;transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.bandrow .rd{font-size:11px;font-weight:700;text-align:right}
+.bandrow .rd .in{color:var(--green)}
+.bandrow .rd .below{color:var(--amber)}
+.bandcard .note{font-size:11.5px;color:var(--faint);margin-top:14px;font-style:italic}
+@media(max-width:860px){.science{grid-template-columns:1fr}}
+
+/* ---------- brand / logo ---------- */
+.brand-hero{display:flex;align-items:center;gap:20px;padding:26px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow);margin-bottom:26px;flex-wrap:wrap}
+.brand-hero .wordmark{font-size:34px}
+.brand-hero .meta{color:var(--muted);font-size:13.5px;margin-top:6px}
+.logo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:26px}
+.logo-card{border:1px solid var(--line);background:var(--surface);border-radius:var(--radius-lg);padding:22px;text-align:center;box-shadow:var(--shadow)}
+.logo-card .stage{height:96px;display:flex;align-items:center;justify-content:center;background:var(--canvas);border-radius:8px;margin-bottom:16px}
+.logo-card h4{font-size:15px;font-weight:700;margin:0 0 6px}
+.logo-card p{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+.logo-card .scale{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.logo-card .scale span{font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+.tokens{display:grid;grid-template-columns:1.3fr 1fr;gap:18px}
+.token-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:22px;box-shadow:var(--shadow)}
+.token-card h4{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin:0 0 14px}
+.swatches{display:flex;gap:12px;flex-wrap:wrap}
+.sw{text-align:center}
+.sw .chip{width:62px;height:50px;border-radius:8px;border:1px solid var(--line)}
+.sw small{display:block;font-size:10.5px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+.type-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.type-row:last-child{border-bottom:none}
+.type-row .demo{font-size:24px}
+.type-row .lab{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+@media(max-width:760px){.logo-grid{grid-template-columns:1fr}.tokens{grid-template-columns:1fr}}
+
+/* ---------- final cta ---------- */
+.final{background:var(--forest);color:#fff;border-radius:20px;padding:clamp(36px,5vw,60px);text-align:center;box-shadow:var(--shadow-lg)}
+.final h2{font-family:var(--font-display);font-weight:600;font-size:clamp(28px,4vw,42px);line-height:1.08;letter-spacing:-.8px;margin:0 0 14px}
+.final p{color:rgba(255,255,255,.8);font-size:17px;max-width:48ch;margin:0 auto 28px}
+.signup{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:480px;margin:0 auto}
+.signup input{flex:1;min-width:220px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);border-radius:8px;padding:13px 15px;font-family:inherit;font-size:14px;color:#fff}
+.signup input::placeholder{color:rgba(255,255,255,.6)}
+.signup input:focus{outline:none;border-color:#9fd3b4;background:rgba(255,255,255,.14)}
+.final .fineprint{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:16px}
+
+/* ---------- footer ---------- */
+footer{padding:40px 0 48px}
+.foot-in{display:flex;align-items:center;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:26px}
+.foot-in .brand .wordmark{font-size:18px}
+.foot-links{margin-left:auto;display:flex;gap:24px;flex-wrap:wrap}
+.foot-links a{text-decoration:none;color:var(--muted);font-size:13px;font-weight:600}
+.foot-links a:hover{color:var(--ink)}
+.copy{width:100%;font-size:12px;color:var(--faint);margin-top:18px}
+
+/* ---------- toast ---------- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:var(--ink);color:#fff;font-size:14px;padding:12px 17px;border-radius:9px;display:inline-flex;align-items:center;gap:9px;opacity:0;visibility:hidden;transition:opacity .22s,transform .22s;z-index:90}
+.toast.show{opacity:1;visibility:visible;transform:translate(-50%,0)}
+
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+
+@media(max-width:860px){.hero-grid{grid-template-columns:1fr}.hero .lede{max-width:none}.float-chip{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top" aria-label="OwnTheAgenda home">
+      <svg width="34" height="34" viewBox="0 0 44 44" aria-hidden="true">
+        <rect width="44" height="44" rx="10" fill="#3a4d3f"/>
+        <circle cx="13" cy="15" r="3" fill="#3f7d5a"/>
+        <rect x="19" y="13.5" width="16" height="3" rx="1.5" fill="#f3f1e8"/>
+        <rect x="13" y="21.5" width="22" height="3" rx="1.5" fill="#f3f1e8" opacity=".45"/>
+        <rect x="13" y="28.5" width="18" height="3" rx="1.5" fill="#f3f1e8" opacity=".3"/>
+      </svg>
+      <span class="wordmark">Own<span class="t">the</span>Agenda</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#features">Product</a>
+      <a href="#brand">Brand</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-prim" href="#get-started">Get early access</a>
+    </div>
+  </div>
+</header>
+
+<a id="top"></a>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">For the leaders of leadership teams</span>
+      <h1>Own the room. <br><span class="accent">Own the agenda.</span></h1>
+      <p class="lede">A guided, assessment-fueled workshop you can run yourself — and the action loop that proves it worked.</p>
+      <div class="cta-row">
+        <a class="btn btn-prim" href="#get-started">Get early access</a>
+        <a class="btn btn-sec" href="#how">See how it works →</a>
+      </div>
+      <div class="trust"><span class="dot"></span> No facilitator. No certification. No consultant on retainer.</div>
+    </div>
+
+    <div class="hero-visual">
+      <div class="stage-card">
+        <div class="meta"><span>Segment 3 of 5 · Core</span><span>Decision-rights</span></div>
+        <div class="timer">24:18</div>
+        <h3>Decision-rights mapping</h3>
+        <div class="rprompt">For each recurring decision, name who decides, who is consulted, and who is simply informed.</div>
+        <div class="steps"><span class="done"></span><span class="done"></span><span class="now"></span><span></span><span></span></div>
+        <div class="float-chip">
+          <div class="ico"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg></div>
+          <div class="tt"><b>Grounded</b>Generated from this team's April pulse</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOGO / WHAT IT IS STRIP ============ -->
+<div class="proof">
+  <div class="wrap proof-in">
+    <span class="lab">The loop</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg> Assess</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v3M16 4v3"/></svg> Generate the agenda</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2"><polygon points="6 4 20 12 6 20 6 4"/></svg> Run it live</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Capture commitments</span>
+    <span class="item"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3f7d5a" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> Re-measure</span>
+  </div>
+</div>
+
+<!-- ============ THE LOOP / HOW IT WORKS ============ -->
+<section class="band" id="how">
+  <div class="wrap">
+    <div class="sec-head center reveal">
+      <span class="eyebrow">How it works</span>
+      <h2>The workshop is the hero. The loop is the proof.</h2>
+      <p>Pick a team challenge and OwnTheAgenda walks you through a facilitator-grade session — start to follow-through — without anyone facilitating but you.</p>
+    </div>
+
+    <div class="loop reveal">
+      <div class="loop-grid">
+        <div class="step">
+          <div class="n">1</div>
+          <h4>Assess</h4>
+          <p>A short, validated pulse captures how your team really works — trust, alignment, role clarity, decisions, communication. Minutes per person.</p>
+          <svg class="arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="step">
+          <div class="n">2</div>
+          <h4>Generate</h4>
+          <p>We turn <em>this</em> team's results into an opinionated, time-boxed agenda — a run-of-show with prompts, not a blank canvas.</p>
+          <svg class="arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="step">
+          <div class="n">3</div>
+          <h4>Run</h4>
+          <p>Step through it live: sectioned agenda, a timer, per-step prompts, and lightweight capture. You lead the room; we keep the time.</p>
+          <svg class="arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="step">
+          <div class="n">4</div>
+          <h4>Commit</h4>
+          <p>Decisions and owners are captured in the room and surfaced afterward as tracked actions nobody can quietly drop.</p>
+          <svg class="arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="step">
+          <div class="n">5</div>
+          <h4>Re-measure</h4>
+          <p>Re-run the pulse next cadence and watch the movement. The trend is what makes the work stick.</p>
+        </div>
+      </div>
+      <div class="loop-foot">
+        <span class="ring"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> It compounds</span>
+        every cadence carries actions forward and builds a longitudinal picture of team health.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES / WHY ============ -->
+<section class="band" id="features" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">Why OwnTheAgenda</span>
+      <h2>Built for the leader in the room — not the dashboard you forget.</h2>
+      <p>Plenty of tools profile your people. OwnTheAgenda puts that intelligence to work in the session itself, then proves the session moved something.</p>
+    </div>
+
+    <div class="feat-grid reveal">
+      <div class="feat">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17.5" cy="9" r="2.3"/><path d="M21 19c0-2.6-1.8-4.4-4-4.4"/></svg></div>
+        <h3>You run it — yourself</h3>
+        <p>A run-of-show any leader can follow, with the prompts and timing a great facilitator would bring. No certification, no third party to schedule.</p>
+      </div>
+      <div class="feat">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <h3>Grounded in real science</h3>
+        <p>An owned psychometric engine for how each leader is wired, fused with a team-dynamics layer for how you work together. Every agenda is built from your data — never a generic template.</p>
+      </div>
+      <div class="feat">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 4v3M16 4v3"/><path d="M8 14h5"/></svg></div>
+        <h3>The session is the product</h3>
+        <p>A structured live surface — agenda, timer, prompts, capture — not an infinite whiteboard and not a report you read alone. Everything points at the conversation in the room.</p>
+      </div>
+      <div class="feat">
+        <div class="ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 8v4l3 2"/></svg></div>
+        <h3>A loop, not a one-off</h3>
+        <p>Recurring cadence, carried-over actions, and a trend line you can show the team and the board. Progress you can actually see.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCIENCE / ASSESSMENT ============ -->
+<section class="band">
+  <div class="wrap">
+    <div class="science reveal">
+      <div>
+        <span class="eyebrow">The assessment core</span>
+        <h2>It knows this team — not a template.</h2>
+        <p>A short pulse maps your team against a healthy range across the dynamics that decide whether a leadership team performs. The result fuels the agenda automatically.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> Individual psychometrics — how each leader is wired</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> Team dynamics — trust, safety, conflict, role clarity, decision rights</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 6 9 17l-5-5"/></svg> Privacy-first and consent-based — bands and ranges, never a score to beat</li>
+        </ul>
+      </div>
+
+      <div class="bandcard">
+        <div class="eyebrow">Team dynamics</div>
+        <h4>Where this team sits today</h4>
+        <div class="bandlegend">
+          <span><span class="swatch-band"></span> Healthy band</span>
+          <span><span class="swatch-mark"></span> This team</span>
+        </div>
+        <div class="bandrow">
+          <div class="nm">Psychological safety</div>
+          <div class="band"><div class="target" style="left:55%;right:8%"></div><div class="marker" style="left:38%"></div></div>
+          <div class="rd"><span class="below">Below</span></div>
+        </div>
+        <div class="bandrow">
+          <div class="nm">Trust</div>
+          <div class="band"><div class="target" style="left:50%;right:8%"></div><div class="marker" style="left:60%"></div></div>
+          <div class="rd"><span class="in">In band</span></div>
+        </div>
+        <div class="bandrow">
+          <div class="nm">Conflict norms</div>
+          <div class="band"><div class="target" style="left:52%;right:8%"></div><div class="marker" style="left:54%"></div></div>
+          <div class="rd"><span class="in">In band</span></div>
+        </div>
+        <div class="bandrow">
+          <div class="nm">Role clarity</div>
+          <div class="band"><div class="target" style="left:50%;right:6%"></div><div class="marker" style="left:72%"></div></div>
+          <div class="rd"><span class="in">In band</span></div>
+        </div>
+        <div class="bandrow">
+          <div class="nm">Decision rights</div>
+          <div class="band"><div class="target" style="left:55%;right:8%"></div><div class="marker" style="left:30%"></div></div>
+          <div class="rd"><span class="below">Below</span></div>
+        </div>
+        <div class="note">The pulse informs how the session is designed; it never decides for you.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BRAND / LOGO ============ -->
+<section class="band" id="brand" style="background:var(--canvas-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <span class="eyebrow">The brand</span>
+      <h2>One name, one mark, one idea: you own the agenda.</h2>
+      <p>Forest green and warm cream, set in Playfair Display and Inter. The mark turns the act of owning a line on a list into a logo.</p>
+    </div>
+
+    <div class="brand-hero reveal">
+      <svg width="58" height="58" viewBox="0 0 44 44" aria-hidden="true">
+        <rect width="44" height="44" rx="10" fill="#3a4d3f"/>
+        <circle cx="13" cy="15" r="3" fill="#3f7d5a"/>
+        <rect x="19" y="13.5" width="16" height="3" rx="1.5" fill="#f3f1e8"/>
+        <rect x="13" y="21.5" width="22" height="3" rx="1.5" fill="#f3f1e8" opacity=".45"/>
+        <rect x="13" y="28.5" width="18" height="3" rx="1.5" fill="#f3f1e8" opacity=".3"/>
+      </svg>
+      <div>
+        <div class="wordmark">Own<span class="t">the</span>Agenda</div>
+        <div class="meta">owntheagenda.com · forest / cream · Playfair&nbsp;Display + Inter</div>
+      </div>
+    </div>
+
+    <div class="eyebrow" style="margin-bottom:14px;color:var(--muted)">Three directions for the mark</div>
+    <div class="logo-grid reveal">
+      <div class="logo-card">
+        <div class="stage">
+          <svg width="50" height="50" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#3a4d3f"/><circle cx="13" cy="15" r="3" fill="#3f7d5a"/><rect x="19" y="13.5" width="16" height="3" rx="1.5" fill="#f3f1e8"/><rect x="13" y="21.5" width="22" height="3" rx="1.5" fill="#f3f1e8" opacity=".45"/><rect x="13" y="28.5" width="18" height="3" rx="1.5" fill="#f3f1e8" opacity=".3"/></svg>
+        </div>
+        <h4>Lead line</h4>
+        <p>The item you own sits on top, marked green — the same “green&nbsp;=&nbsp;active” signal the app uses everywhere else. Our lead direction.</p>
+        <div class="scale">
+          <svg width="16" height="16" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#3a4d3f"/><circle cx="13" cy="15" r="3" fill="#3f7d5a"/><rect x="19" y="13.5" width="16" height="3" rx="1.5" fill="#f3f1e8"/><rect x="13" y="21.5" width="22" height="3" rx="1.5" fill="#f3f1e8" opacity=".45"/></svg>
+          <span>scales to 16px favicon</span>
+        </div>
+      </div>
+      <div class="logo-card">
+        <div class="stage">
+          <svg width="50" height="50" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#3a4d3f"/><path d="M13 23 l5 5 L31 14" fill="none" stroke="#3f7d5a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <h4>Checkpoint</h4>
+        <p>Ownership as a decisive check — agenda set, session done, commitments closed. The most “app-icon” of the three; reads at any size.</p>
+        <div class="scale">
+          <svg width="16" height="16" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#3a4d3f"/><path d="M13 23 l5 5 L31 14" fill="none" stroke="#3f7d5a" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span>scales to 16px favicon</span>
+        </div>
+      </div>
+      <div class="logo-card">
+        <div class="stage">
+          <svg width="50" height="50" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#f3f1e8" stroke="#e4e1d5"/><circle cx="20" cy="22" r="9.5" fill="none" stroke="#3a4d3f" stroke-width="3"/><rect x="22" y="20.5" width="13" height="3" rx="1.5" fill="#3f7d5a"/></svg>
+        </div>
+        <h4>Open agenda</h4>
+        <p>The “O” of <b>Own</b> setting a line in motion. Lighter and cream-first — pairs with the wordmark for marketing and login screens.</p>
+        <div class="scale">
+          <svg width="16" height="16" viewBox="0 0 44 44"><rect width="44" height="44" rx="10" fill="#f3f1e8" stroke="#e4e1d5"/><circle cx="20" cy="22" r="9.5" fill="none" stroke="#3a4d3f" stroke-width="3.5"/><rect x="22" y="20.5" width="13" height="3.5" rx="1.75" fill="#3f7d5a"/></svg>
+          <span>scales to 16px favicon</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tokens reveal">
+      <div class="token-card">
+        <h4>Palette</h4>
+        <div class="swatches">
+          <div class="sw"><div class="chip" style="background:#3a4d3f"></div><small>Forest<br>#3A4D3F</small></div>
+          <div class="sw"><div class="chip" style="background:#3f7d5a"></div><small>Green<br>#3F7D5A</small></div>
+          <div class="sw"><div class="chip" style="background:#f3f1e8"></div><small>Canvas<br>#F3F1E8</small></div>
+          <div class="sw"><div class="chip" style="background:#2a2a26"></div><small>Ink<br>#2A2A26</small></div>
+          <div class="sw"><div class="chip" style="background:#a8862f"></div><small>Amber<br>#A8862F</small></div>
+        </div>
+      </div>
+      <div class="token-card">
+        <h4>Typography</h4>
+        <div class="type-row"><span class="demo" style="font-family:var(--font-display);font-weight:600">Playfair Display</span><span class="lab">Headlines</span></div>
+        <div class="type-row"><span class="demo" style="font-family:var(--font-ui);font-weight:600">Inter</span><span class="lab">Interface &amp; body</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="band" id="get-started">
+  <div class="wrap">
+    <div class="final reveal">
+      <h2>Run your next leadership session like you own it.</h2>
+      <p>OwnTheAgenda is taking on a first wave of leadership teams. Leave your email and we'll be in touch.</p>
+      <form class="signup" id="signupForm" novalidate>
+        <input type="email" id="email" placeholder="you@company.com" aria-label="Work email" required>
+        <button class="btn btn-light" type="submit">Request access</button>
+      </form>
+      <div class="fineprint">Or write to <a href="mailto:hello@owntheagenda.com" style="color:#9fd3b4">hello@owntheagenda.com</a> · No spam, just an invite.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap foot-in">
+    <a class="brand" href="#top" aria-label="OwnTheAgenda home">
+      <svg width="26" height="26" viewBox="0 0 44 44" aria-hidden="true">
+        <rect width="44" height="44" rx="10" fill="#3a4d3f"/>
+        <circle cx="13" cy="15" r="3" fill="#3f7d5a"/>
+        <rect x="19" y="13.5" width="16" height="3" rx="1.5" fill="#f3f1e8"/>
+        <rect x="13" y="21.5" width="22" height="3" rx="1.5" fill="#f3f1e8" opacity=".45"/>
+        <rect x="13" y="28.5" width="18" height="3" rx="1.5" fill="#f3f1e8" opacity=".3"/>
+      </svg>
+      <span class="wordmark">Own<span class="t">the</span>Agenda</span>
+    </a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#features">Product</a>
+      <a href="#brand">Brand</a>
+      <a href="mailto:hello@owntheagenda.com">Contact</a>
+    </nav>
+    <div class="copy">© 2026 OwnTheAgenda · owntheagenda.com · The session-running OS for leadership teams.</div>
+  </div>
+</footer>
+
+<!-- toast -->
+<div class="toast" id="toast"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg><span id="toastMsg">Thanks — you're on the list.</span></div>
+
+<script>
+/* email capture (front-end only placeholder) */
+document.getElementById('signupForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  var email=document.getElementById('email');
+  if(!email.value || !email.checkValidity()){ email.focus(); return; }
+  showToast("Thanks — we'll be in touch at "+email.value);
+  email.value='';
+});
+function showToast(msg){
+  var t=document.getElementById('toast');
+  document.getElementById('toastMsg').textContent=msg;
+  t.classList.add('show');
+  clearTimeout(window._tt); window._tt=setTimeout(function(){t.classList.remove('show');},3200);
+}
+
+/* reveal on scroll */
+(function(){
+  var els=document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window)){els.forEach(function(el){el.classList.add('in')});return;}
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);} });
+  },{rootMargin:'0px 0px -8% 0px',threshold:.08});
+  els.forEach(function(el){io.observe(el)});
+})();
+</script>
+</body>
+</html>
