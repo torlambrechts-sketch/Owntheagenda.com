@@ -51,12 +51,13 @@ type Obj = {
   strokeW: number | null;
   variant: string | null;
   authorName: string | null;
+  z: number;
 };
 
 type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker";
 
 const COLS =
-  "id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, author_id, author_name";
+  "id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, author_id, author_name, z";
 
 function mapRow(r: any): Obj {
   return {
@@ -80,6 +81,7 @@ function mapRow(r: any): Obj {
     strokeW: r.stroke_w ?? null,
     variant: r.variant ?? null,
     authorName: r.author_name ?? null,
+    z: r.z ?? 0,
   };
 }
 
@@ -255,7 +257,7 @@ export function CanvasBoard({
   };
   const shapeAt = (p: Pt, excludeId?: string): Obj | undefined => {
     const { bw, bh } = sizeRef.current;
-    const shapes = objectsRef.current.filter((o) => SHAPE_KINDS.has(o.kind));
+    const shapes = objectsRef.current.filter((o) => SHAPE_KINDS.has(o.kind)).sort((a, b) => a.z - b.z);
     for (let i = shapes.length - 1; i >= 0; i--) {
       const o = shapes[i];
       if (o.id === excludeId) continue;
@@ -558,8 +560,18 @@ export function CanvasBoard({
     }
   }
 
+  // Bring-to-front / send-to-back: nudge the shape's z past the current extreme.
+  function arrange(dir: "front" | "back") {
+    const sel = byId(selectedId);
+    if (!sel || !SHAPE_KINDS.has(sel.kind) || !canEdit) return;
+    const zs = objectsRef.current.filter((o) => SHAPE_KINDS.has(o.kind)).map((o) => o.z);
+    const z = dir === "front" ? Math.max(0, ...zs) + 1 : Math.min(0, ...zs) - 1;
+    setObjects((prev) => prev.map((o) => (o.id === sel.id ? { ...o, z } : o)));
+    patchObj(sel.id, { z });
+  }
+
   const { bw, bh } = size;
-  const shapes = objects.filter((o) => SHAPE_KINDS.has(o.kind));
+  const shapes = objects.filter((o) => SHAPE_KINDS.has(o.kind)).sort((a, b) => a.z - b.z);
   const connectors = objects.filter((o) => o.kind === "connector");
   const drawings = objects.filter((o) => o.kind === "draw");
   const selObj = byId(selectedId);
@@ -675,8 +687,18 @@ export function CanvasBoard({
         </div>
 
         {/* contextual options: colour + connector routing */}
-        {showFills || showStrokes || showLineStyles ? (
+        {showFills || showStrokes || showLineStyles || (selObj && SHAPE_KINDS.has(selObj.kind) && canEdit) ? (
           <div className="csub" onPointerDown={(e) => e.stopPropagation()}>
+            {selObj && SHAPE_KINDS.has(selObj.kind) && canEdit ? (
+              <div className="csub-grp">
+                <button className="lstyle" title="Bring to front" aria-label="Bring to front" onClick={() => arrange("front")}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="9" y="9" width="11" height="11" rx="1.5" fill="var(--surface)" /><rect x="4" y="4" width="9" height="9" rx="1.5" /></svg>
+                </button>
+                <button className="lstyle" title="Send to back" aria-label="Send to back" onClick={() => arrange("back")}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><rect x="4" y="4" width="11" height="11" rx="1.5" fill="var(--surface)" /><rect x="11" y="11" width="9" height="9" rx="1.5" /></svg>
+                </button>
+              </div>
+            ) : null}
             {showLineStyles ? (
               <div className="csub-grp">
                 {(["straight", "curved", "rounded"] as const).map((ls) => (
