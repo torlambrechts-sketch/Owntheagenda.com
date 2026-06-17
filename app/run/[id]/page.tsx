@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
+import { resolveInstruments } from "@/lib/assessments";
 import { RunLobby } from "./RunLobby";
 import { RunClient, type RunBlock, type Participant, type Action } from "./RunClient";
 
@@ -95,6 +96,9 @@ export default async function RunPage({
   const userName =
     ctx.profile?.full_name || ctx.profile?.display_name || ctx.email || "You";
 
+  // Resolve the instrument catalog from the template library (data-driven).
+  const instruments = await resolveInstruments();
+
   return (
     <RunClient
       workshopId={workshop.id}
@@ -104,6 +108,7 @@ export default async function RunPage({
       initialSurveyId={workshop.survey_id}
       title={workshop.title}
       blocks={runBlocks}
+      instruments={instruments}
       session={{
         id: session.id,
         currentBlockOrd: session.current_block_ord,

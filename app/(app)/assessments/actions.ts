@@ -2,22 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { INSTRUMENTS } from "@/lib/survey";
 
 // Send a multi-item assessment to the team, optionally with a deadline.
+// The instrument name is resolved from the template library by key.
 export async function sendSurvey(
   teamId: string,
   kind: string,
   dueAt: string | null,
 ): Promise<{ error?: string }> {
-  const inst = INSTRUMENTS[kind];
-  if (!inst) return { error: "Unknown instrument." };
-  const due = dueAt ? new Date(dueAt + "T23:59:00") : null;
   const supabase = createClient();
+  const { data: tpl } = await supabase
+    .from("assessment_template")
+    .select("name")
+    .eq("key", kind)
+    .order("workspace_id", { ascending: true, nullsFirst: false });
+  const name = (tpl ?? [])[0]?.name as string | undefined;
+  if (!name) return { error: "Unknown instrument." };
+  const due = dueAt ? new Date(dueAt + "T23:59:00") : null;
   const { error } = await supabase.rpc("create_survey", {
     p_team: teamId,
     p_kind: kind,
-    p_name: inst.name,
+    p_name: name,
     ...(due && !isNaN(due.getTime()) ? { p_due: due.toISOString() } : {}),
   });
   if (error) return { error: error.message };

@@ -8,6 +8,7 @@ import {
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
+  instrumentFromRow,
 } from "@/lib/survey";
 
 describe("PSYCH_SAFETY_BANG", () => {
@@ -69,5 +70,32 @@ describe("instrument registry", () => {
   it("has the new effectiveness + learning instruments", () => {
     expect(TEAM_EFFECTIVENESS_BANG.items).toHaveLength(8);
     expect(TEAM_LEARNING_EDMONDSON.items).toHaveLength(5);
+  });
+});
+
+describe("instrumentFromRow", () => {
+  const def = {
+    scale: { min: 1, max: 7, minLabel: "Lo", maxLabel: "Hi" },
+    dimensions: [{ key: "a", label: "Alpha", blurb: "" }],
+    items: [{ key: "a_1", dimension: "a", text: "Q" }],
+    strengthDimension: "a",
+  };
+  it("builds an instrument from a template row (key→kind, name, definition)", () => {
+    const inst = instrumentFromRow({ key: "demo", name: "Demo", definition: def });
+    expect(inst?.kind).toBe("demo");
+    expect(inst?.name).toBe("Demo");
+    expect(inst?.items).toHaveLength(1);
+    expect(inst?.strengthDimension).toBe("a");
+  });
+  it("defaults strengthDimension to the first dimension when absent", () => {
+    const { strengthDimension, ...rest } = def;
+    void strengthDimension;
+    const inst = instrumentFromRow({ key: "d", name: "D", definition: rest });
+    expect(inst?.strengthDimension).toBe("a");
+  });
+  it("returns null for an unusable definition", () => {
+    expect(instrumentFromRow({ key: "x", name: "X", definition: null })).toBeNull();
+    expect(instrumentFromRow({ key: "x", name: "X", definition: {} })).toBeNull();
+    expect(instrumentFromRow({ key: "x", name: "X", definition: { scale: def.scale, dimensions: [], items: [] } })).toBeNull();
   });
 });

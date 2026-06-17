@@ -2,17 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { INSTRUMENT_LIST } from "@/lib/survey";
 import { sendSurvey, remindSurvey, closeSurvey } from "./actions";
 
 type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null };
+type Pick = { key: string; name: string };
 
 // Lead/admin surface: send a date-bound assessment to the team, then remind /
 // close it. The date-bound survey is the "pre-work" you send ahead of a workshop.
-export function SendSurvey({ teamId, openSurveys }: { teamId: string; openSurveys: OpenSurvey[] }) {
+// The instrument list comes from the template library (team-scope templates).
+export function SendSurvey({ teamId, openSurveys, templates }: { teamId: string; openSurveys: OpenSurvey[]; templates: Pick[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [kind, setKind] = useState(INSTRUMENT_LIST[0].kind);
+  const [kind, setKind] = useState(templates[0]?.key ?? "");
   const [due, setDue] = useState("");
   const [toast, setToast] = useState<string | null>(null);
 
@@ -60,8 +61,8 @@ export function SendSurvey({ teamId, openSurveys }: { teamId: string; openSurvey
         <div className="field">
           <label>Instrument</label>
           <select className="inp" value={kind} onChange={(e) => setKind(e.target.value)}>
-            {INSTRUMENT_LIST.map((i) => (
-              <option key={i.kind} value={i.kind}>{i.name}</option>
+            {templates.map((t) => (
+              <option key={t.key} value={t.key}>{t.name}</option>
             ))}
           </select>
         </div>
@@ -71,7 +72,7 @@ export function SendSurvey({ teamId, openSurveys }: { teamId: string; openSurvey
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button className="btn-prim" disabled={pending} onClick={send}>Send to team ▸</button>
+        <button className="btn-prim" disabled={pending || !kind} onClick={send}>Send to team ▸</button>
       </div>
 
       {openSurveys.length > 0 ? (

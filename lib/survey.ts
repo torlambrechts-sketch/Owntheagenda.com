@@ -119,3 +119,34 @@ export function climateStrength(sd: number | null): { label: string; tone: "alig
 export function strengthItemKeys(inst: SurveyInstrument): string[] {
   return inst.items.filter((it) => it.dimension === inst.strengthDimension).map((it) => it.key);
 }
+
+// Shape of the `definition` jsonb stored on an assessment_template row.
+export type InstrumentDefinition = {
+  scale: SurveyInstrument["scale"];
+  dimensions: SurveyDimension[];
+  items: SurveyItem[];
+  strengthDimension?: string;
+};
+
+// Build a runtime SurveyInstrument from an assessment_template row: the row's
+// `key` becomes the kind, `name` the label, and `definition` carries the scale,
+// dimensions and items. Returns null if the definition can't be rendered. This
+// is what makes the instrument catalog data-driven — add a row, get a working
+// survey, no code change.
+export function instrumentFromRow(row: {
+  key: string;
+  name: string;
+  definition: unknown;
+}): SurveyInstrument | null {
+  const def = (row.definition ?? null) as Partial<InstrumentDefinition> | null;
+  if (!def || !def.scale || !Array.isArray(def.dimensions) || !Array.isArray(def.items)) return null;
+  if (def.dimensions.length === 0 || def.items.length === 0) return null;
+  return {
+    kind: row.key,
+    name: row.name,
+    scale: def.scale,
+    dimensions: def.dimensions,
+    items: def.items,
+    strengthDimension: def.strengthDimension ?? def.dimensions[0].key,
+  };
+}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
+import { listTemplates, instrumentsFrom } from "@/lib/assessments";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
 import { SurveyRespond } from "./SurveyRespond";
 import { SendSurvey } from "./SendSurvey";
@@ -136,6 +137,11 @@ export default async function AssessmentsPage({
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
+  // Instrument catalog from the template library (data-driven).
+  const templates = await listTemplates();
+  const teamTemplates = templates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
+  const instruments = instrumentsFrom(templates);
+
   // Participation roster for an open pulse (lead/admin only): who has responded.
   let participation: { name: string; completed: boolean }[] | null = null;
   if (openPulse && canManage) {
@@ -174,6 +180,7 @@ export default async function AssessmentsPage({
         <SendSurvey
           teamId={teamId}
           openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null }[]}
+          templates={teamTemplates}
         />
       ) : null}
 
@@ -181,6 +188,7 @@ export default async function AssessmentsPage({
         <SurveyRespond
           surveys={(openSurveys ?? []) as { id: string; name: string; kind: string }[]}
           userId={ctx.userId}
+          instruments={instruments}
         />
       ) : null}
 

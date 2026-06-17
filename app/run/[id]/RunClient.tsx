@@ -12,6 +12,7 @@ import { AssessModule } from "./AssessModule";
 import { SurveyModule } from "./SurveyModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
+import type { SurveyInstrument } from "@/lib/survey";
 import type { Enums } from "@/types/database.types";
 
 export type RunBlock = {
@@ -53,6 +54,7 @@ export function RunClient({
   initialSurveyId,
   title,
   blocks,
+  instruments,
   session: initialSession,
   isFacilitator,
   userId,
@@ -67,6 +69,7 @@ export function RunClient({
   initialSurveyId: string | null;
   title: string;
   blocks: RunBlock[];
+  instruments: Record<string, SurveyInstrument>;
   session: SessionState;
   isFacilitator: boolean;
   userId: string;
@@ -373,6 +376,7 @@ export function RunClient({
               isFacilitator={isFacilitator}
               initialSurveyId={initialSurveyId}
               kind={((block?.config as Record<string, unknown>)?.kind as string) ?? "psych_safety_bang"}
+              instrument={instruments[((block?.config as Record<string, unknown>)?.kind as string) ?? "psych_safety_bang"] ?? null}
               timing={((block?.config as Record<string, unknown>)?.timing as string) ?? "live"}
               userId={userId}
               title={block?.title ?? "Survey"}

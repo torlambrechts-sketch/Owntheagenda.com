@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  INSTRUMENTS,
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
   type ItemStat,
+  type SurveyInstrument,
 } from "@/lib/survey";
 
 // Dual-mode multi-item survey (Bang psychological safety). Same module whether
@@ -21,6 +21,7 @@ export function SurveyModule({
   isFacilitator,
   initialSurveyId,
   kind,
+  instrument,
   timing,
   userId,
   title,
@@ -34,6 +35,7 @@ export function SurveyModule({
   isFacilitator: boolean;
   initialSurveyId: string | null;
   kind: string;
+  instrument: SurveyInstrument | null;
   timing: string;
   userId: string;
   title: string;
@@ -44,7 +46,7 @@ export function SurveyModule({
   onToggleReady: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
-  const inst = INSTRUMENTS[kind];
+  const inst = instrument;
   const [surveyId, setSurveyId] = useState<string | null>(initialSurveyId);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -104,6 +106,7 @@ export function SurveyModule({
   const allRated = inst.items.every((it) => scores[it.key]);
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
+  const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
   const max = inst.scale.max;
   const respondents = results?.respondents ?? 0;
 
@@ -128,7 +131,7 @@ export function SurveyModule({
           <div className="assess-empty">
             {isFacilitator ? (
               <>
-                <p>{timing === "prerequisite" ? "No pre-session survey is linked yet." : "A short, anonymous read on psychological safety — 9 items, ~2 minutes."}</p>
+                <p>{timing === "prerequisite" ? "No pre-session survey is linked yet." : `A short, anonymous read — ${inst.items.length} items, ~2 minutes.`}</p>
                 <button className="btn-prim" disabled={busy} onClick={openSurvey}>{busy ? "Opening…" : "Open the survey"}</button>
               </>
             ) : (
@@ -167,7 +170,7 @@ export function SurveyModule({
               <div className="aa-h">
                 Team reading
                 {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
-                {strength ? <span className={`svchip ${strength.tone}`} title="How much the team agrees on how safe it is">{strength.label} on safety</span> : null}
+                {strength ? <span className={`svchip ${strength.tone}`} title={`How much the team agrees on ${strengthLabel}`}>{strength.label} on {strengthLabel}</span> : null}
               </div>
               {dims ? dims.map((d) => {
                 const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
