@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVITY, initials } from "@/lib/util";
+import { SessionSynthesis } from "./Synthesis";
 
 function fmtDateTime(d: string | null) {
   if (!d) return "—";
@@ -193,6 +194,8 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
           </div>
         );
       })}
+
+      {ideaList.length > 0 ? <SessionSynthesis sessionId={session.id} /> : null}
 
       <div className="ro-block">
         <div className="ro-block-h">
