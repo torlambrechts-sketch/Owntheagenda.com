@@ -411,6 +411,132 @@ export type Database = {
         }
         Relationships: []
       }
+      template: {
+        Row: {
+          id: string
+          workspace_id: string | null
+          key: string | null
+          name: string
+          category: Database["public"]["Enums"]["template_category"]
+          source: string | null
+          default_duration: number
+          description: string | null
+          definition: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id?: string | null
+          key?: string | null
+          name: string
+          category: Database["public"]["Enums"]["template_category"]
+          source?: string | null
+          default_duration?: number
+          description?: string | null
+          definition?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string | null
+          key?: string | null
+          name?: string
+          category?: Database["public"]["Enums"]["template_category"]
+          source?: string | null
+          default_duration?: number
+          description?: string | null
+          definition?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      workshop: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string
+          title: string
+          template_id: string | null
+          pulse_id: string | null
+          status: Database["public"]["Enums"]["workshop_status"]
+          scheduled_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id?: string
+          team_id: string
+          title: string
+          template_id?: string | null
+          pulse_id?: string | null
+          status?: Database["public"]["Enums"]["workshop_status"]
+          scheduled_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          team_id?: string
+          title?: string
+          template_id?: string | null
+          pulse_id?: string | null
+          status?: Database["public"]["Enums"]["workshop_status"]
+          scheduled_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      block: {
+        Row: {
+          id: string
+          workshop_id: string
+          ord: number
+          title: string
+          activity_type: Database["public"]["Enums"]["activity_type"]
+          duration: number
+          prompt: string | null
+          linked_dynamic: Database["public"]["Enums"]["team_dynamic"] | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workshop_id: string
+          ord: number
+          title: string
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          duration?: number
+          prompt?: string | null
+          linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workshop_id?: string
+          ord?: number
+          title?: string
+          activity_type?: Database["public"]["Enums"]["activity_type"]
+          duration?: number
+          prompt?: string | null
+          linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -488,12 +614,32 @@ export type Database = {
         Args: { p_pulse: string }
         Returns: number
       }
+      create_workshop_from_template: {
+        Args: {
+          p_pulse?: string
+          p_team: string
+          p_template: string
+          p_title: string
+        }
+        Returns: Database["public"]["Tables"]["workshop"]["Row"]
+      }
     }
     Enums: {
+      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended"
       plan_tier: "free" | "pro" | "enterprise"
       pulse_status: "draft" | "open" | "closed"
+      template_category:
+        | "team"
+        | "retro"
+        | "ideation"
+        | "prioritization"
+        | "strategy"
+        | "design"
+        | "kickoff"
+        | "checkin"
+      workshop_status: "draft" | "scheduled" | "live" | "done"
       team_dynamic:
         | "psych_safety"
         | "trust"
@@ -522,10 +668,22 @@ export type Enums<T extends keyof DefaultSchema["Enums"]> =
 export const Constants = {
   public: {
     Enums: {
+      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended"],
       plan_tier: ["free", "pro", "enterprise"],
       pulse_status: ["draft", "open", "closed"],
+      template_category: [
+        "team",
+        "retro",
+        "ideation",
+        "prioritization",
+        "strategy",
+        "design",
+        "kickoff",
+        "checkin",
+      ],
+      workshop_status: ["draft", "scheduled", "live", "done"],
       team_dynamic: [
         "psych_safety",
         "trust",
