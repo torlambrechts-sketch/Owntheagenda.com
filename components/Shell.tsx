@@ -41,12 +41,18 @@ const ICONS = {
       <path d="M12 8v4M6 16v-2h12v2" />
     </svg>
   ),
+  assess: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+    </svg>
+  ),
 };
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
+  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
 ];
 
 export function Shell({
@@ -60,7 +66,7 @@ export function Shell({
   const [wsOpen, setWsOpen] = useState(false);
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
-  const groups = ["Workspace", "People"];
+  const groups = ["Workspace", "People", "Effectiveness"];
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
