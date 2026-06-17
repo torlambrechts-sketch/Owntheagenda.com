@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVITY, initials } from "@/lib/util";
 import { SessionSynthesis } from "./Synthesis";
+import { PrintButton } from "./PrintButton";
 
 function fmtDateTime(d: string | null) {
   if (!d) return "—";
@@ -109,9 +110,12 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
             {durationLabel(session.started_at, session.ended_at) ? ` · ${durationLabel(session.started_at, session.ended_at)}` : ""}
           </p>
         </div>
-        {liveBanner ? (
-          <Link className="btn-prim" href={`/run/${session.workshop_id}`}>Rejoin live ▸</Link>
-        ) : null}
+        <div style={{ display: "flex", gap: 10, flex: "none" }} className="no-print">
+          <PrintButton />
+          {liveBanner ? (
+            <Link className="btn-prim" href={`/run/${session.workshop_id}`}>Rejoin live ▸</Link>
+          ) : null}
+        </div>
       </div>
 
       <div className="summary" style={{ marginTop: 14 }}>

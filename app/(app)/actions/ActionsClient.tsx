@@ -75,6 +75,21 @@ export function ActionsClient({
     setTimeout(() => setToast(null), 2400);
   }
 
+  function exportCsv() {
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = ["Team", "Action", "Owner", "Due", "Status", "Source"].map(esc).join(",");
+    const body = rows.map((r) =>
+      [r.teamName, r.text, r.owner ?? "", r.dueAt ?? "", r.status, r.workshopTitle ?? ""].map(esc).join(","),
+    );
+    const blob = new Blob([[header, ...body].join("\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "owntheagenda-actions.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   const openCount = rows.filter((r) => r.status === "open").length;
   const doneCount = rows.length - openCount;
   const soonCount = rows.filter((r) => {
@@ -254,6 +269,9 @@ export function ActionsClient({
             </button>
           ))}
         </div>
+        <button className="btn-sec" style={{ marginLeft: "auto" }} disabled={!rows.length} onClick={exportCsv}>
+          Export CSV
+        </button>
       </div>
 
       {groups.length === 0 && orphans.length === 0 ? (

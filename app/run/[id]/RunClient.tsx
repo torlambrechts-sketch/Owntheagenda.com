@@ -75,6 +75,7 @@ export function RunClient({
   );
   const [actText, setActText] = useState("");
   const [actOwner, setActOwner] = useState("");
+  const [endErr, setEndErr] = useState<string | null>(null);
 
   const sid = session.id;
   const N = blocks.length;
@@ -200,8 +201,10 @@ export function RunClient({
     await supabase.rpc("toggle_action", { p_action: id });
   };
   async function endSession() {
-    if (!confirm("End the session for everyone?")) return;
-    await supabase.rpc("end_session", { p_session: sid });
+    setEndErr(null);
+    if (!confirm("Close the session for everyone? This finalises it and opens the readout.")) return;
+    const { error } = await supabase.rpc("end_session", { p_session: sid });
+    if (error) setEndErr(error.message);
   }
   async function toggleReady() {
     const me = participants.find((p) => p.userId === userId);
@@ -270,8 +273,18 @@ export function RunClient({
         ) : (
           <div className="roletag">Participant</div>
         )}
-        {acting ? <button className="exitbtn" onClick={endSession}>End</button> : null}
+        {acting ? <button className="exitbtn" onClick={endSession}>Close ▸</button> : null}
       </div>
+
+      {endErr ? (
+        <div className="closegate">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
+          <span>Can’t close yet — {endErr}</span>
+          <button className="cg-x" onClick={() => setEndErr(null)}>Dismiss</button>
+        </div>
+      ) : null}
 
       <div className="runbody">
         {block?.activityType === "canvas" ? (
