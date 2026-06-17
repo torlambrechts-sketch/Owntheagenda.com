@@ -306,6 +306,7 @@ export function RunClient({
               prompt={block?.prompt ?? null}
               stepLabel={`Canvas · Step ${session.currentBlockOrd} of ${N}`}
               userName={userName}
+              isFacilitator={isFacilitator}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}

@@ -88,6 +88,7 @@ export function CanvasBoard({
   prompt,
   stepLabel,
   userName,
+  isFacilitator,
   showReady,
   ready,
   onToggleReady,
@@ -98,6 +99,7 @@ export function CanvasBoard({
   prompt: string | null;
   stepLabel: string;
   userName: string;
+  isFacilitator: boolean;
   showReady: boolean;
   ready: boolean;
   onToggleReady: () => void;
@@ -273,6 +275,12 @@ export function CanvasBoard({
     const t = toolRef.current;
     const el = e.target as HTMLElement;
     if (el.closest("textarea")) return; // let text editing capture its own events
+    if (!canEdit) {
+      // board is locked for non-facilitators — selection only
+      const cidEl = el.closest("[data-cid]") as HTMLElement | null;
+      setSelectedId(cidEl?.getAttribute("data-cid") ?? null);
+      return;
+    }
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
 
@@ -442,6 +450,10 @@ export function CanvasBoard({
     const onKey = (e: KeyboardEvent) => {
       if (editingRef.current) return;
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        const bo = objectsRef.current.find((o) => o.kind === "__board");
+        let s: Record<string, unknown> = {};
+        try { s = bo?.text ? JSON.parse(bo.text) : {}; } catch { s = {}; }
+        if (!isFacilitator && s.locked) return;
         e.preventDefault();
         delObj(selectedId);
       }
@@ -487,11 +499,31 @@ export function CanvasBoard({
     }
   }
 
+  // Facilitator board settings (lock / hide names) stored in a singleton __board object.
+  async function setBoardSetting(patch: { locked?: boolean; hideNames?: boolean }) {
+    const cur = objectsRef.current.find((o) => o.kind === "__board");
+    let s: Record<string, unknown> = {};
+    try { s = cur?.text ? JSON.parse(cur.text) : {}; } catch { s = {}; }
+    const merged = JSON.stringify({ ...s, ...patch });
+    if (cur) {
+      setObjects((p) => p.map((o) => (o.id === cur.id ? { ...o, text: merged } : o)));
+      await patchObj(cur.id, { text: merged });
+    } else {
+      await createObj({ kind: "__board", text: merged, x: 0, y: 0 });
+    }
+  }
+
   const { bw, bh } = size;
   const shapes = objects.filter((o) => SHAPE_KINDS.has(o.kind));
   const connectors = objects.filter((o) => o.kind === "connector");
   const drawings = objects.filter((o) => o.kind === "draw");
   const selObj = byId(selectedId);
+  const boardObj = objects.find((o) => o.kind === "__board");
+  let settings: { locked?: boolean; hideNames?: boolean } = {};
+  try { settings = boardObj?.text ? JSON.parse(boardObj.text) : {}; } catch { settings = {}; }
+  const locked = !!settings.locked;
+  const hideNames = !!settings.hideNames;
+  const canEdit = isFacilitator || !locked;
   const showFills = SHAPE_KINDS.has(tool) && tool !== "text" ? true : selObj ? SHAPE_KINDS.has(selObj.kind) && selObj.kind !== "text" : false;
   const showStrokes = tool === "pen" || tool === "marker" || tool === "connector" || selObj?.kind === "connector" || selObj?.kind === "draw";
   const showLineStyles = tool === "connector" || selObj?.kind === "connector";
@@ -517,6 +549,12 @@ export function CanvasBoard({
           <h2>{title}</h2>
         </div>
         <div className="cright">
+          {locked ? (
+            <span className="lockpill">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>
+              {isFacilitator ? "Locked" : "Locked by facilitator"}
+            </span>
+          ) : null}
           {showReady ? (
             <button className={`ready${ready ? " on" : ""}`} onClick={onToggleReady}>
               {ready ? "✓ You're ready" : "I'm ready"}
@@ -553,6 +591,42 @@ export function CanvasBoard({
               </button>
             </span>
           ))}
+          {isFacilitator ? (
+            <>
+              <span className="cdiv" />
+              <button
+                className={`ctool${locked ? " active" : ""}`}
+                title={locked ? "Unlock board" : "Lock board — only you can edit"}
+                aria-label="Lock board"
+                aria-pressed={locked}
+                onClick={() => setBoardSetting({ locked: !locked })}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="11" width="14" height="10" rx="2" />
+                  <path d={locked ? "M8 11V7a4 4 0 0 1 8 0v4" : "M8 11V7a4 4 0 0 1 8 0"} />
+                </svg>
+              </button>
+              <button
+                className={`ctool${hideNames ? " active" : ""}`}
+                title={hideNames ? "Show author names" : "Hide author names"}
+                aria-label="Toggle author names"
+                aria-pressed={hideNames}
+                onClick={() => setBoardSetting({ hideNames: !hideNames })}
+              >
+                {hideNames ? (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3.5-7 10-7c2 0 3.7.6 5.2 1.5M22 12s-3.5 7-10 7c-2 0-3.7-.6-5.2-1.5" />
+                    <path d="m4 4 16 16" />
+                  </svg>
+                ) : (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </>
+          ) : null}
         </div>
 
         {/* contextual options: colour + connector routing */}
@@ -673,7 +747,7 @@ export function CanvasBoard({
           if (o.kind === "sticky") {
             return (
               <div key={o.id} data-cid={o.id} className={`sticky ${o.color}${sel ? " sel" : ""}`} style={{ ...common, transform: "none" }}>
-                {sel ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
+                {sel && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
                 {editing ? (
                   <textarea autoFocus value={o.text} placeholder="Type a note…" onChange={(e) => onText(o.id, e.target.value)} onBlur={() => commitText(o)} />
                 ) : (
@@ -681,7 +755,7 @@ export function CanvasBoard({
                     {o.text ? o.text : <span className="ph">Double-click to edit</span>}
                   </div>
                 )}
-                <div className="seg-by">{o.authorName ? o.authorName.split(" ")[0] : ""}</div>
+                {hideNames ? null : <div className="seg-by">{o.authorName ? o.authorName.split(" ")[0] : ""}</div>}
                 {anchorsOn ? SIDES.map((sd) => <Anchor key={sd} id={o.id} side={sd} />) : null}
               </div>
             );
@@ -704,8 +778,8 @@ export function CanvasBoard({
                   {o.text ? o.text : <span className="ph">{isText ? "Text" : ""}</span>}
                 </div>
               )}
-              {sel ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
-              {sel ? <span className="cresize" data-resize="1" data-cid={o.id} /> : null}
+              {sel && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
+              {sel && canEdit ? <span className="cresize" data-resize="1" data-cid={o.id} /> : null}
               {anchorsOn ? SIDES.map((sd) => <Anchor key={sd} id={o.id} side={sd} />) : null}
             </div>
           );
