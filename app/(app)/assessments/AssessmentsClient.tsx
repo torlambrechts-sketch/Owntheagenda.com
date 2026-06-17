@@ -164,7 +164,11 @@ export function AssessmentsClient({
 
         {!withData ? (
           <div className="empty" style={{ padding: "26px 0" }}>
-            No pulse responses yet. {canManage ? "Run a pulse to get started." : "Your team lead can open a pulse."}
+            {latestPulseName
+              ? "Results stay hidden until at least 3 people respond — individual answers are never shown."
+              : canManage
+                ? "No pulse responses yet. Run a pulse to get started."
+                : "No pulse responses yet. Your team lead can open a pulse."}
           </div>
         ) : (
           dynamics.map((d) => {
@@ -230,7 +234,8 @@ export function AssessmentsClient({
           </svg>
           <div>
             The pulse informs how a session is designed; it never decides for you.
-            Bands show a healthy range, not a score to beat.
+            Bands show a healthy range, not a score to beat — and results reflect
+            how people feel, not objective fact.
             <div className="src">
               Source: {teamName} {latestPulseName ? `· ${latestPulseName}` : ""} · responses are anonymous in aggregate ·{" "}
               <span className="grounded" style={{ marginLeft: 2 }}>Grounded</span>

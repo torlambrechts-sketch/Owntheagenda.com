@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "types": "supabase gen types typescript --project-id fqeohcfkimoopwjxxcft > types/database.types.ts"
   },
   "dependencies": {
@@ -20,6 +22,7 @@
     "@types/node": "20.16.11",
     "@types/react": "18.3.11",
     "@types/react-dom": "18.3.0",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "vitest": "^2.1.9"
   }
 }
