@@ -410,7 +410,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .asopts button.on{background:var(--forest);color:#fff;border-color:var(--forest)}
 .assess-done{background:var(--open-bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--green);font-weight:600}
 .assess-agg{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:11px}
-.aa-h{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.aa-h{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .aa-mask{font-weight:500;text-transform:none;letter-spacing:0;color:var(--faint)}
 .asrow{display:flex;align-items:center;gap:12px}
 .aslabel{width:120px;flex:none;font-size:12.5px;color:var(--ink)}
@@ -418,6 +418,23 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .astarget{position:absolute;top:0;bottom:0;border-radius:6px;background:rgba(66,114,158,.16);border-left:2px solid var(--role);border-right:2px solid var(--role)}
 .asmark{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--green);border:2px solid var(--surface);transform:translate(-50%,-50%)}
 .asval{width:42px;flex:none;text-align:right;font-size:12.5px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+
+/* Run · multi-item survey (Bang psychological safety) ---------------- */
+.svgroup{border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
+.svgroup:first-of-type{border-top:none;padding-top:0;margin-top:0}
+.svgroup-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:8px}
+.asopts.sv7 button{width:28px;height:28px}
+.svchip{margin-left:auto;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-radius:20px;padding:2px 9px}
+.svchip.aligned{background:var(--open-bg);color:var(--green)}
+.svchip.mixed{background:#f6ecd6;color:#9a7b2e}
+.svchip.split{background:var(--reject-bg);color:var(--reject-fg)}
+.svdim{display:flex;flex-direction:column;gap:5px;padding:4px 0}
+.svdim-top{display:flex;align-items:baseline;justify-content:space-between}
+.svdim-label{font-size:13px;font-weight:600;color:var(--ink)}
+.svdim-val{font-size:12.5px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.svtrack{height:8px;border-radius:6px;background:var(--canvas-2);overflow:hidden}
+.svfill{height:100%;border-radius:6px;background:var(--forest)}
+.svdim-blurb{font-size:11.5px;color:var(--faint)}
 
 /* Run · idea modules (brainstorm / poll / feedback) ------------------ */
 .dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}

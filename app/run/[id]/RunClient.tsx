@@ -9,6 +9,7 @@ import { IdeaModule, type ModuleConfig } from "./IdeaModule";
 import { ManualModule } from "./ManualModule";
 import { CharterModule } from "./CharterModule";
 import { AssessModule } from "./AssessModule";
+import { SurveyModule } from "./SurveyModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
@@ -49,6 +50,7 @@ export function RunClient({
   workspaceId,
   teamId,
   initialPulseId,
+  initialSurveyId,
   title,
   blocks,
   session: initialSession,
@@ -62,6 +64,7 @@ export function RunClient({
   workspaceId: string;
   teamId: string | null;
   initialPulseId: string | null;
+  initialSurveyId: string | null;
   title: string;
   blocks: RunBlock[];
   session: SessionState;
@@ -357,6 +360,24 @@ export function RunClient({
               title={block?.title ?? "Team assessment"}
               prompt={block?.prompt ?? null}
               stepLabel={`Team assessment · Step ${session.currentBlockOrd} of ${N}`}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
+          </div>
+        ) : block?.activityType === "survey" ? (
+          <div className="stage canvasstage">
+            <SurveyModule
+              key={session.currentBlockOrd}
+              workshopId={workshopId}
+              isFacilitator={isFacilitator}
+              initialSurveyId={initialSurveyId}
+              kind={((block?.config as Record<string, unknown>)?.kind as string) ?? "psych_safety_bang"}
+              timing={((block?.config as Record<string, unknown>)?.timing as string) ?? "live"}
+              userId={userId}
+              title={block?.title ?? "Survey"}
+              prompt={block?.prompt ?? null}
+              stepLabel={`Survey · Step ${session.currentBlockOrd} of ${N}`}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}
