@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { TeamDetailClient, type TMRow, type Addable } from "./TeamDetailClient";
+import { PSYCH_SAFETY_BANG, dimensionMeans, climateStrength, strengthItemKeys, type ItemStat } from "@/lib/survey";
 
 export default async function TeamDetailPage({
   params,
@@ -29,6 +30,18 @@ export default async function TeamDetailPage({
     .maybeSingle();
 
   const { data: dynRows } = await supabase.rpc("team_dynamics", { p_team: teamId });
+
+  const { data: latestSurvey } = await supabase
+    .from("survey")
+    .select("id")
+    .eq("team_id", teamId)
+    .eq("kind", "psych_safety_bang")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const surveyResults = latestSurvey
+    ? (await supabase.rpc("survey_results", { p_survey: latestSurvey.id, p_strength_items: strengthItemKeys(PSYCH_SAFETY_BANG) })).data
+    : null;
 
   const { data: tm } = await supabase
     .from("team_member")
@@ -104,6 +117,7 @@ export default async function TeamDetailPage({
       />
       {charterRow ? <TeamCharterReadout charter={charterRow} /> : null}
       <TeamDynamicsSnapshot rows={(dynRows ?? []) as DynRow[]} />
+      <PsychSafetyReadout results={surveyResults as SurveyResults | null} />
     </div>
   );
 }
@@ -135,6 +149,39 @@ function TeamDynamicsSnapshot({ rows }: { rows: DynRow[] }) {
                   {!masked ? <div className="asmark" style={{ left: `${r.pct}%` }} /> : null}
                 </div>
                 <div className="asval">{masked ? "· · ·" : `${r.pct}%`}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SurveyResults = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null };
+
+function PsychSafetyReadout({ results }: { results: SurveyResults | null }) {
+  if (!results) return null;
+  const max = PSYCH_SAFETY_BANG.scale.max;
+  const dims = results.masked ? null : dimensionMeans(PSYCH_SAFETY_BANG, results.items);
+  const strength = results.masked ? null : climateStrength(results.strength_sd);
+  return (
+    <div className="team-charter" style={{ marginTop: 16 }}>
+      <div className="tc-h">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" /></svg>
+        <h2>Psychological safety</h2>
+        {strength ? <span className={`svchip ${strength.tone}`} style={{ marginLeft: 4 }}>{strength.label} on safety</span> : null}
+      </div>
+      {results.masked || !dims ? (
+        <p className="ro-empty" style={{ marginTop: 6 }}>Hidden until at least 3 people respond ({results.respondents}/3).</p>
+      ) : (
+        <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "8px 0 0" }}>
+          {dims.map((d) => {
+            const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
+            return (
+              <div className="svdim" key={d.key}>
+                <div className="svdim-top"><span className="svdim-label">{d.label}</span><span className="svdim-val">{d.mean == null ? "· · ·" : `${d.mean.toFixed(1)} / ${max}`}</span></div>
+                <div className="svtrack"><div className="svfill" style={{ width: `${pct}%` }} /></div>
               </div>
             );
           })}
