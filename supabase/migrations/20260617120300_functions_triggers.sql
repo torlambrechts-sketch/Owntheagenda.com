@@ -3,6 +3,10 @@
 -- ---------------------------------------------------------------------
 -- Every function is SECURITY DEFINER with a pinned empty search_path
 -- (prevents search_path hijacking and satisfies the security advisor).
+-- Because search_path is empty, `citext` (which lives in the extensions
+-- schema) is not visible by its bare name or operators, so functions
+-- compare email/slug columns via `lower(col::text)` instead.
+--
 -- The `private.*` helpers bypass RLS so the policies in 0004 can call
 -- them without recursion. The `public.*` RPCs are the only write paths
 -- for tenant provisioning and invitations, and are exposed to the API.
@@ -115,6 +119,7 @@ begin
 end;
 $$;
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
@@ -127,7 +132,7 @@ returns public.workspace language plpgsql security definer set search_path = '' 
 declare
   v_uid  uuid := (select auth.uid());
   v_base text;
-  v_slug citext;
+  v_slug text;
   v_try  int := 0;
   v_ws   public.workspace;
 begin
@@ -144,7 +149,7 @@ begin
   if length(v_base) = 0 then v_base := 'workspace'; end if;
   v_base := left(v_base, 32);
   v_slug := v_base;
-  while exists (select 1 from public.workspace w where w.slug = v_slug) loop
+  while exists (select 1 from public.workspace w where lower(w.slug::text) = v_slug) loop
     v_try := v_try + 1;
     v_slug := left(v_base, 32) || '-' || substr(encode(extensions.gen_random_bytes(3), 'hex'), 1, 5);
     if v_try > 8 then
@@ -203,7 +208,9 @@ begin
 
   if exists (select 1 from public.membership m
              join public.profile pr on pr.id = m.user_id
-             where m.workspace_id = p_workspace and pr.email = p_email and m.status = 'active') then
+             where m.workspace_id = p_workspace
+               and lower(pr.email::text) = lower(p_email)
+               and m.status = 'active') then
     raise exception 'that person is already a member of this workspace' using errcode = '23505';
   end if;
 
@@ -254,7 +261,7 @@ begin
     update public.invitation set status = 'expired' where id = v_inv.id;
     raise exception 'invitation has expired' using errcode = '22023';
   end if;
-  if lower(v_inv.email) <> lower(coalesce(v_email, '')) then
+  if lower(v_inv.email::text) <> lower(coalesce(v_email, '')) then
     raise exception 'this invitation was issued to a different email' using errcode = '42501';
   end if;
 
@@ -330,6 +337,7 @@ begin
 end;
 $$;
 
+drop trigger if exists guard_last_owner on public.membership;
 create trigger guard_last_owner
   before update or delete on public.membership
   for each row execute function private.guard_last_owner();
@@ -360,6 +368,7 @@ begin
 end;
 $$;
 
+drop trigger if exists guard_team_parent on public.team;
 create trigger guard_team_parent
   before insert or update on public.team
   for each row execute function private.guard_team_parent();
@@ -381,6 +390,7 @@ begin
 end;
 $$;
 
+drop trigger if exists guard_team_member_workspace on public.team_member;
 create trigger guard_team_member_workspace
   before insert or update on public.team_member
   for each row execute function private.guard_team_member_workspace();

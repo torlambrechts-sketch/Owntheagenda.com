@@ -4,6 +4,16 @@ Phase 1 of the build: the **core architecture** — identity, multi-tenancy, the
 team/organizational hierarchy, the invite flow, and Row-Level Security. Everything
 is database-driven; security is enforced in Postgres (RLS), not the UI.
 
+## Live project
+
+| | |
+|---|---|
+| Project | **owntheagenda** |
+| Ref | `fqeohcfkimoopwjxxcft` |
+| Region | `eu-west-1` (EU residency) |
+| API URL | `https://fqeohcfkimoopwjxxcft.supabase.co` |
+| Status | migrations `0001–0005` applied · security advisor clean · functional RLS test passing |
+
 ## Migrations (apply in order)
 
 | # | File | What it creates |
@@ -12,6 +22,7 @@ is database-driven; security is enforced in Postgres (RLS), not the UI.
 | 0002 | `20260617120200_core_tables.sql` | enums + tables: `workspace, profile, membership, team, team_member, invitation, audit_log` |
 | 0003 | `20260617120300_functions_triggers.sql` | RLS helpers, `auth.users→profile` mirror, signup/invite RPCs, integrity guards |
 | 0004 | `20260617120400_rls_policies.sql` | RLS enabled + all policies + grants |
+| 0005 | `20260617120500_harden_grants.sql` | revoke implicit `PUBLIC`/`anon` EXECUTE on definer functions |
 
 `seed.sql` loads the **Lumio AS** demo workspace (local dev only).
 
