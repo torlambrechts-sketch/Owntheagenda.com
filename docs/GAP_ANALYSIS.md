@@ -2,8 +2,8 @@
 
 **Author:** Senior engineer + PM review
 **Date:** 2026-06-17
-**Inputs:** `Strategy, Culture & Values Workshops` research report; `Conscia Workshop Module — Build Playbook`
-**Subject:** Current OwnTheAgenda build (Next.js App Router · Supabase Postgres/RLS/Realtime/Auth · Server Actions · plain-CSS Conscia-style design system)
+**Inputs:** `Strategy, Culture & Values Workshops` research report; `OwnTheAgenda Workshop Module — Build Playbook`
+**Subject:** Current OwnTheAgenda build (Next.js App Router · Supabase Postgres/RLS/Realtime/Auth · Server Actions · plain-CSS OwnTheAgenda-style design system)
 
 > Method: mapped every capability the two documents call for against what is actually in the repo today (verified against migrations `0001–0018`, run-mode components, and server actions). Status is evidence-based, not aspirational. Sizing is directional T‑shirt (S ≈ ≤2 days, M ≈ 3–8 days, L ≈ 2–4 weeks).
 
@@ -15,11 +15,11 @@ OwnTheAgenda has built a **genuinely strong facilitation surface and a partial o
 
 **Three headlines:**
 
-1. **The wedge is missing.** Both documents say the same thing in different words: the defensible differentiator is *not another whiteboard* — it is a **decision‑and‑accountability layer that defeats "consensus theatre" and links outcomes to execution.** We have the *ingredients* (anonymous fist‑of‑five, an Actions board with owner/due) but **no first‑class Decision object, no decision rights (DACI), no resource note, no "oppose blocks commit" gate, and no decision → action spawning.** Today a session produces sticky notes, votes and loose actions; it does not produce *owned, resourced, accountable decisions*. Closing this is **P0** and — importantly — can be done **natively**, without the external Helm/Cue ecosystem the playbook assumes.
+1. **The wedge is missing.** Both documents say the same thing in different words: the defensible differentiator is *not another whiteboard* — it is a **decision‑and‑accountability layer that defeats "consensus theatre" and links outcomes to execution.** We have the *ingredients* (anonymous fist‑of‑five, an Actions board with owner/due) but **no first‑class Decision object, no decision rights (DACI), no resource note, no "oppose blocks commit" gate, and no decision → action spawning.** Today a session produces sticky notes, votes and loose actions; it does not produce *owned, resourced, accountable decisions*. Closing this is **P0** and — importantly — can be done **natively**, without an external execution/coaching ecosystem the playbook assumes.
 
 2. **Two engineering debts from a deliberate stack divergence.** We built on Supabase Server Actions + RLS rather than the playbook's tRPC/Prisma/Zod/**Inngest**/**Vitest**. That choice is defensible and leaner, but it left two real gaps the playbook treats as non‑negotiable: **(a) zero automated tests** (no Vitest, no `test` script), and **(b) no background‑job runner** (needed for async reveals, scheduled reminders, PDF export, and to keep AI/email off the request path). Manageable, but must be named and paid down.
 
-3. **A few quick compliance fixes.** The research explicitly flags licensed IP. We currently ship a template literally named **"Five Behaviours"** and a **"Team Health Monitor (Atlassian)"** template — both are exactly the kind of trademarked/proprietary content the playbook bans. Renaming to Conscia‑original equivalents and adding attribution strings is **S effort** and should happen early.
+3. **A few quick compliance fixes.** The research explicitly flags licensed IP. We currently ship a template literally named **"Five Behaviours"** and a **"Team Health Monitor (Atlassian)"** template — both are exactly the kind of trademarked/proprietary content the playbook bans. Renaming to OwnTheAgenda‑original equivalents and adding attribution strings is **S effort** and should happen early.
 
 **Overall verdict:** We are roughly a *strong, in‑progress Stage 1* on the playbook's scale — the facilitation core and multi‑tenant security foundation are solid and in places ahead of Stage 1 — but we have **not yet built the anti‑consensus‑theatre / execution‑linkage layer that is the entire strategic point.** Recommendation: pivot the next cycle from "more facilitation features" to **the Decision layer + psychological‑safety mechanics**, which together convert this from "a nice Miro‑lite" into the product the research describes.
 
@@ -69,7 +69,7 @@ Legend: ✅ Done · 🟡 Partial · ⛔ Missing
 
 **Score:** ~3 ✅ / 7 🟡 / 5 ⛔. The facilitation core is real; the gaps cluster in *async, guest, export, integrations, and psychological‑safety mechanics.*
 
-### 3.2 The Conscia Loop & anti‑consensus‑theatre gates — **the strategic core**
+### 3.2 The OwnTheAgenda Loop & anti‑consensus‑theatre gates — **the strategic core**
 
 | Capability | Status | Gap |
 |---|---|---|
@@ -114,7 +114,7 @@ These are **cheap and high‑impact** — the #1 predictor of team effectiveness
 | Capability | Status | Gap |
 |---|---|---|
 | Actions with owner/due, tracked | ✅ | The one node we have. |
-| Goals · Issues · **Decisions** · Meetings · KPIs as linked objects | ⛔ | Only Actions exist. **For standalone OwnTheAgenda the win is a *native* Decision→Action→KPI spine, not an external Helm push** — reframe accordingly. |
+| Goals · Issues · **Decisions** · Meetings · KPIs as linked objects | ⛔ | Only Actions exist. **For standalone OwnTheAgenda the win is a *native* Decision→Action→KPI spine, not an external execution-system push** — reframe accordingly. |
 | Assess → workshop → action soft loop | 🟡 | Grounding recommendation + readout actions give a partial loop; no KPI/decision objects to close it. |
 
 ### 3.6 Assessments / instruments
@@ -156,8 +156,8 @@ These are **cheap and high‑impact** — the #1 predictor of team effectiveness
 
 | Item | Status | Action |
 |---|---|---|
-| Template **"Five Behaviours"** (`five-beh`) | ⛔ Risk | Five Behaviors® is a licensed Wiley/DiSC product. **Rename** to a Conscia‑original (e.g., "Trust → Accountability Ladder") and reframe content. |
-| **"Team Health Monitor" attributed to "Atlassian"** (`health`) | ⛔ Risk | Atlassian's Health Monitor is their content. Rebrand to Conscia THC framing. |
+| Template **"Five Behaviours"** (`five-beh`) | ⛔ Risk | Five Behaviors® is a licensed Wiley/DiSC product. **Rename** to a OwnTheAgenda‑original (e.g., "Trust → Accountability Ladder") and reframe content. |
+| **"Team Health Monitor" attributed to "Atlassian"** (`health`) | ⛔ Risk | Atlassian's Health Monitor is their content. Rebrand to OwnTheAgenda THC framing. |
 | Other sourced templates (Sailboat/Hohmann, Team Canvas, etc.) | 🟡 | Lower risk (methods), but add Appendix‑C‑style attribution strings to template footers. |
 | "Perceptions, not facts" grounding note on instruments | 🟡 | Add consistently (research + playbook both require it). |
 
@@ -182,7 +182,7 @@ Sequenced so the **strategic wedge lands first**, cheap psychological‑safety w
 - **Brainwrite / silent‑then‑reveal**: per‑activity `revealed` flag; RLS so a participant sees only their own cards until the facilitator reveals.
 - Min‑N (≥3) response gate before any aggregate unlocks (assessments + agreement summaries).
 
-### P1 — Conscia Loop spine + objective gate · **M**
+### P1 — OwnTheAgenda Loop spine + objective gate · **M**
 - `session.stage` (FRAME→SURFACE→DECIDE→COMMIT→TRACK), forward‑only, facilitator‑gated, surfaced as a stage stepper. Wrap the existing blocks/modules inside the stages rather than replacing them.
 
 ### P1 — AI upgrades · **M**
@@ -226,7 +226,7 @@ The playbook assumes **tRPC · Prisma · Zod · Inngest · Vitest**. We shipped 
 - **Jobs:** introduce a lightweight runner (Supabase `pg_cron` + Edge Functions, or a queue) **when P2 lands** (async reveals, scheduled reminders, PDF export, off‑request AI). Until then, Server Actions + the in‑app `notification` model suffice.
 - **Decision objects, not "decisions in prose":** mirror the playbook's data model (`WorkshopDecision`/`DecisionContributor`) as Supabase tables so the anti‑theatre gates are enforced in SQL, not just UI.
 
-**Reframing the "execution linkage" wedge for a standalone product:** the playbook pushes decisions/actions into an external **Helm** accountability graph and **Cue** coaching engine. OwnTheAgenda has no such ecosystem — so the equivalent value is a **native** Decision→Action→KPI spine plus the existing Actions board and assess→recommend loop. We can deliver ~80% of the wedge's *value* without building Helm; the external pushes (Slack/Jira/Helm) become Stage‑3 connectors, not prerequisites.
+**Reframing the "execution linkage" wedge for a standalone product:** the playbook pushes decisions/actions into an external accountability graph and a separate manager‑coaching engine. OwnTheAgenda has no such ecosystem — so the equivalent value is a **native** Decision→Action→KPI spine plus the existing Actions board and assess→recommend loop. We can deliver ~80% of the wedge's *value* without a separate execution system; the external pushes (Slack/Jira) become Stage‑3 connectors, not prerequisites.
 
 ---
 

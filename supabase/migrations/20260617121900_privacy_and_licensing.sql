@@ -6,7 +6,7 @@
 --    research and the build playbook require this).
 -- 2. Rename two system templates that echoed licensed/branded IP
 --    ("Five Behaviours", Atlassian "Team Health Monitor") to
---    Conscia-original framings with research-grounded attribution.
+--    OwnTheAgenda-original framings with research-grounded attribution.
 -- =====================================================================
 
 create or replace function public.team_dynamics(p_team uuid, p_pulse uuid default null)
@@ -48,13 +48,13 @@ $$;
 -- Five Behaviours (Lencioni / Wiley Five Behaviors(R) is a licensed product)
 update public.template set
   name = 'Trust & Accountability Ladder',
-  source = 'Conscia original · grounded in Edmondson (1999), Sull et al. (2015)',
+  source = 'OwnTheAgenda original · grounded in Edmondson (1999), Sull et al. (2015)',
   description = 'Climb from safety to accountability: build trust, make conflict productive, get clear commitments, and own results together.'
 where key = 'five-beh' and workspace_id is null;
 
 -- Team Health Monitor (Atlassian's is their proprietary content)
 update public.template set
   name = 'Team Health Check',
-  source = 'Conscia original · grounded in Edmondson (1999), Sull et al. (2015)',
+  source = 'OwnTheAgenda original · grounded in Edmondson (1999), Sull et al. (2015)',
   description = 'Rate where the team feels strong today, talk through the gaps, and pick two to improve.'
 where key = 'health' and workspace_id is null;
