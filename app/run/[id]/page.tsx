@@ -15,7 +15,7 @@ export default async function RunPage({
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, team_id, workspace_id")
+    .select("id, title, team_id, workspace_id, pulse_id")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -100,6 +100,7 @@ export default async function RunPage({
       workshopId={workshop.id}
       workspaceId={workshop.workspace_id}
       teamId={workshop.team_id}
+      initialPulseId={workshop.pulse_id}
       title={workshop.title}
       blocks={runBlocks}
       session={{

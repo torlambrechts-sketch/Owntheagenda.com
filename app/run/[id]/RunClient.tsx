@@ -8,6 +8,7 @@ import { CanvasBoard } from "./CanvasBoard";
 import { IdeaModule, type ModuleConfig } from "./IdeaModule";
 import { ManualModule } from "./ManualModule";
 import { CharterModule } from "./CharterModule";
+import { AssessModule } from "./AssessModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
@@ -47,6 +48,7 @@ export function RunClient({
   workshopId,
   workspaceId,
   teamId,
+  initialPulseId,
   title,
   blocks,
   session: initialSession,
@@ -59,6 +61,7 @@ export function RunClient({
   workshopId: string;
   workspaceId: string;
   teamId: string | null;
+  initialPulseId: string | null;
   title: string;
   blocks: RunBlock[];
   session: SessionState;
@@ -335,6 +338,24 @@ export function RunClient({
               title={block?.title ?? "Team charter"}
               prompt={block?.prompt ?? null}
               stepLabel={`Team charter · Step ${session.currentBlockOrd} of ${N}`}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
+          </div>
+        ) : block?.activityType === "assess" ? (
+          <div className="stage canvasstage">
+            <AssessModule
+              key={session.currentBlockOrd}
+              workshopId={workshopId}
+              teamId={teamId}
+              isFacilitator={isFacilitator}
+              initialPulseId={initialPulseId}
+              timing={((block?.config as Record<string, unknown>)?.timing as string) ?? "live"}
+              userId={userId}
+              title={block?.title ?? "Team assessment"}
+              prompt={block?.prompt ?? null}
+              stepLabel={`Team assessment · Step ${session.currentBlockOrd} of ${N}`}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}

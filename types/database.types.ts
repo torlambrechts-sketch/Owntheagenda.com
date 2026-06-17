@@ -957,6 +957,10 @@ export type Database = {
         Args: { p_team: string; p_session?: string }
         Returns: Database["public"]["Tables"]["team_charter"]["Row"]
       }
+      ensure_workshop_pulse: {
+        Args: { p_workshop: string; p_timing?: string }
+        Returns: string
+      }
       submit_agreement: {
         Args: { p_block_ord: number; p_session: string; p_value: number }
         Returns: undefined
