@@ -59,9 +59,11 @@ type Obj = {
 
 type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser" | "hand";
 
-type UndoOp =
-  | { type: "create"; id: string }
-  | { type: "delete"; obj: Obj }
+// History op = a state transition we can apply; apply() returns its inverse,
+// so undo and redo are symmetric (local, per-client).
+type Op =
+  | { type: "del"; id: string }
+  | { type: "add"; obj: Obj }
   | { type: "move"; items: { id: string; x: number; y: number }[] }
   | { type: "resize"; id: string; w: number | null; h: number | null };
 
@@ -130,6 +132,7 @@ export function CanvasBoard({
   const setSelectedId = (id: string | null) => setSelectedIds(id ? [id] : []);
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [view, setView] = useState({ zoom: 1, panX: 0, panY: 0 });
+  const [hist, setHist] = useState({ u: false, r: false });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [size, setSize] = useState({ bw: 1, bh: 1 });
   const [draftPts, setDraftPts] = useState<number[][] | null>(null);
@@ -157,8 +160,8 @@ export function CanvasBoard({
   const selectedIdsRef = useRef<string[]>([]);
   const viewRef = useRef(view);
   const panRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
-  const undoRef = useRef<UndoOp[]>([]);
-  const undoingRef = useRef(false);
+  const undoRef = useRef<Op[]>([]);
+  const redoRef = useRef<Op[]>([]);
   useEffect(() => { objectsRef.current = objects; }, [objects]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
@@ -258,7 +261,7 @@ export function CanvasBoard({
     if (!data) return null;
     const o = mapRow(data);
     setObjects((prev) => (prev.some((x) => x.id === o.id) ? prev : [...prev, o]));
-    if ((patch as { kind?: string }).kind !== "__board") pushUndo({ type: "create", id: o.id });
+    if ((patch as { kind?: string }).kind !== "__board") record({ type: "del", id: o.id });
     return o;
   }
   async function patchObj(id: string, patch: Record<string, unknown>) {
@@ -266,18 +269,21 @@ export function CanvasBoard({
   }
   async function delObj(id: string) {
     const existing = objectsRef.current.find((o) => o.id === id);
-    if (existing && existing.kind !== "__board") pushUndo({ type: "delete", obj: existing });
+    if (existing && existing.kind !== "__board") record({ type: "add", obj: existing });
     setObjects((prev) => prev.filter((o) => o.id !== id));
     setSelectedIds((ids) => ids.filter((x) => x !== id));
     if (editingId === id) setEditingId(null);
     await supabase.from("canvas_object").delete().eq("id", id);
   }
 
-  // Local undo (this client's recent create / delete / move / resize).
-  function pushUndo(op: UndoOp) {
-    if (undoingRef.current) return;
+  // Local undo/redo (this client). record() = a user action's inverse op;
+  // apply() executes an op and returns the op that reverses it.
+  function syncHist() { setHist({ u: undoRef.current.length > 0, r: redoRef.current.length > 0 }); }
+  function record(op: Op) {
     undoRef.current.push(op);
-    if (undoRef.current.length > 60) undoRef.current.shift();
+    if (undoRef.current.length > 80) undoRef.current.shift();
+    redoRef.current = [];
+    syncHist();
   }
   async function recreateObj(o: Obj) {
     setObjects((prev) => (prev.some((x) => x.id === o.id) ? prev : [...prev, o]));
@@ -288,23 +294,41 @@ export function CanvasBoard({
       fill: o.fill, stroke_w: o.strokeW, variant: o.variant, author_name: o.authorName, z: o.z,
     } as never);
   }
-  async function applyUndo() {
+  async function apply(op: Op): Promise<Op> {
+    if (op.type === "del") {
+      const obj = objectsRef.current.find((o) => o.id === op.id);
+      setObjects((prev) => prev.filter((o) => o.id !== op.id));
+      setSelectedIds((ids) => ids.filter((x) => x !== op.id));
+      await supabase.from("canvas_object").delete().eq("id", op.id);
+      return obj ? { type: "add", obj } : { type: "del", id: op.id };
+    }
+    if (op.type === "add") {
+      await recreateObj(op.obj);
+      return { type: "del", id: op.obj.id };
+    }
+    if (op.type === "move") {
+      const inv = op.items.map((it) => { const o = objectsRef.current.find((x) => x.id === it.id); return { id: it.id, x: o?.x ?? it.x, y: o?.y ?? it.y }; });
+      setObjects((prev) => prev.map((o) => { const it = op.items.find((i) => i.id === o.id); return it ? { ...o, x: it.x, y: it.y } : o; }));
+      for (const it of op.items) await patchObj(it.id, { x: it.x, y: it.y });
+      return { type: "move", items: inv };
+    }
+    const cur = objectsRef.current.find((x) => x.id === op.id);
+    const inv: Op = { type: "resize", id: op.id, w: cur?.w ?? null, h: cur?.h ?? null };
+    setObjects((prev) => prev.map((x) => (x.id === op.id ? { ...x, w: op.w, h: op.h } : x)));
+    await patchObj(op.id, { w: op.w, h: op.h });
+    return inv;
+  }
+  async function undo() {
     const op = undoRef.current.pop();
     if (!op) return;
-    undoingRef.current = true;
-    try {
-      if (op.type === "create") await delObj(op.id);
-      else if (op.type === "delete") await recreateObj(op.obj);
-      else if (op.type === "move") {
-        setObjects((prev) => prev.map((o) => { const it = op.items.find((i) => i.id === o.id); return it ? { ...o, x: it.x, y: it.y } : o; }));
-        for (const it of op.items) await patchObj(it.id, { x: it.x, y: it.y });
-      } else if (op.type === "resize") {
-        setObjects((prev) => prev.map((o) => (o.id === op.id ? { ...o, w: op.w, h: op.h } : o)));
-        await patchObj(op.id, { w: op.w, h: op.h });
-      }
-    } finally {
-      undoingRef.current = false;
-    }
+    redoRef.current.push(await apply(op));
+    syncHist();
+  }
+  async function redo() {
+    const op = redoRef.current.pop();
+    if (!op) return;
+    undoRef.current.push(await apply(op));
+    syncHist();
   }
 
   // ---- geometry helpers tied to current board size --------------------------
@@ -608,7 +632,7 @@ export function CanvasBoard({
       const d = dragRef.current;
       dragRef.current = null;
       if (d.moved) {
-        pushUndo({ type: "move", items: d.ids.filter((id) => d.init[id]).map((id) => ({ id, x: d.init[id].x, y: d.init[id].y })) });
+        record({ type: "move", items: d.ids.filter((id) => d.init[id]).map((id) => ({ id, x: d.init[id].x, y: d.init[id].y })) });
         for (const id of d.ids) {
           const o = byId(id);
           if (o) await patchObj(id, { x: o.x, y: o.y });
@@ -620,7 +644,7 @@ export function CanvasBoard({
       const { id, w0, h0 } = resizeRef.current;
       resizeRef.current = null;
       const o = byId(id);
-      if (o) { pushUndo({ type: "resize", id, w: w0, h: h0 }); await patchObj(id, { w: o.w, h: o.h }); }
+      if (o) { record({ type: "resize", id, w: w0, h: h0 }); await patchObj(id, { w: o.w, h: o.h }); }
     }
   }
 
@@ -643,7 +667,12 @@ export function CanvasBoard({
       if (editingRef.current) return;
       if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
-        applyUndo();
+        if (e.shiftKey) redo(); else undo();
+        return;
+      }
+      if ((e.key === "y" || e.key === "Y") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        redo();
         return;
       }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.length) {
@@ -1043,6 +1072,16 @@ export function CanvasBoard({
         ))}
         {marquee ? <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} /> : null}
         </div>
+        {canEdit ? (
+          <div className="histctl" onPointerDown={(e) => e.stopPropagation()}>
+            <button disabled={!hist.u} onClick={undo} title="Undo (⌘/Ctrl+Z)" aria-label="Undo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M9 7 4 12l5 5" /><path d="M4 12h11a5 5 0 0 1 0 10h-1" /></svg>
+            </button>
+            <button disabled={!hist.r} onClick={redo} title="Redo (⌘/Ctrl+Shift+Z)" aria-label="Redo">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M15 7l5 5-5 5" /><path d="M20 12H9a5 5 0 0 0 0 10h1" /></svg>
+            </button>
+          </div>
+        ) : null}
         <div className="zoomctl" onPointerDown={(e) => e.stopPropagation()}>
           <button onClick={() => zoomBy(1 / 1.2)} title="Zoom out" aria-label="Zoom out">−</button>
           <button className="zlabel" onClick={resetView} title="Reset view">{Math.round(view.zoom * 100)}%</button>
