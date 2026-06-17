@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY, initials } from "@/lib/util";
 import { CanvasBoard } from "./CanvasBoard";
 import { IdeaModule, type ModuleConfig } from "./IdeaModule";
+import { ManualModule } from "./ManualModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
@@ -43,6 +44,7 @@ function mmss(total: number) {
 
 export function RunClient({
   workshopId,
+  workspaceId,
   title,
   blocks,
   session: initialSession,
@@ -53,6 +55,7 @@ export function RunClient({
   initialActions,
 }: {
   workshopId: string;
+  workspaceId: string;
   title: string;
   blocks: RunBlock[];
   session: SessionState;
@@ -297,6 +300,22 @@ export function RunClient({
               prompt={block?.prompt ?? null}
               stepLabel={`Canvas · Step ${session.currentBlockOrd} of ${N}`}
               userName={userName}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
+          </div>
+        ) : block?.activityType === "manual" ? (
+          <div className="stage canvasstage">
+            <ManualModule
+              key={session.currentBlockOrd}
+              workspaceId={workspaceId}
+              userId={userId}
+              participants={participants.map((p) => ({ userId: p.userId, name: p.name }))}
+              title={block?.title ?? "Personal user manual"}
+              prompt={block?.prompt ?? null}
+              stepLabel={`Personal user manual · Step ${session.currentBlockOrd} of ${N}`}
+              config={(block?.config ?? {}) as { fields?: string[]; leaderFirst?: boolean; allowPass?: boolean }}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}
