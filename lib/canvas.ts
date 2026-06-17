@@ -39,6 +39,19 @@ export const STICKY_H = 112;
 
 export const clamp01 = (v: number) => Math.min(0.985, Math.max(0.015, v));
 
+// Stable per-person cursor colour (live multiplayer presence).
+export const CURSOR_COLORS = ["#3f7d5a", "#a8543b", "#42729e", "#8a6d3b", "#7a5c9e"];
+export function cursorColor(seed: string): string {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return CURSOR_COLORS[h % CURSOR_COLORS.length];
+}
+
+// Snap a pixel coordinate to a grid (Shift bypasses at the call site).
+export function snapToGrid(px: number, grid = 16): number {
+  return Math.round(px / grid) * grid;
+}
+
 type Geom = { kind: string; x: number; y: number; w: number | null; h: number | null };
 
 export function rectOf(o: Geom, bw: number, bh: number): Rect {

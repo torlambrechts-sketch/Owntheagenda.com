@@ -339,6 +339,8 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .canchor:hover{background:var(--forest)}
 .cresize{position:absolute;left:100%;top:100%;width:12px;height:12px;border-radius:3px;background:var(--surface);border:2px solid var(--forest);transform:translate(-50%,-50%);cursor:nwse-resize;z-index:6}
 .lockpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--muted);background:var(--canvas-2);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
+.ccursor{position:absolute;z-index:30;pointer-events:none;transform:translate(-2px,-2px);transition:left .08s linear,top .08s linear}
+.ccursor-lbl{position:absolute;left:13px;top:12px;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.18)}
 
 /* Run · personal user manual (Start Smart) --------------------------- */
 .manualwrap{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px}

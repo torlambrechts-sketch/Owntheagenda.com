@@ -14,6 +14,8 @@ import {
   nearestSide,
   connectorPath,
   clamp01,
+  cursorColor,
+  snapToGrid,
   type Pt,
   type Side,
 } from "@/lib/canvas";
@@ -117,6 +119,11 @@ export function CanvasBoard({
   const [size, setSize] = useState({ bw: 1, bh: 1 });
   const [draftPts, setDraftPts] = useState<number[][] | null>(null);
   const [connDraft, setConnDraft] = useState<{ srcId: string; srcAnchor: Side; cur: Pt } | null>(null);
+  const [cursors, setCursors] = useState<Record<string, { x: number; y: number; name: string; color: string; ts: number }>>({});
+  const chRef = useRef<any>(null);
+  const clientId = useMemo(() => Math.random().toString(36).slice(2), []);
+  const lastBroadcast = useRef(0);
+  const myColor = useMemo(() => cursorColor(userName), [userName]);
 
   // refs so pointer/subscription handlers read the latest values
   const objectsRef = useRef<Obj[]>(objects);
@@ -164,7 +171,7 @@ export function CanvasBoard({
   useEffect(() => {
     load();
     const ch = supabase
-      .channel(`canvas:${sessionId}:${blockOrd}`)
+      .channel(`canvas:${sessionId}:${blockOrd}`, { config: { broadcast: { self: false } } })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "canvas_object", filter: `session_id=eq.${sessionId}` },
@@ -197,9 +204,24 @@ export function CanvasBoard({
           });
         },
       )
+      .on("broadcast", { event: "cursor" }, ({ payload }: { payload: any }) => {
+        setCursors((c) => ({ ...c, [payload.id]: { x: payload.x, y: payload.y, name: payload.name, color: payload.color, ts: Date.now() } }));
+      })
       .subscribe();
+    chRef.current = ch;
+    const expire = setInterval(() => {
+      setCursors((c) => {
+        const now = Date.now();
+        let changed = false;
+        const next: typeof c = {};
+        for (const k in c) { if (now - c[k].ts < 5000) next[k] = c[k]; else changed = true; }
+        return changed ? next : c;
+      });
+    }, 2000);
     return () => {
       supabase.removeChannel(ch);
+      chRef.current = null;
+      clearInterval(expire);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, blockOrd]);
@@ -347,6 +369,15 @@ export function CanvasBoard({
   function onBoardPointerMove(e: React.PointerEvent) {
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
+    const nowt = Date.now();
+    if (chRef.current && nowt - lastBroadcast.current > 45) {
+      lastBroadcast.current = nowt;
+      chRef.current.send({
+        type: "broadcast",
+        event: "cursor",
+        payload: { id: clientId, x: clamp01(p.x / bw), y: clamp01(p.y / bh), name: userName.split(" ")[0], color: myColor },
+      });
+    }
     if (drawRef.current) {
       drawRef.current.push([clamp01(p.x / bw), clamp01(p.y / bh)]);
       setDraftPts(drawRef.current.slice());
@@ -360,8 +391,11 @@ export function CanvasBoard({
     if (dragRef.current) {
       const d = dragRef.current;
       d.moved = true;
-      const nx = clamp01((p.x - d.ox) / bw);
-      const ny = clamp01((p.y - d.oy) / bh);
+      let cxp = p.x - d.ox;
+      let cyp = p.y - d.oy;
+      if (!e.shiftKey) { cxp = snapToGrid(cxp); cyp = snapToGrid(cyp); } // hold Shift to bypass snap
+      const nx = clamp01(cxp / bw);
+      const ny = clamp01(cyp / bh);
       setObjects((prev) => prev.map((o) => (o.id === d.id ? { ...o, x: nx, y: ny } : o)));
       return;
     }
@@ -456,6 +490,17 @@ export function CanvasBoard({
         if (!isFacilitator && s.locked) return;
         e.preventDefault();
         delObj(selectedId);
+      }
+      if ((e.key === "d" || e.key === "D") && (e.metaKey || e.ctrlKey) && selectedId) {
+        const bo = objectsRef.current.find((o) => o.kind === "__board");
+        let s: Record<string, unknown> = {};
+        try { s = bo?.text ? JSON.parse(bo.text) : {}; } catch { s = {}; }
+        if (!isFacilitator && s.locked) return;
+        const sel = objectsRef.current.find((o) => o.id === selectedId);
+        if (sel && SHAPE_KINDS.has(sel.kind)) {
+          e.preventDefault();
+          createObj({ kind: sel.kind, x: clamp01(sel.x + 0.02), y: clamp01(sel.y + 0.02), w: sel.w, h: sel.h, fill: sel.fill, stroke: sel.stroke, color: sel.color, text: sel.text });
+        }
       }
       if (e.key === "Escape") { setSelectedId(null); setTool("select"); }
     };
@@ -784,6 +829,16 @@ export function CanvasBoard({
             </div>
           );
         })}
+
+        {/* live multiplayer cursors */}
+        {Object.entries(cursors).map(([id, c]) => (
+          <div key={id} className="ccursor" style={{ left: c.x * bw, top: c.y * bh }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={c.color} stroke="#fff" strokeWidth="1.4">
+              <path d="M4 3l7 16 2-7 7-2z" />
+            </svg>
+            <span className="ccursor-lbl" style={{ background: c.color }}>{c.name}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

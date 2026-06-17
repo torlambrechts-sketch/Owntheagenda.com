@@ -7,6 +7,9 @@ import {
   fillHex,
   strokeHex,
   clamp01,
+  cursorColor,
+  snapToGrid,
+  CURSOR_COLORS,
 } from "@/lib/canvas";
 
 const BW = 1000;
@@ -85,5 +88,20 @@ describe("clamp01", () => {
     expect(clamp01(-1)).toBeCloseTo(0.015);
     expect(clamp01(2)).toBeCloseTo(0.985);
     expect(clamp01(0.5)).toBe(0.5);
+  });
+});
+
+describe("cursorColor", () => {
+  it("is deterministic and within the palette", () => {
+    expect(cursorColor("Mathias")).toBe(cursorColor("Mathias"));
+    expect(CURSOR_COLORS).toContain(cursorColor("Ingrid"));
+  });
+});
+
+describe("snapToGrid", () => {
+  it("rounds to the nearest grid step", () => {
+    expect(snapToGrid(20, 16)).toBe(16);
+    expect(snapToGrid(25, 16)).toBe(32);
+    expect(snapToGrid(0)).toBe(0);
   });
 });
