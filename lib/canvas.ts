@@ -52,6 +52,16 @@ export function snapToGrid(px: number, grid = 16): number {
   return Math.round(px / grid) * grid;
 }
 
+// Shortest distance from point p to segment a–b (eraser / connector hit-testing).
+export function distToSegment(p: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
 type Geom = { kind: string; x: number; y: number; w: number | null; h: number | null };
 
 export function rectOf(o: Geom, bw: number, bh: number): Rect {

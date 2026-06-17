@@ -16,6 +16,7 @@ import {
   clamp01,
   cursorColor,
   snapToGrid,
+  distToSegment,
   type Pt,
   type Side,
 } from "@/lib/canvas";
@@ -54,7 +55,7 @@ type Obj = {
   z: number;
 };
 
-type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker";
+type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser";
 
 const COLS =
   "id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, author_id, author_name, z";
@@ -139,6 +140,7 @@ export function CanvasBoard({
   const resizeRef = useRef<{ id: string } | null>(null);
   const drawRef = useRef<number[][] | null>(null);
   const connRef = useRef<{ srcId: string; srcAnchor: Side; cur: Pt } | null>(null);
+  const eraserRef = useRef(false);
   useEffect(() => { objectsRef.current = objects; }, [objects]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
@@ -267,6 +269,39 @@ export function CanvasBoard({
     return undefined;
   };
 
+  // Topmost erasable object under the pointer: shapes, then ink strokes, then connectors.
+  const eraseAt = (p: Pt): string | undefined => {
+    const { bw, bh } = sizeRef.current;
+    const TOL = 10;
+    const sh = shapeAt(p);
+    if (sh) return sh.id;
+    const objs = objectsRef.current;
+    for (let i = objs.length - 1; i >= 0; i--) {
+      const o = objs[i];
+      if (o.kind === "draw" && o.points && o.points.length) {
+        if (o.points.length === 1) {
+          const a = { x: o.points[0][0] * bw, y: o.points[0][1] * bh };
+          if (Math.hypot(p.x - a.x, p.y - a.y) < TOL) return o.id;
+          continue;
+        }
+        for (let k = 1; k < o.points.length; k++) {
+          const a = { x: o.points[k - 1][0] * bw, y: o.points[k - 1][1] * bh };
+          const b = { x: o.points[k][0] * bw, y: o.points[k][1] * bh };
+          if (distToSegment(p, a, b) < TOL) return o.id;
+        }
+      } else if (o.kind === "connector") {
+        const s = objs.find((x) => x.id === o.srcId);
+        const d = objs.find((x) => x.id === o.dstId);
+        if (s && d) {
+          const sp = anchorPt(rectOf(s, bw, bh), (o.srcAnchor ?? "e") as Side);
+          const dp = anchorPt(rectOf(d, bw, bh), (o.dstAnchor ?? "w") as Side);
+          if (distToSegment(p, sp, dp) < TOL) return o.id;
+        }
+      }
+    }
+    return undefined;
+  };
+
   async function createShapeAt(t: Tool, p: Pt) {
     const { bw, bh } = sizeRef.current;
     const nx = clamp01(p.x / bw);
@@ -307,6 +342,14 @@ export function CanvasBoard({
     }
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
+
+    if (t === "eraser") {
+      const id = eraseAt(p);
+      if (id) delObj(id);
+      eraserRef.current = true;
+      boardRef.current!.setPointerCapture(e.pointerId);
+      return;
+    }
 
     if (t === "pen" || t === "marker") {
       drawRef.current = [[clamp01(p.x / bw), clamp01(p.y / bh)]];
@@ -380,6 +423,11 @@ export function CanvasBoard({
         payload: { id: clientId, x: clamp01(p.x / bw), y: clamp01(p.y / bh), name: userName.split(" ")[0], color: myColor },
       });
     }
+    if (eraserRef.current) {
+      const id = eraseAt(p);
+      if (id) delObj(id);
+      return;
+    }
     if (drawRef.current) {
       drawRef.current.push([clamp01(p.x / bw), clamp01(p.y / bh)]);
       setDraftPts(drawRef.current.slice());
@@ -416,6 +464,7 @@ export function CanvasBoard({
   async function onBoardPointerUp(e: React.PointerEvent) {
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
+    if (eraserRef.current) { eraserRef.current = false; return; }
     if (drawRef.current) {
       const pts = drawRef.current;
       drawRef.current = null;
@@ -596,6 +645,7 @@ export function CanvasBoard({
     { key: "connector", label: "Connector", icon: <><circle cx="5" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 7c6 1 5 9 10 10" /></> },
     { key: "pen", label: "Pen", icon: <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /> },
     { key: "marker", label: "Marker", icon: <><path d="M9 14l-3 6 6-3" /><path d="M9 14l8-8 4 4-8 8z" /></> },
+    { key: "eraser", label: "Eraser — drag to remove", icon: <><path d="M7 21h11" /><path d="M5 14l6-6 7 7-4 4H9z" /></> },
   ];
 
   return (
@@ -634,7 +684,7 @@ export function CanvasBoard({
         <div className="ctools" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((tl, i) => (
             <span key={tl.key} style={{ display: "contents" }}>
-              {(i === 1 || i === 6) ? <span className="cdiv" /> : null}
+              {(i === 1 || i === 6 || i === 9) ? <span className="cdiv" /> : null}
               <button
                 className={`ctool${tool === tl.key ? " active" : ""}`}
                 title={tl.label}

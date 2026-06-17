@@ -9,6 +9,7 @@ import {
   clamp01,
   cursorColor,
   snapToGrid,
+  distToSegment,
   CURSOR_COLORS,
 } from "@/lib/canvas";
 
@@ -103,5 +104,13 @@ describe("snapToGrid", () => {
     expect(snapToGrid(20, 16)).toBe(16);
     expect(snapToGrid(25, 16)).toBe(32);
     expect(snapToGrid(0)).toBe(0);
+  });
+});
+
+describe("distToSegment", () => {
+  it("measures perpendicular distance and clamps to endpoints", () => {
+    expect(distToSegment({ x: 5, y: 5 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(5);
+    expect(distToSegment({ x: -5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(5);
+    expect(distToSegment({ x: 5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(0);
   });
 });
