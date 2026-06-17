@@ -50,15 +50,67 @@ export type Database = {
           metadata?: Json
           workspace_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "audit_log_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspace"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      dynamic_band: {
+        Row: {
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          label: string
+          ord: number
+          question: string
+          target_high: number
+          target_low: number
+        }
+        Insert: {
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          label: string
+          ord?: number
+          question: string
+          target_high: number
+          target_low: number
+        }
+        Update: {
+          dynamic?: Database["public"]["Enums"]["team_dynamic"]
+          label?: string
+          ord?: number
+          question?: string
+          target_high?: number
+          target_low?: number
+        }
+        Relationships: []
+      }
+      fingerprint: {
+        Row: {
+          band_high: number
+          band_low: number
+          created_at: string
+          id: string
+          team_member_id: string
+          trait: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          band_high: number
+          band_low: number
+          created_at?: string
+          id?: string
+          team_member_id: string
+          trait: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          band_high?: number
+          band_low?: number
+          created_at?: string
+          id?: string
+          team_member_id?: string
+          trait?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
       }
       invitation: {
         Row: {
@@ -109,22 +161,7 @@ export type Database = {
           updated_at?: string
           workspace_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "invitation_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invitation_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspace"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       membership: {
         Row: {
@@ -154,15 +191,7 @@ export type Database = {
           user_id?: string
           workspace_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "membership_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspace"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profile: {
         Row: {
@@ -191,6 +220,72 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pulse: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          opened_at: string | null
+          status: Database["public"]["Enums"]["pulse_status"]
+          team_id: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          opened_at?: string | null
+          status?: Database["public"]["Enums"]["pulse_status"]
+          team_id: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          opened_at?: string | null
+          status?: Database["public"]["Enums"]["pulse_status"]
+          team_id?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      pulse_response: {
+        Row: {
+          created_at: string
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          id: string
+          pulse_id: string
+          respondent_id: string | null
+          score: number
+        }
+        Insert: {
+          created_at?: string
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          id?: string
+          pulse_id: string
+          respondent_id?: string | null
+          score: number
+        }
+        Update: {
+          created_at?: string
+          dynamic?: Database["public"]["Enums"]["team_dynamic"]
+          id?: string
+          pulse_id?: string
+          respondent_id?: string | null
+          score?: number
         }
         Relationships: []
       }
@@ -234,22 +329,7 @@ export type Database = {
           updated_at?: string
           workspace_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "team_parent_team_id_fkey"
-            columns: ["parent_team_id"]
-            isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspace"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       team_member: {
         Row: {
@@ -282,15 +362,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "team_member_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       workspace: {
         Row: {
@@ -338,18 +410,11 @@ export type Database = {
     Functions: {
       accept_invitation: {
         Args: { p_token: string }
-        Returns: {
-          created_at: string
-          created_by: string | null
-          data_region: string
-          deleted_at: string | null
-          id: string
-          logo_url: string | null
-          name: string
-          plan: Database["public"]["Enums"]["plan_tier"]
-          slug: string
-          updated_at: string
-        }
+        Returns: Database["public"]["Tables"]["workspace"]["Row"]
+      }
+      close_pulse: {
+        Args: { p_pulse: string }
+        Returns: Database["public"]["Tables"]["pulse"]["Row"]
       }
       create_invitation: {
         Args: {
@@ -361,39 +426,47 @@ export type Database = {
         }
         Returns: string
       }
+      create_pulse: {
+        Args: { p_name: string; p_team: string }
+        Returns: Database["public"]["Tables"]["pulse"]["Row"]
+      }
       provision_workspace: {
         Args: { p_name: string; p_slug?: string }
-        Returns: {
-          created_at: string
-          created_by: string | null
-          data_region: string
-          deleted_at: string | null
-          id: string
-          logo_url: string | null
-          name: string
-          plan: Database["public"]["Enums"]["plan_tier"]
-          slug: string
-          updated_at: string
-        }
+        Returns: Database["public"]["Tables"]["workspace"]["Row"]
       }
       set_team_consent: {
         Args: { p_consent: boolean; p_team_member: string }
+        Returns: Database["public"]["Tables"]["team_member"]["Row"]
+      }
+      submit_pulse_response: {
+        Args: { p_pulse: string; p_scores: Json }
+        Returns: undefined
+      }
+      team_dynamics: {
+        Args: { p_pulse?: string; p_team: string }
         Returns: {
-          consent_share: boolean
-          created_at: string
-          id: string
-          is_lead: boolean
-          role_title: string | null
-          team_id: string
-          updated_at: string
-          user_id: string
-        }
+          dynamic: Database["public"]["Enums"]["team_dynamic"]
+          in_band: boolean
+          label: string
+          pct: number
+          question: string
+          responses: number
+          target_high: number
+          target_low: number
+        }[]
       }
     }
     Enums: {
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended"
       plan_tier: "free" | "pro" | "enterprise"
+      pulse_status: "draft" | "open" | "closed"
+      team_dynamic:
+        | "psych_safety"
+        | "trust"
+        | "conflict_norms"
+        | "role_clarity"
+        | "decision_rights"
       workspace_role: "owner" | "admin" | "member"
     }
     CompositeTypes: {
@@ -419,6 +492,14 @@ export const Constants = {
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended"],
       plan_tier: ["free", "pro", "enterprise"],
+      pulse_status: ["draft", "open", "closed"],
+      team_dynamic: [
+        "psych_safety",
+        "trust",
+        "conflict_norms",
+        "role_clarity",
+        "decision_rights",
+      ],
       workspace_role: ["owner", "admin", "member"],
     },
   },

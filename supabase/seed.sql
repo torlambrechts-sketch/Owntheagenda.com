@@ -61,3 +61,49 @@ insert into public.team_member (team_id, user_id, role_title, is_lead, consent_s
   ('33333333-3333-3333-3333-333333333301','11111111-1111-1111-1111-111111111105','VP People',      false, true),
   ('33333333-3333-3333-3333-333333333301','11111111-1111-1111-1111-111111111106','VP Engineering', false, true)
 on conflict (team_id, user_id) do nothing;
+
+-- ----- assessment demo: a closed "April pulse" + responses + fingerprints ----
+insert into public.pulse (id, team_id, name, status, opened_at, closed_at, created_by)
+values ('44444444-4444-4444-4444-444444444401','33333333-3333-3333-3333-333333333301',
+        'April pulse','closed', now() - interval '30 days', now() - interval '25 days',
+        '11111111-1111-1111-1111-111111111101')
+on conflict (id) do nothing;
+
+insert into public.pulse_response (pulse_id, respondent_id, dynamic, score)
+select '44444444-4444-4444-4444-444444444401', u.uid, d.dyn, d.scores[u.idx]
+from (values
+  ('11111111-1111-1111-1111-111111111101'::uuid, 1),
+  ('11111111-1111-1111-1111-111111111102'::uuid, 2),
+  ('11111111-1111-1111-1111-111111111103'::uuid, 3),
+  ('11111111-1111-1111-1111-111111111104'::uuid, 4),
+  ('11111111-1111-1111-1111-111111111105'::uuid, 5),
+  ('11111111-1111-1111-1111-111111111106'::uuid, 6)
+) as u(uid, idx)
+cross join (values
+  ('psych_safety'::public.team_dynamic,    array[3,3,3,3,3,3]),
+  ('trust'::public.team_dynamic,           array[4,4,3,4,4,3]),
+  ('conflict_norms'::public.team_dynamic,  array[4,3,4,3,4,3]),
+  ('role_clarity'::public.team_dynamic,    array[4,4,4,4,5,4]),
+  ('decision_rights'::public.team_dynamic, array[3,2,3,2,3,3])
+) as d(dyn, scores)
+on conflict (pulse_id, respondent_id, dynamic) do nothing;
+
+insert into public.fingerprint (team_member_id, trait, band_low, band_high)
+select tm.id, f.trait, f.lo, f.hi
+from public.team_member tm
+join (values
+  ('11111111-1111-1111-1111-111111111101'::uuid,'Drive',72,92),
+  ('11111111-1111-1111-1111-111111111101'::uuid,'Directness',60,82),
+  ('11111111-1111-1111-1111-111111111102'::uuid,'Rigour',68,88),
+  ('11111111-1111-1111-1111-111111111102'::uuid,'Caution',58,80),
+  ('11111111-1111-1111-1111-111111111103'::uuid,'Vision',70,90),
+  ('11111111-1111-1111-1111-111111111103'::uuid,'Curiosity',66,86),
+  ('11111111-1111-1111-1111-111111111104'::uuid,'Energy',74,94),
+  ('11111111-1111-1111-1111-111111111104'::uuid,'Influence',64,84),
+  ('11111111-1111-1111-1111-111111111105'::uuid,'Empathy',72,92),
+  ('11111111-1111-1111-1111-111111111105'::uuid,'Steadiness',60,82),
+  ('11111111-1111-1111-1111-111111111106'::uuid,'Focus',70,90),
+  ('11111111-1111-1111-1111-111111111106'::uuid,'Pragmatism',62,84)
+) as f(uid, trait, lo, hi) on f.uid = tm.user_id
+where tm.team_id = '33333333-3333-3333-3333-333333333301'
+on conflict (team_member_id, trait) do nothing;
