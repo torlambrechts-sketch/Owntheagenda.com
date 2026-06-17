@@ -17,6 +17,7 @@ import {
   cursorColor,
   snapToGrid,
   distToSegment,
+  rectsIntersect,
   type Pt,
   type Side,
 } from "@/lib/canvas";
@@ -117,7 +118,10 @@ export function CanvasBoard({
   const [fill, setFill] = useState("lemon");
   const [stroke, setStroke] = useState("ink");
   const [lineStyle, setLineStyle] = useState<"straight" | "curved" | "rounded">("curved");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selectedId = selectedIds.length ? selectedIds[selectedIds.length - 1] : null;
+  const setSelectedId = (id: string | null) => setSelectedIds(id ? [id] : []);
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [size, setSize] = useState({ bw: 1, bh: 1 });
   const [draftPts, setDraftPts] = useState<number[][] | null>(null);
@@ -136,11 +140,13 @@ export function CanvasBoard({
   const strokeRef = useRef(stroke);
   const lineStyleRef = useRef(lineStyle);
   const editingRef = useRef<string | null>(null);
-  const dragRef = useRef<{ id: string; ox: number; oy: number; moved: boolean } | null>(null);
+  const dragRef = useRef<{ ids: string[]; sx: number; sy: number; init: Record<string, { x: number; y: number }>; moved: boolean } | null>(null);
   const resizeRef = useRef<{ id: string } | null>(null);
   const drawRef = useRef<number[][] | null>(null);
   const connRef = useRef<{ srcId: string; srcAnchor: Side; cur: Pt } | null>(null);
   const eraserRef = useRef(false);
+  const marqueeRef = useRef<{ sx: number; sy: number } | null>(null);
+  const selectedIdsRef = useRef<string[]>([]);
   useEffect(() => { objectsRef.current = objects; }, [objects]);
   useEffect(() => { sizeRef.current = size; }, [size]);
   useEffect(() => { toolRef.current = tool; }, [tool]);
@@ -192,7 +198,7 @@ export function CanvasBoard({
           }
           const obj = mapRow(r);
           setObjects((prev) => {
-            const busy = editingRef.current === obj.id || dragRef.current?.id === obj.id || resizeRef.current?.id === obj.id;
+            const busy = editingRef.current === obj.id || dragRef.current?.ids.includes(obj.id) || resizeRef.current?.id === obj.id;
             const i = prev.findIndex((o) => o.id === obj.id);
             if (i === -1) return [...prev, obj];
             if (busy) {
@@ -247,7 +253,7 @@ export function CanvasBoard({
   }
   async function delObj(id: string) {
     setObjects((prev) => prev.filter((o) => o.id !== id));
-    if (selectedId === id) setSelectedId(null);
+    setSelectedIds((ids) => ids.filter((x) => x !== id));
     if (editingId === id) setEditingId(null);
     await supabase.from("canvas_object").delete().eq("id", id);
   }
@@ -391,15 +397,25 @@ export function CanvasBoard({
       if (cidEl) {
         if (el.closest(".del")) return;
         const id = cidEl.getAttribute("data-cid")!;
-        setSelectedId(id);
         const o = byId(id);
         if (o && SHAPE_KINDS.has(o.kind)) {
-          dragRef.current = { id, ox: p.x - o.x * bw, oy: p.y - o.y * bh, moved: false };
+          // drag the whole selection if this shape is part of it, else select just this
+          const ids = selectedIds.includes(id) ? selectedIds : [id];
+          if (!selectedIds.includes(id)) setSelectedIds(ids);
+          const init: Record<string, { x: number; y: number }> = {};
+          for (const sid of ids) { const so = byId(sid); if (so) init[sid] = { x: so.x, y: so.y }; }
+          dragRef.current = { ids, sx: p.x, sy: p.y, init, moved: false };
           boardRef.current!.setPointerCapture(e.pointerId);
+        } else {
+          setSelectedId(id);
         }
         return;
       }
-      setSelectedId(null);
+      // empty space → rubber-band marquee
+      marqueeRef.current = { sx: p.x, sy: p.y };
+      setMarquee({ x: p.x, y: p.y, w: 0, h: 0 });
+      setSelectedIds([]);
+      boardRef.current!.setPointerCapture(e.pointerId);
       return;
     }
 
@@ -428,6 +444,11 @@ export function CanvasBoard({
       if (id) delObj(id);
       return;
     }
+    if (marqueeRef.current) {
+      const m = marqueeRef.current;
+      setMarquee({ x: Math.min(m.sx, p.x), y: Math.min(m.sy, p.y), w: Math.abs(p.x - m.sx), h: Math.abs(p.y - m.sy) });
+      return;
+    }
     if (drawRef.current) {
       drawRef.current.push([clamp01(p.x / bw), clamp01(p.y / bh)]);
       setDraftPts(drawRef.current.slice());
@@ -441,12 +462,13 @@ export function CanvasBoard({
     if (dragRef.current) {
       const d = dragRef.current;
       d.moved = true;
-      let cxp = p.x - d.ox;
-      let cyp = p.y - d.oy;
-      if (!e.shiftKey) { cxp = snapToGrid(cxp); cyp = snapToGrid(cyp); } // hold Shift to bypass snap
-      const nx = clamp01(cxp / bw);
-      const ny = clamp01(cyp / bh);
-      setObjects((prev) => prev.map((o) => (o.id === d.id ? { ...o, x: nx, y: ny } : o)));
+      let dxp = p.x - d.sx;
+      let dyp = p.y - d.sy;
+      if (!e.shiftKey) { dxp = snapToGrid(dxp); dyp = snapToGrid(dyp); } // hold Shift to bypass snap
+      setObjects((prev) => prev.map((o) => {
+        const ini = d.init[o.id];
+        return ini ? { ...o, x: clamp01(ini.x + dxp / bw), y: clamp01(ini.y + dyp / bh) } : o;
+      }));
       return;
     }
     if (resizeRef.current) {
@@ -465,6 +487,21 @@ export function CanvasBoard({
     const p = boardPoint(e);
     const { bw, bh } = sizeRef.current;
     if (eraserRef.current) { eraserRef.current = false; return; }
+    if (marqueeRef.current) {
+      const m = marqueeRef.current;
+      marqueeRef.current = null;
+      setMarquee(null);
+      const left = Math.min(m.sx, p.x), top = Math.min(m.sy, p.y);
+      const w = Math.abs(p.x - m.sx), h = Math.abs(p.y - m.sy);
+      if (w > 4 || h > 4) {
+        const sbox = { cx: 0, cy: 0, w, h, left, top, right: left + w, bottom: top + h };
+        const hits = objectsRef.current
+          .filter((o) => SHAPE_KINDS.has(o.kind) && rectsIntersect(rectOf(o, bw, bh), sbox))
+          .map((o) => o.id);
+        setSelectedIds(hits);
+      }
+      return;
+    }
     if (drawRef.current) {
       const pts = drawRef.current;
       drawRef.current = null;
@@ -508,8 +545,12 @@ export function CanvasBoard({
     if (dragRef.current) {
       const d = dragRef.current;
       dragRef.current = null;
-      const o = byId(d.id);
-      if (o && d.moved) await patchObj(d.id, { x: o.x, y: o.y });
+      if (d.moved) {
+        for (const id of d.ids) {
+          const o = byId(id);
+          if (o) await patchObj(id, { x: o.x, y: o.y });
+        }
+      }
       return;
     }
     if (resizeRef.current) {
@@ -530,17 +571,19 @@ export function CanvasBoard({
     );
   }
 
+  useEffect(() => { selectedIdsRef.current = selectedIds; }, [selectedIds]);
+
   // delete selected with the keyboard
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (editingRef.current) return;
-      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedIdsRef.current.length) {
         const bo = objectsRef.current.find((o) => o.kind === "__board");
         let s: Record<string, unknown> = {};
         try { s = bo?.text ? JSON.parse(bo.text) : {}; } catch { s = {}; }
         if (!isFacilitator && s.locked) return;
         e.preventDefault();
-        delObj(selectedId);
+        for (const id of [...selectedIdsRef.current]) delObj(id);
       }
       if ((e.key === "d" || e.key === "D") && (e.metaKey || e.ctrlKey) && selectedId) {
         const bo = objectsRef.current.find((o) => o.kind === "__board");
@@ -623,7 +666,8 @@ export function CanvasBoard({
   const shapes = objects.filter((o) => SHAPE_KINDS.has(o.kind)).sort((a, b) => a.z - b.z);
   const connectors = objects.filter((o) => o.kind === "connector");
   const drawings = objects.filter((o) => o.kind === "draw");
-  const selObj = byId(selectedId);
+  const single = selectedIds.length === 1;
+  const selObj = single ? byId(selectedIds[0]) : undefined;
   const boardObj = objects.find((o) => o.kind === "__board");
   let settings: { locked?: boolean; hideNames?: boolean } = {};
   try { settings = boardObj?.text ? JSON.parse(boardObj.text) : {}; } catch { settings = {}; }
@@ -857,14 +901,14 @@ export function CanvasBoard({
         {/* shapes (DOM) */}
         {shapes.map((o) => {
           const r = rectOf(o, bw, bh);
-          const sel = selectedId === o.id;
+          const sel = selectedIds.includes(o.id);
           const anchorsOn = tool === "connector" || sel;
           const editing = editingId === o.id;
           const common: React.CSSProperties = { left: r.left, top: r.top, width: r.w, height: o.kind === "sticky" ? undefined : r.h };
           if (o.kind === "sticky") {
             return (
               <div key={o.id} data-cid={o.id} className={`sticky ${o.color}${sel ? " sel" : ""}`} style={{ ...common, transform: "none" }}>
-                {sel && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
+                {sel && single && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
                 {editing ? (
                   <textarea autoFocus value={o.text} placeholder="Type a note…" onChange={(e) => onText(o.id, e.target.value)} onBlur={() => commitText(o)} />
                 ) : (
@@ -895,8 +939,8 @@ export function CanvasBoard({
                   {o.text ? o.text : <span className="ph">{isText ? "Text" : ""}</span>}
                 </div>
               )}
-              {sel && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
-              {sel && canEdit ? <span className="cresize" data-resize="1" data-cid={o.id} /> : null}
+              {sel && single && canEdit ? <button className="del" title="Delete" onPointerDown={(e) => e.stopPropagation()} onClick={() => delObj(o.id)}>✕</button> : null}
+              {sel && single && canEdit ? <span className="cresize" data-resize="1" data-cid={o.id} /> : null}
               {anchorsOn ? SIDES.map((sd) => <Anchor key={sd} id={o.id} side={sd} />) : null}
             </div>
           );
@@ -911,6 +955,7 @@ export function CanvasBoard({
             <span className="ccursor-lbl" style={{ background: c.color }}>{c.name}</span>
           </div>
         ))}
+        {marquee ? <div className="marquee" style={{ left: marquee.x, top: marquee.y, width: marquee.w, height: marquee.h }} /> : null}
       </div>
     </div>
   );

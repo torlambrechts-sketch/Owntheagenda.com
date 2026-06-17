@@ -10,8 +10,11 @@ import {
   cursorColor,
   snapToGrid,
   distToSegment,
+  rectsIntersect,
   CURSOR_COLORS,
 } from "@/lib/canvas";
+
+const box = (left: number, top: number, right: number, bottom: number) => ({ cx: 0, cy: 0, w: 0, h: 0, left, top, right, bottom });
 
 const BW = 1000;
 const BH = 800;
@@ -112,5 +115,13 @@ describe("distToSegment", () => {
     expect(distToSegment({ x: 5, y: 5 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(5);
     expect(distToSegment({ x: -5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(5);
     expect(distToSegment({ x: 5, y: 0 }, { x: 0, y: 0 }, { x: 10, y: 0 })).toBeCloseTo(0);
+  });
+});
+
+describe("rectsIntersect", () => {
+  it("detects overlap and separation", () => {
+    expect(rectsIntersect(box(0, 0, 10, 10), box(5, 5, 15, 15))).toBe(true);
+    expect(rectsIntersect(box(0, 0, 10, 10), box(20, 20, 30, 30))).toBe(false);
+    expect(rectsIntersect(box(0, 0, 10, 10), box(10, 0, 20, 10))).toBe(false);
   });
 });

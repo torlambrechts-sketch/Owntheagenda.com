@@ -52,6 +52,11 @@ export function snapToGrid(px: number, grid = 16): number {
   return Math.round(px / grid) * grid;
 }
 
+// Axis-aligned rectangle overlap (marquee multi-select).
+export function rectsIntersect(a: Rect, b: Rect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
 // Shortest distance from point p to segment a–b (eraser / connector hit-testing).
 export function distToSegment(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x;
