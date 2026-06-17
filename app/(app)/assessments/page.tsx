@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
+import { SurveyRespond } from "./SurveyRespond";
 
 export default async function AssessmentsPage({
   searchParams,
@@ -127,6 +128,13 @@ export default async function AssessmentsPage({
     Boolean(meTm?.is_lead);
   const isTeamMember = Boolean(meTm);
 
+  const { data: openSurveys } = await supabase
+    .from("survey")
+    .select("id, name, kind")
+    .eq("team_id", teamId)
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+
   // Participation roster for an open pulse (lead/admin only): who has responded.
   let participation: { name: string; completed: boolean }[] | null = null;
   if (openPulse && canManage) {
@@ -159,6 +167,13 @@ export default async function AssessmentsPage({
             </Link>
           ))}
         </div>
+      ) : null}
+
+      {isTeamMember ? (
+        <SurveyRespond
+          surveys={(openSurveys ?? []) as { id: string; name: string; kind: string }[]}
+          userId={ctx.userId}
+        />
       ) : null}
 
       <AssessmentsClient

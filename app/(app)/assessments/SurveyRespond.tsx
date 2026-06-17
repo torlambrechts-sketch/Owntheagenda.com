@@ -1,0 +1,120 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import {
+  INSTRUMENTS,
+  dimensionMeans,
+  climateStrength,
+  strengthItemKeys,
+  type ItemStat,
+} from "@/lib/survey";
+
+// Standalone respond surface for open surveys (prerequisite mode — answer ahead
+// of the workshop). Shows the form, then the aggregate behind the min-3 mask.
+
+type OpenSurvey = { id: string; name: string; kind: string };
+type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null };
+
+export function SurveyRespond({ surveys, userId }: { surveys: OpenSurvey[]; userId: string }) {
+  if (!surveys.length) return null;
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div className="cat-head" style={{ marginTop: 0 }}>Surveys to complete <span className="n">{surveys.length}</span></div>
+      {surveys.map((s) => (
+        <SurveyCard key={s.id} survey={s} userId={userId} />
+      ))}
+    </div>
+  );
+}
+
+function SurveyCard({ survey, userId }: { survey: OpenSurvey; userId: string }) {
+  const supabase = useMemo(() => createClient(), []);
+  const inst = INSTRUMENTS[survey.kind];
+  const [scores, setScores] = useState<Record<string, number>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const [results, setResults] = useState<Results | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadResults = useCallback(async () => {
+    if (!inst) return;
+    const { data } = await supabase.rpc("survey_results", { p_survey: survey.id, p_strength_items: strengthItemKeys(inst) });
+    if (data) setResults(data as unknown as Results);
+  }, [supabase, inst, survey.id]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("survey_response")
+        .select("respondent_id")
+        .eq("survey_id", survey.id)
+        .eq("respondent_id", userId)
+        .maybeSingle();
+      if (data) setSubmitted(true);
+      loadResults();
+    })();
+  }, [supabase, survey.id, userId, loadResults]);
+
+  async function submit() {
+    if (!inst) return;
+    setBusy(true);
+    await supabase.rpc("submit_survey_response", { p_survey: survey.id, p_scores: scores });
+    setBusy(false);
+    setSubmitted(true);
+    loadResults();
+  }
+
+  if (!inst) return null;
+  const allRated = inst.items.every((it) => scores[it.key]);
+  const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
+  const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
+  const max = inst.scale.max;
+  const respondents = results?.respondents ?? 0;
+
+  return (
+    <div className="svcard">
+      <div className="svcard-h"><b>{survey.name}</b><span className="src">{inst.name}</span></div>
+      {!submitted ? (
+        <>
+          <p className="assess-lead">{inst.scale.min} = {inst.scale.minLabel} · {max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
+          {inst.dimensions.map((d) => (
+            <div key={d.key} className="svgroup">
+              <div className="svgroup-h">{d.label}</div>
+              {inst.items.filter((it) => it.dimension === d.key).map((it) => (
+                <div className="asq" key={it.key}>
+                  <div className="asq-q"><span>{it.text}</span></div>
+                  <div className="asopts sv7">
+                    {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
+                      <button key={v} className={scores[it.key] === v ? "on" : ""} onClick={() => setScores((s) => ({ ...s, [it.key]: v }))}>{v}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+          <div className="mactions"><button className="btn-prim" disabled={!allRated || busy} onClick={submit}>{busy ? "Submitting…" : "Submit my read"}</button></div>
+        </>
+      ) : (
+        <>
+          <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
+          <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "10px 0 0" }}>
+            <div className="aa-h">
+              Team reading
+              {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
+              {strength ? <span className={`svchip ${strength.tone}`}>{strength.label} on safety</span> : null}
+            </div>
+            {dims ? dims.map((d) => {
+              const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
+              return (
+                <div className="svdim" key={d.key}>
+                  <div className="svdim-top"><span className="svdim-label">{d.label}</span><span className="svdim-val">{d.mean == null ? "· · ·" : `${d.mean.toFixed(1)} / ${max}`}</span></div>
+                  <div className="svtrack"><div className="svfill" style={{ width: `${pct}%` }} /></div>
+                </div>
+              );
+            }) : null}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
