@@ -241,6 +241,16 @@ yields the right blocks (rolled-back); run-mode smoke path.
 
 Phases 1–5 deliver a runnable Start Smart; 6–7 complete the efficacy loop and polish.
 
+**Build status (shipped):** Phases 1–5 are built, verified and merged — durable
+artifacts (team charter + user manual), the User Manual / Charter / dual-mode
+Assessment run modules, and the three seeded templates; SmartStart runs
+end-to-end (verified by a rolled-back build that produces the 8-block full
+template with all config). Phase 6 surfaces the team's dynamics reading next to
+the charter on the team page; the follow-up loop reuses the shipped reminder
+infrastructure + the Follow-up template + the standard schedule flow. Phase 7 is
+the standing quality gate — lint / typecheck / tests / build green, with a
+rolled-back RLS role test per phase.
+
 ---
 
 ## 8. Decisions & risks to confirm

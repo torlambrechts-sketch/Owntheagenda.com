@@ -28,6 +28,8 @@ export default async function TeamDetailPage({
     .eq("team_id", teamId)
     .maybeSingle();
 
+  const { data: dynRows } = await supabase.rpc("team_dynamics", { p_team: teamId });
+
   const { data: tm } = await supabase
     .from("team_member")
     .select("id, user_id, role_title, is_lead, consent_share")
@@ -101,6 +103,43 @@ export default async function TeamDetailPage({
         addable={addable}
       />
       {charterRow ? <TeamCharterReadout charter={charterRow} /> : null}
+      <TeamDynamicsSnapshot rows={(dynRows ?? []) as DynRow[]} />
+    </div>
+  );
+}
+
+type DynRow = { dynamic: string; label: string; pct: number | null; target_low: number; target_high: number };
+
+function TeamDynamicsSnapshot({ rows }: { rows: DynRow[] }) {
+  if (!rows.length) return null;
+  const anyReading = rows.some((r) => r.pct != null);
+  return (
+    <div className="team-charter" style={{ marginTop: 16 }}>
+      <div className="tc-h">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--role)" strokeWidth="2.2">
+          <path d="M4 19V9M10 19V5M16 19v-7M22 19H2" />
+        </svg>
+        <h2>Team dynamics</h2>
+      </div>
+      {!anyReading ? (
+        <p className="ro-empty" style={{ marginTop: 6 }}>Run an assessment to see where the team stands. Hidden until at least 3 people respond.</p>
+      ) : (
+        <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "8px 0 0" }}>
+          {rows.map((r) => {
+            const masked = r.pct == null;
+            return (
+              <div className="asrow" key={r.dynamic}>
+                <div className="aslabel">{r.label}</div>
+                <div className="astrack">
+                  <div className="astarget" style={{ left: `${r.target_low}%`, width: `${Math.max(0, r.target_high - r.target_low)}%` }} />
+                  {!masked ? <div className="asmark" style={{ left: `${r.pct}%` }} /> : null}
+                </div>
+                <div className="asval">{masked ? "· · ·" : `${r.pct}%`}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
