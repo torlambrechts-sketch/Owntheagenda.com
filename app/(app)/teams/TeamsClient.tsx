@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { initials } from "@/lib/util";
@@ -81,7 +82,12 @@ export function TeamsClient({
       ) : (
         <div className="cardgrid">
           {teams.map((t) => (
-            <div className="card" key={t.id}>
+            <Link
+              className="card"
+              key={t.id}
+              href={`/teams/${t.id}`}
+              style={{ textDecoration: "none", color: "inherit", display: "block" }}
+            >
               <div className="eyebrow">
                 {t.parentName ? `↳ ${t.parentName}` : "Team"}
               </div>
@@ -120,7 +126,7 @@ export function TeamsClient({
                   {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

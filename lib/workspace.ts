@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables, Enums } from "@/types/database.types";
+
+export const ACTIVE_WS_COOKIE = "otg_ws";
 
 export type WorkspaceSummary = Tables<"workspace">;
 export type MembershipWithWorkspace = Tables<"membership"> & {
@@ -36,7 +39,10 @@ export async function requireSession(): Promise<SessionContext> {
   const list = (memberships ?? []) as MembershipWithWorkspace[];
   if (list.length === 0) redirect("/onboarding");
 
-  const active = list[0];
+  // Active workspace: the one named in the cookie, else the first.
+  const activeId = cookies().get(ACTIVE_WS_COOKIE)?.value;
+  const active =
+    list.find((m) => m.workspace_id === activeId) ?? list[0];
   const { data: profile } = await supabase
     .from("profile")
     .select("*")

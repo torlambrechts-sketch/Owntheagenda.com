@@ -1,13 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { signout } from "@/app/auth/actions";
+import { setActiveWorkspace } from "@/app/(app)/actions";
 import { initials } from "@/lib/util";
 
 export type ShellChrome = {
   workspaceName: string;
+  workspaceId: string;
+  workspaces: { id: string; name: string }[];
   userName: string;
   userEmail: string | null;
 };
@@ -53,9 +57,11 @@ export function Shell({
   children: React.ReactNode;
 }) {
   const path = usePathname();
+  const [wsOpen, setWsOpen] = useState(false);
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
   const groups = ["Workspace", "People"];
+  const canSwitch = chrome.workspaces.length > 1;
 
   return (
     <div className="app">
@@ -118,11 +124,38 @@ export function Shell({
             )}
           </div>
           <div className="right">
-            <div className="org-chip">
-              <span className="sq">
-                {initials(chrome.workspaceName).slice(0, 2)}
-              </span>
-              {chrome.workspaceName}
+            <div className="ws-switch">
+              <button
+                className="org-chip"
+                onClick={() => canSwitch && setWsOpen((o) => !o)}
+                style={{ cursor: canSwitch ? "pointer" : "default" }}
+                aria-haspopup={canSwitch}
+                aria-expanded={wsOpen}
+              >
+                <span className="sq">
+                  {initials(chrome.workspaceName).slice(0, 2)}
+                </span>
+                {chrome.workspaceName}
+                {canSwitch ? (
+                  <span style={{ color: "var(--faint)", marginLeft: 2 }}>▾</span>
+                ) : null}
+              </button>
+              {canSwitch && wsOpen ? (
+                <div className="ws-menu">
+                  {chrome.workspaces.map((w) => (
+                    <button
+                      key={w.id}
+                      className={`ws-item${
+                        w.id === chrome.workspaceId ? " active" : ""
+                      }`}
+                      onClick={() => setActiveWorkspace(w.id)}
+                    >
+                      <span className="sq">{initials(w.name).slice(0, 2)}</span>
+                      {w.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
             <form action={signout}>
               <button className="linkbtn" type="submit" title="Sign out">

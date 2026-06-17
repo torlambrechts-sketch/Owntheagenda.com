@@ -17,6 +17,11 @@ export default async function AppLayout({
     <Shell
       chrome={{
         workspaceName: ctx.workspace.name,
+        workspaceId: ctx.workspace.id,
+        workspaces: ctx.memberships.map((m) => ({
+          id: m.workspace.id,
+          name: m.workspace.name,
+        })),
         userName,
         userEmail: ctx.email,
       }}
