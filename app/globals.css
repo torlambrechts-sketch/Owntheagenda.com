@@ -359,6 +359,24 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .mfield textarea{resize:vertical;min-height:42px}
 .mactions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px}
 
+/* Run · team charter (Start Smart) ----------------------------------- */
+.charterwrap{display:flex;flex-direction:column;flex:1;min-height:0;gap:12px}
+.charterbody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:14px;padding-top:2px}
+.chsec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.chsec-h{display:flex;align-items:baseline;gap:10px;margin-bottom:9px}
+.chsec-h b{font-size:14px}
+.chhint{font-size:11.5px;color:var(--faint)}
+.chsave{margin-top:9px;display:flex;justify-content:flex-end}
+.chbody{font-size:13.5px;color:var(--ink);line-height:1.5;margin:0}
+.chlist{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--ink);line-height:1.45}
+.chmethods{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink)}
+.chk-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-right:6px}
+.chcompile{display:flex;align-items:center;gap:12px;background:var(--open-bg);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.chflash{align-self:center;font-size:12.5px;font-weight:600;color:var(--green)}
+.team-charter{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:18px 20px;margin-top:18px}
+.team-charter .tc-h{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.team-charter .tc-h h2{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0}
+
 /* Run · idea modules (brainstorm / poll / feedback) ------------------ */
 .dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}
 .idea-add{display:flex;gap:8px;margin-top:2px}

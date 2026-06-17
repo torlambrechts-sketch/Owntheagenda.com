@@ -7,6 +7,7 @@ import { ACTIVITY, initials } from "@/lib/util";
 import { CanvasBoard } from "./CanvasBoard";
 import { IdeaModule, type ModuleConfig } from "./IdeaModule";
 import { ManualModule } from "./ManualModule";
+import { CharterModule } from "./CharterModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { Enums } from "@/types/database.types";
@@ -45,6 +46,7 @@ function mmss(total: number) {
 export function RunClient({
   workshopId,
   workspaceId,
+  teamId,
   title,
   blocks,
   session: initialSession,
@@ -56,6 +58,7 @@ export function RunClient({
 }: {
   workshopId: string;
   workspaceId: string;
+  teamId: string | null;
   title: string;
   blocks: RunBlock[];
   session: SessionState;
@@ -316,6 +319,22 @@ export function RunClient({
               prompt={block?.prompt ?? null}
               stepLabel={`Personal user manual · Step ${session.currentBlockOrd} of ${N}`}
               config={(block?.config ?? {}) as { fields?: string[]; leaderFirst?: boolean; allowPass?: boolean }}
+              showReady={!isFacilitator || view === "participant"}
+              ready={!!me?.ready}
+              onToggleReady={toggleReady}
+            />
+          </div>
+        ) : block?.activityType === "charter" ? (
+          <div className="stage canvasstage">
+            <CharterModule
+              key={session.currentBlockOrd}
+              teamId={teamId}
+              sessionId={sid}
+              isFacilitator={isFacilitator}
+              section={((block?.config as Record<string, unknown>)?.section as "purpose" | "goals" | "roles" | "work_methods" | "norms" | "review") ?? "review"}
+              title={block?.title ?? "Team charter"}
+              prompt={block?.prompt ?? null}
+              stepLabel={`Team charter · Step ${session.currentBlockOrd} of ${N}`}
               showReady={!isFacilitator || view === "participant"}
               ready={!!me?.ready}
               onToggleReady={toggleReady}

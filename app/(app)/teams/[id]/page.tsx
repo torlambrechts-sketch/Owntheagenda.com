@@ -22,6 +22,12 @@ export default async function TeamDetailPage({
     .maybeSingle();
   if (!team || team.workspace_id !== ctx.workspace.id) notFound();
 
+  const { data: charterRow } = await supabase
+    .from("team_charter")
+    .select("purpose, goals, roles, work_methods, norms, status")
+    .eq("team_id", teamId)
+    .maybeSingle();
+
   const { data: tm } = await supabase
     .from("team_member")
     .select("id, user_id, role_title, is_lead, consent_share")
@@ -94,6 +100,60 @@ export default async function TeamDetailPage({
         members={members}
         addable={addable}
       />
+      {charterRow ? <TeamCharterReadout charter={charterRow} /> : null}
+    </div>
+  );
+}
+
+function TeamCharterReadout({ charter }: { charter: Record<string, unknown> }) {
+  const purpose = (charter.purpose as string) || "";
+  const goals = (charter.goals as { text: string }[]) ?? [];
+  const roles = (charter.roles as { name: string; responsibilities?: string }[]) ?? [];
+  const norms = (charter.norms as { text: string }[]) ?? [];
+  const wm = (charter.work_methods as Record<string, string>) ?? {};
+  const active = charter.status === "active";
+  const empty = !purpose && !goals.length && !roles.length && !norms.length && !Object.values(wm).some(Boolean);
+  if (empty) return null;
+  return (
+    <div className="team-charter">
+      <div className="tc-h">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--green)" strokeWidth="2.2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
+        </svg>
+        <h2>Team charter</h2>
+        <span className={`pill sm${active ? "" : " draft"}`} style={active ? { background: "var(--open-bg)", color: "var(--green)" } : {}}>
+          {active ? "Active" : "Draft"}
+        </span>
+      </div>
+      {purpose ? <p className="chbody" style={{ marginTop: 6 }}><b>Purpose.</b> {purpose}</p> : null}
+      {goals.length ? (
+        <div className="chsec" style={{ boxShadow: "none", marginTop: 12 }}>
+          <div className="chsec-h"><b>Goals</b></div>
+          <ul className="chlist">{goals.map((g, i) => <li key={i}>{g.text}</li>)}</ul>
+        </div>
+      ) : null}
+      {roles.length ? (
+        <div className="chsec" style={{ boxShadow: "none", marginTop: 12 }}>
+          <div className="chsec-h"><b>Roles & responsibilities</b></div>
+          <ul className="chlist">{roles.map((r, i) => <li key={i}><b>{r.name}</b>{r.responsibilities ? ` — ${r.responsibilities}` : ""}</li>)}</ul>
+        </div>
+      ) : null}
+      {Object.values(wm).some(Boolean) ? (
+        <div className="chsec" style={{ boxShadow: "none", marginTop: 12 }}>
+          <div className="chsec-h"><b>How we work</b></div>
+          <div className="chmethods">
+            {(["meetings", "communication", "tools", "decisions"] as const).map((k) =>
+              wm[k] ? <div key={k}><span className="chk-label">{k}</span> {wm[k]}</div> : null,
+            )}
+          </div>
+        </div>
+      ) : null}
+      {norms.length ? (
+        <div className="chsec" style={{ boxShadow: "none", marginTop: 12 }}>
+          <div className="chsec-h"><b>Collaboration norms</b></div>
+          <ul className="chlist">{norms.map((n, i) => <li key={i}>{n.text}</li>)}</ul>
+        </div>
+      ) : null}
     </div>
   );
 }

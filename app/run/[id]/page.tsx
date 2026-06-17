@@ -99,6 +99,7 @@ export default async function RunPage({
     <RunClient
       workshopId={workshop.id}
       workspaceId={workshop.workspace_id}
+      teamId={workshop.team_id}
       title={workshop.title}
       blocks={runBlocks}
       session={{
