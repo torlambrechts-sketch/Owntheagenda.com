@@ -133,3 +133,20 @@ cross join (values
   ('decision_rights'::public.team_dynamic, array[2,2,3,2,3,2])
 ) as d(dyn, scores)
 on conflict (pulse_id, respondent_id, dynamic) do nothing;
+
+-- ----- a demo workshop built from the Five Behaviours template -----------
+insert into public.workshop (id, team_id, title, template_id, pulse_id, status, created_by)
+select '55555555-5555-5555-5555-555555555501','33333333-3333-3333-3333-333333333301',
+       'Trust & Decision-Making', t.id, '44444444-4444-4444-4444-444444444401', 'draft',
+       '11111111-1111-1111-1111-111111111101'
+from public.template t where t.key = 'five-beh' and t.workspace_id is null
+on conflict (id) do nothing;
+
+insert into public.block (workshop_id, ord, title, activity_type, duration, prompt, linked_dynamic)
+select '55555555-5555-5555-5555-555555555501', ph.ord,
+       ph.elem ->> 'title', coalesce((ph.elem ->> 'type')::public.activity_type,'canvas'),
+       coalesce((ph.elem ->> 'minutes')::int,10), ph.elem ->> 'prompt',
+       (ph.elem ->> 'dynamic')::public.team_dynamic
+from public.template t, jsonb_array_elements(t.definition -> 'phases') with ordinality as ph(elem, ord)
+where t.key = 'five-beh' and t.workspace_id is null
+  and not exists (select 1 from public.block b where b.workshop_id = '55555555-5555-5555-5555-555555555501');

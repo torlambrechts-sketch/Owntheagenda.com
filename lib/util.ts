@@ -16,3 +16,29 @@ export function initials(name?: string | null, fallback = "?") {
 export function roleLabel(role: Enums<"workspace_role">) {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
+
+export const ACTIVITY: Record<string, { label: string; cls: string }> = {
+  canvas: { label: "Canvas", cls: "t-canvas" },
+  vote: { label: "Vote", cls: "t-vote" },
+  discuss: { label: "Discuss", cls: "t-discuss" },
+  checkin: { label: "Check-in", cls: "t-checkin" },
+  outcome: { label: "Outcome", cls: "t-outcome" },
+};
+
+export const CATEGORY: Record<string, string> = {
+  team: "Team effectiveness",
+  retro: "Retrospectives",
+  ideation: "Ideation",
+  prioritization: "Prioritization",
+  strategy: "Strategy",
+  design: "Design thinking",
+  kickoff: "Kickoffs",
+  checkin: "Check-ins",
+};
+
+// "0:00", "0:10" cumulative clock labels for an agenda of durations (minutes)
+export function clock(mins: number) {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
