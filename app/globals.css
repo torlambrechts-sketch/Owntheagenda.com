@@ -399,6 +399,17 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .pl-gbar.doing{background:#d8a630}
 .pl-gbar.done{background:var(--green)}
 .pl-nodate{font-size:11px;color:var(--faint)}
+
+/* Assessment template content preview */
+.btn-ghost.sm{padding:6px 10px;font-size:12px}
+.tplview{display:flex;flex-direction:column;gap:14px}
+.tplview-scale{font-size:12.5px;color:var(--muted);background:var(--canvas-2);border:1px solid var(--line);border-radius:9px;padding:9px 12px}
+.tplview-dim{border-left:2px solid var(--line);padding-left:12px}
+.tplview-dh{font-weight:700;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:7px}
+.tplview-dh .n{font-weight:500;font-size:11px;color:var(--faint);background:var(--canvas-2);border-radius:20px;padding:1px 7px}
+.tplview-blurb{font-size:12.5px;color:var(--muted);margin:2px 0 6px}
+.tplview-items{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+.tplview-items li{font-size:13px;color:var(--ink)}
 .histctl{position:absolute;left:14px;bottom:14px;z-index:25;display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:3px}
 .histctl button{border:none;background:none;width:30px;height:26px;border-radius:6px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .histctl button:hover:not(:disabled){background:var(--canvas)}

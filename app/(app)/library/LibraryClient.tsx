@@ -31,6 +31,7 @@ const CATEGORY: Record<string, string> = {
 type Panel =
   | { mode: "launch"; tpl: LibTemplate }
   | { mode: "take"; tpl: LibTemplate }
+  | { mode: "view"; tpl: LibTemplate }
   | null;
 
 export function LibraryClient({
@@ -118,7 +119,8 @@ export function LibraryClient({
 
   // One card renderer for both sections and the filtered view (scope-aware foot).
   const renderCard = (t: LibTemplate) => (
-    <Card key={t.key} t={t} manage={manage(t)}>
+    <Card key={t.key} t={t} inst={instruments[t.key]} manage={manage(t)}>
+      <button className="btn-ghost sm" onClick={() => setPanel({ mode: "view", tpl: t })}>View</button>
       {t.scope === "team" ? (
         manageableTeams.length > 0 ? (
           <button className="btn-prim" onClick={() => setPanel({ mode: "launch", tpl: t })}>Launch ▸</button>
@@ -208,13 +210,15 @@ export function LibraryClient({
           <div className="libpanel" onClick={(e) => e.stopPropagation()}>
             <div className="libpanel-h">
               <div>
-                <div className="pact">{panel.mode === "launch" ? "Launch to a team" : "Self-assessment"}</div>
+                <div className="pact">{panel.mode === "launch" ? "Launch to a team" : panel.mode === "take" ? "Self-assessment" : "What's inside"}</div>
                 <h2>{panel.tpl.name}</h2>
               </div>
               <button className="xbtn" onClick={() => setPanel(null)} aria-label="Close">✕</button>
             </div>
 
-            {panel.mode === "launch" ? (
+            {panel.mode === "view" ? (
+              <ContentPreview inst={instruments[panel.tpl.key] ?? null} />
+            ) : panel.mode === "launch" ? (
               <LaunchForm
                 teams={manageableTeams}
                 pending={pending}
@@ -282,9 +286,20 @@ function Section({
   );
 }
 
-function Card({ t, children, manage }: { t: LibTemplate; children: ReactNode; manage?: ReactNode }) {
+const BAR_COLORS = ["var(--forest)", "var(--role)", "var(--rust)", "var(--green)", "var(--draft-fg)"];
+
+function Card({ t, inst, children, manage }: { t: LibTemplate; inst?: SurveyInstrument; children: ReactNode; manage?: ReactNode }) {
+  const dims = inst?.dimensions?.length ?? 0;
+  const items = inst?.items?.length ?? 0;
   return (
     <div className="tpl">
+      {inst ? (
+        <div className="thumb">
+          {inst.dimensions.slice(0, 7).map((d, i) => (
+            <span key={i} className="bar" style={{ height: `${35 + ((i * 17) % 55)}%`, background: BAR_COLORS[i % BAR_COLORS.length], opacity: 0.5 }} />
+          ))}
+        </div>
+      ) : null}
       <div className="body">
         <div className="libtags">
           {t.category && t.category !== "custom" ? <span className="scopetag">{CATEGORY[t.category] ?? t.category}</span> : null}
@@ -293,9 +308,39 @@ function Card({ t, children, manage }: { t: LibTemplate; children: ReactNode; ma
         <h3>{t.name}</h3>
         {t.source ? <div className="src">{t.source}</div> : null}
         <p>{t.description}</p>
+        {inst ? (
+          <div className="meta">
+            <span>◇ {items} questions</span>
+            <span>▤ {dims} dimensions</span>
+            <span>↕ {inst.scale.min}–{inst.scale.max}</span>
+          </div>
+        ) : null}
         <div className="foot">{children}</div>
         {manage}
       </div>
+    </div>
+  );
+}
+
+function ContentPreview({ inst }: { inst: SurveyInstrument | null }) {
+  if (!inst) return <div className="libhint">No preview available for this template.</div>;
+  return (
+    <div className="tplview">
+      <div className="tplview-scale">
+        Answered on a <b>{inst.scale.min}–{inst.scale.max}</b> scale · {inst.scale.minLabel} → {inst.scale.maxLabel}
+      </div>
+      {inst.dimensions.map((d) => {
+        const qs = inst.items.filter((it) => it.dimension === d.key);
+        return (
+          <div className="tplview-dim" key={d.key}>
+            <div className="tplview-dh">{d.label} <span className="n">{qs.length}</span></div>
+            {d.blurb ? <div className="tplview-blurb">{d.blurb}</div> : null}
+            <ol className="tplview-items">
+              {qs.map((it) => <li key={it.key}>{it.text}</li>)}
+            </ol>
+          </div>
+        );
+      })}
     </div>
   );
 }
