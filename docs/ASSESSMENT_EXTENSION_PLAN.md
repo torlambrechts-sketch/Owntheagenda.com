@@ -48,8 +48,19 @@ No fabricated baseline — it builds honestly as teams complete each instrument.
 
 ## Invariants to preserve
 - Nothing un-masks below 3 respondents (composite, benchmark, gap-others all null <3).
+- For a survey with a designated subject, the protected unit is the **non-subject
+  group**: `survey_results` masks until ≥3 others, matching the gap's others-mask,
+  so the aggregate + the named subject's score can't back out the others' mean.
+- The subject may read their own gap only while still a **current team member**.
 - The benchmark pool stores only `(kind, composite)` — never anything identifying.
 - The composite formula lives once on the server; the client helper must match it.
+
+## Known minor caveats
+- **Benchmark self-inclusion:** a closed survey's own composite is in the pool when
+  its `survey_results` ranks it, biasing that percentile up by one sample (≤~12 pts
+  at the pool-8 floor, shrinking as the pool grows). Not identity-revealing;
+  excluding self would require storing a survey id in the pool, which we won't do
+  (it must stay anonymous). Accepted; self-corrects with pool size.
 
 ## Not built (bigger bets, deferred)
 - A full 360 with subject-relative item wording (the gap reuses team-worded items).
