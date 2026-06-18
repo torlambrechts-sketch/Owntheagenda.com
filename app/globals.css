@@ -435,9 +435,20 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .qdot{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--forest);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--forest);transform:translate(-50%,50%)}
 .quadxlab{grid-area:xlab;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);text-align:center}
 .quadnow{grid-area:now;font-size:12px;color:var(--ink);text-align:center;margin-top:3px}
+/* Reusable table controls (filter / sort / search) */
+.tctl{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:14px 0;padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.tctl-search{padding:6px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:13px;min-width:170px;background:var(--canvas-2);color:var(--ink)}
+.tctl-facet{display:flex;align-items:center;gap:5px}
+.tctl-flabel{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint)}
+.tctl-chip{font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;border:1px solid var(--line);background:var(--canvas-2);color:var(--muted);cursor:pointer}
+.tctl-chip:hover{border-color:var(--forest)}
+.tctl-chip.on{background:var(--open-bg);border-color:var(--forest);color:var(--forest)}
+.tctl-sort{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.tctl-sort select{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:7px;background:var(--canvas-2);color:var(--ink)}
+.tctl-count{font-size:12px;color:var(--faint);margin-left:auto}
+
 /* Health board */
-.healthboard{display:flex;flex-direction:column;gap:22px;margin-top:14px}
-.hsection{display:flex;flex-direction:column;gap:9px}
+.healthboard{display:flex;flex-direction:column;gap:22px;margin-top:14px}.hsection{display:flex;flex-direction:column;gap:9px}
 .hsection-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)}
 .hgroup{display:flex;flex-direction:column;gap:7px}
 .hrow{display:grid;grid-template-columns:minmax(190px,1.3fr) auto minmax(130px,.9fr);gap:16px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:13px 16px}
@@ -487,6 +498,22 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .ragbtn.on.amber{border-color:#d8a630;background:#f6ecd6;color:#9a7b2e}
 .ragbtn.on.red{border-color:var(--rust);background:#f6ddd5;color:var(--rust)}
 @media(max-width:720px){.hrow{grid-template-columns:1fr}.htiles{flex-wrap:wrap}.hrow.nested{margin-left:10px}}
+
+/* Health detail side panel */
+.hdetail{display:flex;flex-direction:column;gap:20px}
+.hdetail-axis{display:flex;flex-direction:column;gap:7px}
+.hdetail-h{display:flex;align-items:baseline;justify-content:space-between;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);border-bottom:1px solid var(--line);padding-bottom:4px}
+.hdetail-now{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--ink);letter-spacing:0;text-transform:none}
+.hdetail-points{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.hdetail-points li{display:flex;align-items:baseline;gap:9px;font-size:12.5px;padding:2px 0}
+.hp-v{font-weight:700;color:var(--ink);min-width:30px}
+.hp-l{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hp-at{color:var(--faint);font-size:11.5px;white-space:nowrap}
+.hdetail-log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hdetail-log li{display:flex;align-items:center;gap:8px;font-size:12.5px;flex-wrap:wrap}
+.hl-axis{font-weight:700;color:var(--ink);text-transform:capitalize}
+.hl-note{color:var(--muted)}
+.hl-meta{color:var(--faint);font-size:11.5px;margin-left:auto;white-space:nowrap}
 
 .svcomposite{display:flex;align-items:baseline;gap:7px;padding:2px 0 6px}
 .svc-num{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1;color:var(--forest)}

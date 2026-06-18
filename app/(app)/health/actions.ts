@@ -22,6 +22,15 @@ export async function setHealthStatus(
   return {};
 }
 
+// Full per-axis history + manual-status log for one team, fetched on demand when
+// a Health row is expanded.
+export async function healthDetail(teamId: string): Promise<{ data?: unknown; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("team_health_detail", { p_team: teamId });
+  if (error) return { error: error.message };
+  return { data };
+}
+
 // Tag a team as a leadership group (or back to an ordinary team).
 export async function setTeamKind(teamId: string, kind: string): Promise<{ error?: string }> {
   const supabase = createClient();

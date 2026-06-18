@@ -973,6 +973,10 @@ export type Database = {
         Args: { p_workspace: string }
         Returns: Json
       }
+      team_health_detail: {
+        Args: { p_team: string }
+        Returns: Json
+      }
       survey_perception_gap: {
         Args: { p_survey: string }
         Returns: Json
