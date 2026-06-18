@@ -871,6 +871,7 @@ export type Database = {
           block_ord: number
           lane: string | null
           text: string
+          detail: string | null
           author_id: string | null
           author_name: string | null
           is_anonymous: boolean

@@ -858,6 +858,9 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .ideacard .m .sp{flex:1}
 .ideacard .x{border:none;background:none;color:var(--faint);font-size:12px;cursor:pointer;padding:2px;line-height:1}
 .ideacard .x:hover{color:var(--rust)}
+.ideacard .t:hover{color:var(--green)}
+.ideacard .m .hasdetail{font-size:13px;color:var(--green);cursor:pointer;line-height:1}
+.card-ro{font-size:13.5px;line-height:1.55;color:var(--ink);white-space:pre-wrap}
 .votebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:20px;padding:4px 11px 4px 9px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums}
 .votebtn .dot{width:9px;height:9px;border-radius:50%;background:var(--line-2)}
 .votebtn.on{background:var(--open-bg);color:var(--green);border-color:var(--green)}

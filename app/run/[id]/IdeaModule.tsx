@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
+import { SideWindow } from "@/components/SideWindow";
 
 export type ModuleMode = "brainstorm" | "poll" | "feedback";
 export type ModuleConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean };
@@ -11,17 +12,18 @@ type Idea = {
   id: string;
   lane: string | null;
   text: string;
+  detail: string | null;
   authorId: string | null;
   authorName: string | null;
   anon: boolean;
 };
 type Vote = { ideaId: string; voterId: string };
 
-const IDEA_COLS = "id, lane, text, author_id, author_name, is_anonymous";
+const IDEA_COLS = "id, lane, text, detail, author_id, author_name, is_anonymous";
 
 function mapIdea(r: any): Idea {
   return {
-    id: r.id, lane: r.lane ?? null, text: r.text ?? "",
+    id: r.id, lane: r.lane ?? null, text: r.text ?? "", detail: r.detail ?? null,
     authorId: r.author_id ?? null, authorName: r.author_name ?? null, anon: !!r.is_anonymous,
   };
 }
@@ -65,6 +67,9 @@ export function IdeaModule({
   const [anon, setAnon] = useState(false);
   const [revealed, setRevealed] = useState(!silent);
   const [err, setErr] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Idea | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editDetail, setEditDetail] = useState("");
   const seededRef = useRef(false);
 
   const budget = Math.max(0, config.budget ?? (mode === "feedback" ? 0 : 3));
@@ -175,6 +180,23 @@ export function IdeaModule({
     }
   }
 
+  function openCard(i: Idea) {
+    setEditing(i);
+    setEditText(i.text);
+    setEditDetail(i.detail ?? "");
+  }
+  async function saveCard() {
+    if (!editing) return;
+    const text = editText.trim();
+    if (!text) return;
+    const detail = editDetail.trim() || null;
+    const id = editing.id;
+    setIdeas((prev) => prev.map((x) => (x.id === id ? { ...x, text, detail } : x)));
+    setEditing(null);
+    const { error } = await supabase.from("idea").update({ text, detail }).eq("id", id);
+    if (error) { setErr(error.message); load(); }
+  }
+
   async function toggleVote(id: string) {
     const had = iVoted(id);
     if (!had && remaining <= 0) {
@@ -245,9 +267,10 @@ export function IdeaModule({
                 <div className="ideacol-list">
                   {items.map((i) => (
                     <div className="ideacard" key={i.id}>
-                      <div className="t">{i.text}</div>
+                      <div className="t" onClick={() => openCard(i)} style={{ cursor: "pointer" }} title="Open card">{i.text}</div>
                       <div className="m">
                         <span className="by">{authorLabel(i)}</span>
+                        {i.detail ? <span className="hasdetail" title="Has a detail note" onClick={() => openCard(i)}>≡</span> : null}
                         {canRemove(i) ? (
                           <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button>
                         ) : null}
@@ -287,9 +310,10 @@ export function IdeaModule({
                 const mine = iVoted(i.id);
                 return (
                   <div className={`ideacard big${mine ? " voted" : ""}`} key={i.id}>
-                    <div className="t">{i.text}</div>
+                    <div className="t" onClick={() => openCard(i)} style={{ cursor: "pointer" }} title="Open card">{i.text}</div>
                     <div className="m">
                       <span className="by">{authorLabel(i)}</span>
+                      {i.detail ? <span className="hasdetail" title="Has a detail note" onClick={() => openCard(i)}>≡</span> : null}
                       <span className="sp" />
                       {canRemove(i) ? <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button> : null}
                       {revealed ? (
@@ -337,6 +361,50 @@ export function IdeaModule({
           })()}
         </div>
       ) : null}
+
+      <SideWindow
+        open={!!editing}
+        onClose={() => setEditing(null)}
+        title={editing && canRemove(editing) ? "Edit card" : "Card detail"}
+        size="compact"
+        footer={
+          editing && canRemove(editing) ? (
+            <>
+              <button className="btn-sec" onClick={() => setEditing(null)}>Cancel</button>
+              <div className="right">
+                <button className="btn-prim" disabled={!editText.trim()} onClick={saveCard}>Save</button>
+              </div>
+            </>
+          ) : (
+            <div className="right"><button className="btn-prim" onClick={() => setEditing(null)}>Close</button></div>
+          )
+        }
+      >
+        {editing ? (
+          canRemove(editing) ? (
+            <>
+              <div className="field">
+                <label htmlFor="card-text">Card</label>
+                <input className="inp" id="card-text" value={editText} onChange={(e) => setEditText(e.target.value)} autoFocus />
+              </div>
+              <div className="field">
+                <label htmlFor="card-detail">Detail <span className="opt">(optional)</span></label>
+                <textarea className="inp" id="card-detail" rows={6} value={editDetail} onChange={(e) => setEditDetail(e.target.value)} placeholder="Add context, examples or notes…" />
+              </div>
+              <button className="linkbtn xs danger" onClick={() => { removeIdea(editing.id); setEditing(null); }}>Delete card</button>
+            </>
+          ) : (
+            <>
+              <div className="field"><label>Card</label><div className="card-ro">{editing.text}</div></div>
+              {editing.detail ? (
+                <div className="field"><label>Detail</label><div className="card-ro">{editing.detail}</div></div>
+              ) : (
+                <div className="form-note">No detail added.</div>
+              )}
+            </>
+          )
+        ) : null}
+      </SideWindow>
     </div>
   );
 }
