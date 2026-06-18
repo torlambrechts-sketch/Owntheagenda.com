@@ -2,44 +2,11 @@
 
 import { useState, useTransition, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { CanvasStatic, CANVAS_W, CANVAS_H, type CanvasObj } from "@/components/CanvasStatic";
+import { CanvasStatic, canvasSvgToPng, type CanvasObj } from "@/components/CanvasStatic";
 import { saveCanvas, startFromCanvas } from "./actions";
 
 type Block = { ord: number; title: string; objects: CanvasObj[] };
 type Snap = { id: string; title: string | null; block_ord: number; object_count: number; created_at: string; data: CanvasObj[] };
-
-// Rasterize a rendered CanvasStatic <svg> to a PNG download (no dependency: the
-// SVG is self-contained, so it draws onto a canvas without tainting).
-function downloadPng(svg: SVGSVGElement, name: string) {
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("width", String(CANVAS_W));
-  clone.setAttribute("height", String(CANVAS_H));
-  clone.removeAttribute("style");
-  const xml = new XMLSerializer().serializeToString(clone);
-  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
-  const img = new Image();
-  img.onload = () => {
-    const scale = 2;
-    const c = document.createElement("canvas");
-    c.width = CANVAS_W * scale;
-    c.height = CANVAS_H * scale;
-    const cx = c.getContext("2d");
-    if (!cx) return;
-    cx.fillStyle = "#fbfaf5";
-    cx.fillRect(0, 0, c.width, c.height);
-    cx.drawImage(img, 0, 0, c.width, c.height);
-    c.toBlob((blob) => {
-      if (!blob) return;
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = u;
-      a.download = `${name}.png`;
-      a.click();
-      URL.revokeObjectURL(u);
-    }, "image/png");
-  };
-  img.src = url;
-}
 
 export function CanvasReadout({
   sessionId,
@@ -79,7 +46,7 @@ export function CanvasReadout({
   }
   function onPng(e: MouseEvent<HTMLButtonElement>, name: string) {
     const svg = e.currentTarget.closest(".canvas-card")?.querySelector("svg") as SVGSVGElement | null;
-    if (svg) downloadPng(svg, name);
+    if (svg) canvasSvgToPng(svg, name);
   }
 
   if (!blocks.length && !snapshots.length) return null;

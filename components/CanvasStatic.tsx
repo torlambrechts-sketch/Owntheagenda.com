@@ -34,6 +34,40 @@ export const CANVAS_W = 1000;
 export const CANVAS_H = 700;
 const FONT = "Inter, system-ui, -apple-system, Segoe UI, sans-serif";
 
+// Rasterize a rendered CanvasStatic <svg> to a PNG download. The SVG is
+// self-contained, so it draws onto a canvas without tainting — no dependency.
+// Browser-only (call from a client handler).
+export function canvasSvgToPng(svg: SVGSVGElement, name: string) {
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  clone.setAttribute("width", String(CANVAS_W));
+  clone.setAttribute("height", String(CANVAS_H));
+  clone.removeAttribute("style");
+  const xml = new XMLSerializer().serializeToString(clone);
+  const url = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const c = document.createElement("canvas");
+    c.width = CANVAS_W * scale;
+    c.height = CANVAS_H * scale;
+    const cx = c.getContext("2d");
+    if (!cx) return;
+    cx.fillStyle = "#fbfaf5";
+    cx.fillRect(0, 0, c.width, c.height);
+    cx.drawImage(img, 0, 0, c.width, c.height);
+    c.toBlob((blob) => {
+      if (!blob) return;
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u;
+      a.download = `${name}.png`;
+      a.click();
+      URL.revokeObjectURL(u);
+    }, "image/png");
+  };
+  img.src = url;
+}
+
 function wrapLines(text: string, maxChars: number, maxLines: number): string[] {
   const words = (text ?? "").trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [];

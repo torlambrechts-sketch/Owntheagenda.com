@@ -86,6 +86,12 @@ const ICONS = {
       <path d="M3 12h4l2 5 4-12 2 7h6" />
     </svg>
   ),
+  canvas: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="14" rx="1.5" />
+      <path d="M3 9h18M8 18v2.5M16 18v2.5" />
+    </svg>
+  ),
 };
 
 const NAV = [
@@ -95,6 +101,7 @@ const NAV = [
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/sessions", label: "Sessions", icon: ICONS.sessions, group: "Effectiveness" },
+  { href: "/canvas", label: "Canvas", icon: ICONS.canvas, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
