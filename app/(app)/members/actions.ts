@@ -66,3 +66,31 @@ export async function revokeInvite(
   revalidatePath("/members");
   return {};
 }
+
+// Approve a pending self-join request → activates the membership at its
+// requested role (RLS only lets a workspace admin do this).
+export async function approveMember(
+  membershipId: string,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("membership")
+    .update({ status: "active" })
+    .eq("id", membershipId);
+  if (error) return { error: error.message };
+  revalidatePath("/members");
+  return {};
+}
+
+export async function denyMember(
+  membershipId: string,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("membership")
+    .delete()
+    .eq("id", membershipId);
+  if (error) return { error: error.message };
+  revalidatePath("/members");
+  return {};
+}

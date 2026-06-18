@@ -455,6 +455,7 @@ export type Database = {
           data_region: string
           deleted_at: string | null
           id: string
+          join_code: string
           logo_url: string | null
           name: string
           plan: Database["public"]["Enums"]["plan_tier"]
@@ -467,6 +468,7 @@ export type Database = {
           data_region?: string
           deleted_at?: string | null
           id?: string
+          join_code?: string
           logo_url?: string | null
           name: string
           plan?: Database["public"]["Enums"]["plan_tier"]
@@ -479,6 +481,7 @@ export type Database = {
           data_region?: string
           deleted_at?: string | null
           id?: string
+          join_code?: string
           logo_url?: string | null
           name?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
@@ -964,6 +967,14 @@ export type Database = {
         Args: { p_name: string; p_slug?: string }
         Returns: Database["public"]["Tables"]["workspace"]["Row"]
       }
+      join_workspace_by_code: {
+        Args: { p_code: string; p_role?: Database["public"]["Enums"]["workspace_role"] }
+        Returns: Json
+      }
+      my_pending_membership: {
+        Args: Record<string, never>
+        Returns: Json
+      }
       set_team_consent: {
         Args: { p_consent: boolean; p_team_member: string }
         Returns: Database["public"]["Tables"]["team_member"]["Row"]
@@ -1239,7 +1250,7 @@ export type Database = {
       action_status: "open" | "done"
       activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback" | "manual" | "charter" | "assess" | "survey"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
-      membership_status: "active" | "suspended"
+      membership_status: "active" | "suspended" | "pending"
       plan_tier: "free" | "pro" | "enterprise"
       pulse_status: "draft" | "open" | "closed"
       template_category:
@@ -1284,7 +1295,7 @@ export const Constants = {
       action_status: ["open", "done"],
       activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback", "manual", "charter", "assess", "survey"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
-      membership_status: ["active", "suspended"],
+      membership_status: ["active", "suspended", "pending"],
       plan_tier: ["free", "pro", "enterprise"],
       pulse_status: ["draft", "open", "closed"],
       template_category: [

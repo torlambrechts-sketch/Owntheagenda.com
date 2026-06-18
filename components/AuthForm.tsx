@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import Link from "next/link";
 import { login, signup, type AuthState } from "@/app/auth/actions";
 import { LogoMark } from "@/components/Logo";
+import { ROLE_OPTIONS } from "@/lib/util";
 
 function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -91,6 +92,34 @@ export function AuthForm({
               placeholder="••••••••"
             />
           </div>
+
+          {mode === "signup" ? (
+            <>
+              <div className="field">
+                <label htmlFor="join_code">
+                  Company ID <span className="opt">(optional)</span>
+                </label>
+                <input
+                  className="inp"
+                  id="join_code"
+                  name="join_code"
+                  autoCapitalize="characters"
+                  placeholder="If your company already uses OwnTheAgenda"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="requested_role">Your role</label>
+                <select className="inp" id="requested_role" name="requested_role" defaultValue="member">
+                  {ROLE_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+                <div className="form-note">
+                  Used when joining with a Company ID. Team Manager and Company Admin need an admin’s approval.
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <Submit label={mode === "login" ? "Sign in" : "Create account"} />
         </form>

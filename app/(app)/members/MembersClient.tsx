@@ -11,6 +11,8 @@ import {
   updateMemberRole,
   removeMember,
   revokeInvite,
+  approveMember,
+  denyMember,
 } from "./actions";
 
 type Role = Enums<"workspace_role">;
@@ -29,6 +31,12 @@ export type InviteRow = {
   role: string;
   expiresAt: string;
 };
+export type RequestRow = {
+  membershipId: string;
+  name: string;
+  email: string | null;
+  role: Role;
+};
 export type TeamOpt = { id: string; name: string };
 
 export function MembersClient({
@@ -36,13 +44,17 @@ export function MembersClient({
   canManage,
   members,
   invites,
+  requests,
   teams,
+  joinCode,
 }: {
   workspaceId: string;
   canManage: boolean;
   members: MemberRow[];
   invites: InviteRow[];
+  requests: RequestRow[];
   teams: TeamOpt[];
+  joinCode: string | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -124,6 +136,28 @@ export function MembersClient({
     });
   }
 
+  function approve(id: string) {
+    startTransition(async () => {
+      const res = await approveMember(id);
+      if (res.error) flash(res.error);
+      else {
+        flash("Member approved");
+        router.refresh();
+      }
+    });
+  }
+
+  function deny(id: string) {
+    startTransition(async () => {
+      const res = await denyMember(id);
+      if (res.error) flash(res.error);
+      else {
+        flash("Request declined");
+        router.refresh();
+      }
+    });
+  }
+
   const mc = useTableControls<MemberRow>(members, {
     search: { placeholder: "Search members…", text: (m) => `${m.name} ${m.email ?? ""}` },
     sorts: [
@@ -164,6 +198,65 @@ export function MembersClient({
           </div>
         ) : null}
       </div>
+
+      {canManage && joinCode ? (
+        <div className="joincode">
+          <span className="jc-l">Company ID</span>
+          <code className="jc-v">{joinCode}</code>
+          <button
+            className="linkbtn xs"
+            onClick={() => {
+              navigator.clipboard?.writeText(joinCode);
+              flash("Company ID copied");
+            }}
+          >
+            Copy
+          </button>
+          <span className="jc-h">Share this so colleagues can self-join at signup</span>
+        </div>
+      ) : null}
+
+      {canManage && requests.length ? (
+        <>
+          <div className="eyebrow" style={{ margin: "22px 0 10px" }}>
+            Join requests <span className="n">{requests.length}</span>
+          </div>
+          <div className="tbl-card">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th style={{ width: 150 }}>Requested role</th>
+                  <th style={{ width: 180 }} />
+                </tr>
+              </thead>
+              <tbody>
+                {requests.map((r) => (
+                  <tr key={r.membershipId}>
+                    <td>
+                      <div className="person">
+                        <span className="av">{initials(r.name)}</span>
+                        <span>{r.name}<small>{r.email}</small></span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`pill sm role-${r.role}`}>{roleLabel(r.role)}</span>
+                    </td>
+                    <td className="r">
+                      <button className="btn-sec sm" disabled={pending} onClick={() => deny(r.membershipId)}>
+                        Decline
+                      </button>
+                      <button className="btn-prim sm" disabled={pending} onClick={() => approve(r.membershipId)} style={{ marginLeft: 8 }}>
+                        Approve
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
 
       {members.length >= 6 ? mc.controls : null}
       <div className="tbl-card">

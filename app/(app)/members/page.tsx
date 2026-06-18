@@ -1,7 +1,7 @@
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
-import { MembersClient, type MemberRow, type InviteRow } from "./MembersClient";
+import { MembersClient, type MemberRow, type InviteRow, type RequestRow } from "./MembersClient";
 
 export default async function MembersPage() {
   const ctx = await requireSession();
@@ -15,11 +15,31 @@ export default async function MembersPage() {
     .eq("status", "active")
     .order("created_at", { ascending: true });
 
-  const userIds = (memberships ?? []).map((m) => m.user_id);
+  // Pending self-join requests awaiting an admin's approval.
+  const { data: pendRows } = await supabase
+    .from("membership")
+    .select("id, user_id, role, created_at")
+    .eq("workspace_id", wsId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+
+  const userIds = Array.from(
+    new Set([...(memberships ?? []).map((m) => m.user_id), ...(pendRows ?? []).map((m) => m.user_id)]),
+  );
   const { data: profiles } = userIds.length
     ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", userIds)
     : { data: [] as any[] };
   const byId = new Map((profiles ?? []).map((p) => [p.id, p]));
+
+  const requests: RequestRow[] = (pendRows ?? []).map((m) => {
+    const p = byId.get(m.user_id);
+    return {
+      membershipId: m.id,
+      name: p?.full_name || p?.display_name || p?.email || "Unknown",
+      email: p?.email ?? null,
+      role: m.role,
+    };
+  });
 
   const members: MemberRow[] = (memberships ?? []).map((m) => {
     const p = byId.get(m.user_id);
@@ -64,7 +84,9 @@ export default async function MembersPage() {
         canManage={isAdmin(ctx.role)}
         members={members}
         invites={invites}
+        requests={requests}
         teams={teamRows ?? []}
+        joinCode={ctx.workspace.join_code ?? null}
       />
     </div>
   );
