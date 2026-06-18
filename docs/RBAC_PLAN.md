@@ -14,14 +14,14 @@ Decisions (from product owner):
 
 ## Phases (each: migration → rolled-back test → types → UI → gate → commit → ff-merge)
 
-- [ ] **P1 · Role foundation** — add `manager`/`facilitator` enum values; role labels +
+- [x] **P1 · Role foundation** — added `manager`/`facilitator` enum values; role labels +
       helpers (`lib/util`); Members UI shows/assigns all five roles; invite role options.
-- [ ] **P2 · Signup join + approval** — `workspace.join_code` (Company ID);
-      `membership` gains `requested_role` + `pending` status flow; signup = create-company OR
-      join-by-code with requested role; Members UI approves/denies pending requests.
-- [ ] **P3 · Organization section + GDPR** — `/organization` route + nav group; org settings
-      (name, logo, data_region, `retention_months`); GDPR: `export_member_data`,
-      `erase_member`, consent & region surface, retention setting.
+- [x] **P2 · Signup join + approval** — `workspace.join_code` (Company ID); `membership`
+      `pending` status; signup = create-company OR join-by-code with requested role; Members
+      Join-requests queue (approve/deny); onboarding "awaiting approval" screen.
+- [x] **P3 · Organization section + GDPR** — `/organization` route + admin-gated nav group;
+      org settings (name, logo, data_region, `retention_months`, Company ID rotate);
+      GDPR `export_member_data` + `erase_member` wired into Members (Export / Erase).
 - [ ] **P4 · Integrations section** — `/integrations`; `integration` table
       (workspace_id, provider, status, config); catalog (Slack, Teams, Google, Zoom…).
 - [ ] **P5 · CSV user import** — upload → parse (email, role, team, role_title) →

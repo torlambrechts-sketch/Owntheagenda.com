@@ -982,6 +982,14 @@ export type Database = {
         Args: { p_workspace: string }
         Returns: string
       }
+      export_member_data: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: Json
+      }
+      erase_member: {
+        Args: { p_user: string; p_workspace: string }
+        Returns: Json
+      }
       set_team_consent: {
         Args: { p_consent: boolean; p_team_member: string }
         Returns: Database["public"]["Tables"]["team_member"]["Row"]

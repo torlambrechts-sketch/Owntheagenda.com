@@ -13,6 +13,8 @@ import {
   revokeInvite,
   approveMember,
   denyMember,
+  exportMemberData,
+  eraseMember,
 } from "./actions";
 
 type Role = Enums<"workspace_role">;
@@ -158,6 +160,36 @@ export function MembersClient({
     });
   }
 
+  function exportData(m: MemberRow) {
+    startTransition(async () => {
+      const res = await exportMemberData(workspaceId, m.userId);
+      if (res.error) {
+        flash(res.error);
+        return;
+      }
+      const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${(m.name || "member").replace(/\s+/g, "_")}-data.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flash("Data exported");
+    });
+  }
+
+  function erase(m: MemberRow) {
+    if (!confirm(`Permanently erase ${m.name}'s personal data and remove them from this company? This can't be undone.`)) return;
+    startTransition(async () => {
+      const res = await eraseMember(workspaceId, m.userId);
+      if (res.error) flash(res.error);
+      else {
+        flash("Member erased");
+        router.refresh();
+      }
+    });
+  }
+
   const mc = useTableControls<MemberRow>(members, {
     search: { placeholder: "Search members…", text: (m) => `${m.name} ${m.email ?? ""}` },
     sorts: [
@@ -265,7 +297,7 @@ export function MembersClient({
             <tr>
               <th>Member</th>
               <th style={{ width: 160 }}>Role</th>
-              {canManage ? <th style={{ width: 54 }} /> : null}
+              {canManage ? <th style={{ width: 185 }} /> : null}
             </tr>
           </thead>
           <tbody>
@@ -304,18 +336,28 @@ export function MembersClient({
                 </td>
                 {canManage ? (
                   <td className="r">
-                    {!m.isSelf ? (
-                      <button
-                        className="icon-btn danger"
-                        title="Remove"
-                        disabled={pending}
-                        onClick={() => remove(m)}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-                          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
-                        </svg>
+                    <div className="row-acts">
+                      <button className="linkbtn xs" disabled={pending} onClick={() => exportData(m)} title="Export this person's data (GDPR)">
+                        Export
                       </button>
-                    ) : null}
+                      {!m.isSelf ? (
+                        <button className="linkbtn xs danger" disabled={pending} onClick={() => erase(m)} title="Erase personal data (GDPR)">
+                          Erase
+                        </button>
+                      ) : null}
+                      {!m.isSelf ? (
+                        <button
+                          className="icon-btn danger"
+                          title="Remove from company"
+                          disabled={pending}
+                          onClick={() => remove(m)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                            <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+                          </svg>
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 ) : null}
               </tr>

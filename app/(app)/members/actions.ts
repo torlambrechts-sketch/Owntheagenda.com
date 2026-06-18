@@ -94,3 +94,32 @@ export async function denyMember(
   revalidatePath("/members");
   return {};
 }
+
+// GDPR right to access — returns the member's identifiable data as JSON.
+export async function exportMemberData(
+  workspaceId: string,
+  userId: string,
+): Promise<{ data?: unknown; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("export_member_data", {
+    p_user: userId,
+    p_workspace: workspaceId,
+  });
+  if (error) return { error: error.message };
+  return { data };
+}
+
+// GDPR right to erasure — wipes the member's personal data from this workspace.
+export async function eraseMember(
+  workspaceId: string,
+  userId: string,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("erase_member", {
+    p_user: userId,
+    p_workspace: workspaceId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/members");
+  return {};
+}
