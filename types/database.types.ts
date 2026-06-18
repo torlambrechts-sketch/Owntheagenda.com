@@ -209,6 +209,7 @@ export type Database = {
           email: string | null
           full_name: string | null
           id: string
+          is_staff: boolean
           updated_at: string
         }
         Insert: {
@@ -218,6 +219,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id: string
+          is_staff?: boolean
           updated_at?: string
         }
         Update: {
@@ -227,6 +229,7 @@ export type Database = {
           email?: string | null
           full_name?: string | null
           id?: string
+          is_staff?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -365,6 +368,42 @@ export type Database = {
           status: string
           note: string | null
           created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      help_article: {
+        Row: {
+          id: string
+          kind: string
+          slug: string
+          title: string
+          summary: string | null
+          body: string
+          category: string
+          topic_key: string | null
+          icon: string | null
+          sort: number
+          status: string
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      help_faq: {
+        Row: {
+          id: string
+          question: string
+          answer: string
+          category: string
+          sort: number
+          status: string
           created_at: string
           updated_at: string
         }

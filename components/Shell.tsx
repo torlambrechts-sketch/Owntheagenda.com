@@ -106,6 +106,13 @@ const ICONS = {
       <path d="M12 15v6" />
     </svg>
   ),
+  help: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.3 9.4a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.2-2.6 3.9" />
+      <path d="M12 17.6v.01" />
+    </svg>
+  ),
 };
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
@@ -121,6 +128,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Organization", adminOnly: true },
+  { href: "/help", label: "Help & Science", icon: ICONS.help, group: "Help" },
 ];
 
 export function Shell({
@@ -140,7 +148,7 @@ export function Shell({
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
-  const groups = ["Workspace", "People", "Effectiveness", "Organization"].filter((g) =>
+  const groups = ["Workspace", "People", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const canSwitch = chrome.workspaces.length > 1;
