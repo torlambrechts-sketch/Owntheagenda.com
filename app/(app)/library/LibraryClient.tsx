@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { individualDimensionMeans, type SurveyInstrument } from "@/lib/survey";
@@ -63,9 +63,19 @@ export function LibraryClient({
     [results, instruments],
   );
 
+  // Close the take/launch modal on Escape.
+  useEffect(() => {
+    if (!panel) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPanel(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [panel]);
+
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function flash(m: string) {
     setToast(m);
-    setTimeout(() => setToast(null), 2600);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2600);
   }
 
   function toggleShare(key: string) {
@@ -246,7 +256,7 @@ function Card({ t, children, manage }: { t: LibTemplate; children: ReactNode; ma
     <div className="tpl">
       <div className="body">
         <div className="libtags">
-          <span className="scopetag">{CATEGORY[t.category] ?? t.category}</span>
+          {t.category && t.category !== "custom" ? <span className="scopetag">{CATEGORY[t.category] ?? t.category}</span> : null}
           {t.custom ? <span className="scopetag custom">Custom</span> : null}
         </div>
         <h3>{t.name}</h3>

@@ -66,10 +66,23 @@ momentary read blip never blanks a live survey.
   opt-in; a *teammate* is anyone you share a live team with. Stop sharing any
   time — it flips straight back to private.
 
-## Add an instrument
+## Author a custom instrument (in-app)
 
-Insert a global row (migration) — or a workspace-custom row — with a
-`definition` of this shape:
+Workspace **admins** get a **New template** button on `/library` →
+`/library/new`. The builder takes a name, scope, category, scale and a set of
+**dimensions** + **questions** (you work in labels; stable, workspace-unique
+keys are generated on save). Team instruments also pick which dimension drives
+the climate-strength read. Edit or delete a custom instrument from its card.
+Globals can't be edited or deleted. Authoring is admin-only by design (a custom
+instrument is a workspace-level asset) — easily widened to team leads if wanted.
+
+Writes go through `save_assessment_template` / `delete_assessment_template`
+(SECURITY DEFINER, admin-guarded, anon-revoked); the definition is validated in
+SQL (`private.valid_instrument_definition`) as well as in the UI.
+
+## Add a built-in instrument
+
+Insert a global row (migration) with a `definition` of this shape:
 
 ```json
 {
@@ -85,10 +98,6 @@ library, run block and readouts all pick it up. `strengthDimension` is optional
 for individual instruments (it falls back to the first dimension and no
 climate-strength chip is shown).
 
-> Workspace-custom templates are supported end to end at the data layer (RLS,
-> resolution, *Custom* badge). Authoring today is via a row; an in-app template
-> builder is the natural next iteration.
-
 ## Built-ins
 
 **Team:** Psychological Safety (Bang) · Team Effectiveness (Bang) · Team
@@ -100,9 +109,13 @@ Learning (Edmondson). **Individual:** Working Style · Strengths Snapshot
 - **DB role tests (rolled back):** template seed (2 individual / 3 team) +
   member-reads-global; individual store — idempotent upsert, own-only read,
   non-member submit blocked (42501); sharing — teammate sees a shared result,
-  not a private one, a non-teammate sees neither, the toggle is own-only.
-- **Privileges:** `submit_individual_response` / `set_individual_shared`
-  anon-revoked, authenticated-granted (`has_function_privilege`).
+  not a private one, a non-teammate sees neither, the toggle is own-only;
+  authoring — admin create (generated key) + per-workspace key uniqueness,
+  invalid-def rejected (22023), member create/delete blocked (42501), global
+  delete blocked, edit-in-place with no duplicate.
+- **Privileges:** `submit_individual_response`, `set_individual_shared`,
+  `save_assessment_template`, `delete_assessment_template` anon-revoked,
+  authenticated-granted (`has_function_privilege`).
 - **Advisors:** no RLS-disabled tables, no mutable `search_path`.
 - **Gate:** typecheck / lint / tests / build green.
 

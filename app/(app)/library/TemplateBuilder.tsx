@@ -87,7 +87,9 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
 
   function validate(): string | null {
     if (!name.trim()) return "Give the assessment a name.";
+    if (!Number.isInteger(scaleMin) || !Number.isInteger(scaleMax)) return "The scale min and max must be whole numbers.";
     if (!(scaleMax > scaleMin)) return "The scale max must be greater than the min.";
+    if (scaleMax - scaleMin > 10) return "Keep the scale to at most 11 points.";
     const cleanDims = dims.filter((d) => d.label.trim());
     if (cleanDims.length === 0) return "Add at least one dimension.";
     const cleanItems = items.filter((it) => it.text.trim());
@@ -115,7 +117,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
       });
 
     const def: Record<string, unknown> = {
-      scale: { min: Number(scaleMin), max: Number(scaleMax), minLabel: minLabel.trim(), maxLabel: maxLabel.trim() },
+      scale: { min: Math.round(scaleMin), max: Math.round(scaleMax), minLabel: minLabel.trim(), maxLabel: maxLabel.trim() },
       dimensions: outDims,
       items: outItems,
     };
@@ -141,7 +143,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
         definition: buildDefinition(),
       });
       if (res.error) setError(res.error);
-      else router.push("/library");
+      else { router.push("/library"); router.refresh(); }
     });
   }
 
@@ -187,11 +189,11 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
         <div className="two">
           <div className="field">
             <label>Min</label>
-            <input className="inp" type="number" value={scaleMin} onChange={(e) => setScaleMin(Number(e.target.value))} />
+            <input className="inp" type="number" step={1} value={scaleMin} onChange={(e) => setScaleMin(Number(e.target.value))} />
           </div>
           <div className="field">
             <label>Max</label>
-            <input className="inp" type="number" value={scaleMax} onChange={(e) => setScaleMax(Number(e.target.value))} />
+            <input className="inp" type="number" step={1} value={scaleMax} onChange={(e) => setScaleMax(Number(e.target.value))} />
           </div>
         </div>
         <div className="two">
