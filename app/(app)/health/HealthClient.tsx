@@ -6,14 +6,14 @@ import Link from "next/link";
 import { SideWindow } from "@/components/SideWindow";
 import { setHealthStatus, setTeamKind } from "./actions";
 
-type Composite = { composite: number; survey_id: string; percentile: number | null; trend: string | null } | null;
+type Composite = { composite: number; survey_id: string; percentile: number | null; trend: string | null; history: number[] | null } | null;
 export type Entity = {
   team_id: string;
   name: string;
   kind: string;
   parent_team_id: string | null;
   lead: string | null;
-  dynamics: { score: number; in_band: number; total: number; trend: string | null } | null;
+  dynamics: { score: number; in_band: number; total: number; trend: string | null; history: number[] | null } | null;
   strategy: Composite;
   performance: Composite;
   development: string[];
@@ -42,6 +42,28 @@ function TrendArrow({ dir }: { dir: string | null }) {
     <span className={`tarrow ${dir}`} title={dir === "up" ? "Improving since last" : "Slipping since last"}>
       {dir === "up" ? "↑" : "↓"}
     </span>
+  );
+}
+
+// Tiny inline history line for an axis. Normalizes within its own range, so axes
+// on different scales still read at a glance.
+function Sparkline({ points, tone }: { points: number[]; tone: string | null }) {
+  if (!points || points.length < 2) return null;
+  const w = 52;
+  const h = 14;
+  const pad = 1.5;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const span = max - min || 1;
+  const dx = (w - 2 * pad) / (points.length - 1);
+  const y = (p: number) => pad + (h - 2 * pad) * (1 - (p - min) / span);
+  const pts = points.map((p, i) => `${(pad + i * dx).toFixed(1)},${y(p).toFixed(1)}`).join(" ");
+  const lastX = pad + (points.length - 1) * dx;
+  return (
+    <svg className={`spark ${tone ?? "flat"}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lastX.toFixed(1)} cy={y(points[points.length - 1]).toFixed(1)} r="1.7" fill="currentColor" />
+    </svg>
   );
 }
 
@@ -110,34 +132,58 @@ export function HealthClient({ entities, manageable }: { entities: Entity[]; man
     let value: string = "—";
     let sub: string | null = null;
     let trend: string | null = null;
+    let history: number[] | null = null;
     if (axis === "dynamics" && e.dynamics) {
       rag = ragForDynamics(e.dynamics);
       value = `${e.dynamics.score}`;
       sub = `${e.dynamics.in_band}/${e.dynamics.total} in band`;
       trend = e.dynamics.trend;
+      history = e.dynamics.history;
     } else if (axis === "strategy" && e.strategy) {
       rag = ragForComposite(e.strategy.composite);
       value = `${e.strategy.composite}`;
       sub = e.strategy.percentile != null ? `${e.strategy.percentile}th pct` : "of 100";
       trend = e.strategy.trend;
+      history = e.strategy.history;
     } else if (axis === "performance" && e.performance) {
       rag = ragForComposite(e.performance.composite);
       value = `${e.performance.composite}`;
       sub = e.performance.percentile != null ? `${e.performance.percentile}th pct` : "of 100";
       trend = e.performance.trend;
+      history = e.performance.history;
     }
     const editable = canManage.has(e.team_id);
-    return (
-      <button
-        className={`htile rag-${manual ? manual.status : rag}${editable ? " editable" : ""}`}
-        disabled={!editable || pending}
-        onClick={editable ? () => openEditor(e, axis, label) : undefined}
-        title={manual?.note ?? (editable ? "Set a manual status" : undefined)}
-      >
-        <span className="htile-l">{label}{manual ? <span className={`mdot ${manual.status}`} /> : null}</span>
+    const hasData = value !== "—";
+    const cls = `htile rag-${manual ? manual.status : rag}`;
+    const body = (
+      <>
+        <span className="htile-l">
+          {label}
+          {manual && !editable ? <span className={`mdot ${manual.status}`} title={manual.note ?? undefined} /> : null}
+        </span>
         <span className="htile-v">{value}<TrendArrow dir={trend} /></span>
+        {history && history.length > 1 ? <Sparkline points={history} tone={trend} /> : null}
         {sub ? <span className="htile-s">{sub}</span> : null}
-      </button>
+      </>
+    );
+    return (
+      <div className="htile-wrap">
+        {hasData ? (
+          <Link href={`/assessments?team=${e.team_id}`} className={`${cls} linkish`} title="View latest results">{body}</Link>
+        ) : (
+          <div className={cls}>{body}</div>
+        )}
+        {editable ? (
+          <button
+            className="htile-set"
+            disabled={pending}
+            title={manual ? `Manual: ${manual.status}${manual.note ? " — " + manual.note : ""} (edit)` : "Set a manual status"}
+            onClick={(ev) => { ev.preventDefault(); ev.stopPropagation(); openEditor(e, axis, label); }}
+          >
+            {manual ? <span className={`mdot ${manual.status}`} /> : <span className="mdot empty" />}
+          </button>
+        ) : null}
+      </div>
     );
   }
 
