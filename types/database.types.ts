@@ -1047,6 +1047,23 @@ export type Database = {
         Args: { p_workspace: string; p_template_key: string; p_shared: boolean }
         Returns: undefined
       }
+      save_assessment_template: {
+        Args: {
+          p_workspace: string
+          p_id: string | null
+          p_name: string
+          p_category: string
+          p_scope: string
+          p_description: string | null
+          p_source: string | null
+          p_definition: Json
+        }
+        Returns: Database["public"]["Tables"]["assessment_template"]["Row"]
+      }
+      delete_assessment_template: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       survey_results: {
         Args: { p_survey: string; p_strength_items?: string[] }
         Returns: Json
