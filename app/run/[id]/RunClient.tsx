@@ -48,13 +48,37 @@ function mmss(total: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+// Drop-in modules the facilitator can add live (no config needed).
+const RUN_MODULES = [
+  { kind: "canvas", label: "Canvas", blurb: "Freeform board" },
+  { kind: "brainstorm", label: "Brainstorm", blurb: "Gather ideas" },
+  { kind: "vote", label: "Vote", blurb: "Dot-vote" },
+  { kind: "discuss", label: "Discuss", blurb: "Discussion prompt" },
+  { kind: "feedback", label: "Feedback", blurb: "Sort into lanes" },
+  { kind: "checkin", label: "Check-in", blurb: "Opening round" },
+  { kind: "outcome", label: "Outcomes", blurb: "Decisions & actions" },
+  { kind: "manual", label: "Notes", blurb: "Facilitator notes" },
+];
+
+function toRunBlock(b: {
+  id: string; ord: number; title: string; activity_type: Enums<"activity_type">;
+  duration: number; prompt: string | null; linked_dynamic: Enums<"team_dynamic"> | null;
+  config: unknown; survey_id: string | null;
+}): RunBlock {
+  return {
+    id: b.id, ord: b.ord, title: b.title, activityType: b.activity_type,
+    duration: b.duration, prompt: b.prompt, linkedDynamic: b.linked_dynamic,
+    config: (b.config ?? {}) as ModuleConfig, surveyId: b.survey_id,
+  };
+}
+
 export function RunClient({
   workshopId,
   workspaceId,
   teamId,
   initialPulseId,
   title,
-  blocks,
+  blocks: initialBlocks,
   instruments,
   session: initialSession,
   isFacilitator,
@@ -79,6 +103,9 @@ export function RunClient({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const [blocks, setBlocks] = useState<RunBlock[]>(initialBlocks);
+  const [addOpen, setAddOpen] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [session, setSession] = useState<SessionState>(initialSession);
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
   const [actions, setActions] = useState<Action[]>(initialActions);
@@ -149,6 +176,15 @@ export function RunClient({
     [supabase, sid],
   );
 
+  const reloadBlocks = useCallback(async () => {
+    const { data } = await supabase
+      .from("block")
+      .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config, survey_id")
+      .eq("workshop_id", workshopId)
+      .order("ord", { ascending: true });
+    if (data) setBlocks(data.map(toRunBlock));
+  }, [supabase, workshopId]);
+
   // join + subscribe
   useEffect(() => {
     supabase.rpc("join_session", { p_session: sid }).then(() => reloadParticipants());
@@ -187,6 +223,11 @@ export function RunClient({
         { event: "*", schema: "public", table: "action_item", filter: `session_id=eq.${sid}` },
         () => reloadActions(),
       )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "block", filter: `workshop_id=eq.${workshopId}` },
+        () => reloadBlocks(),
+      )
       .subscribe();
 
     return () => {
@@ -212,6 +253,15 @@ export function RunClient({
   const timer = async (action: string) => {
     await supabase.rpc("session_timer", { p_session: sid, p_action: action });
   };
+  async function addModule(kind: string) {
+    setAdding(true);
+    const { data, error } = await supabase.rpc("add_block_live", { p_workshop: workshopId, p_kind: kind, p_title: null });
+    setAdding(false);
+    setAddOpen(false);
+    if (error) { setEndErr(error.message); return; }
+    await reloadBlocks();
+    await phase(data as number);
+  }
   const toggleAction = async (id: string) => {
     await supabase.rpc("toggle_action", { p_action: id });
   };
@@ -269,6 +319,19 @@ export function RunClient({
               {session.timerRunning ? "❚❚" : "▶"}
             </button>
             <button className="runbtn" title="Reset" onClick={() => timer("reset")}>↺</button>
+            <div className="addmod-wrap" onPointerDown={(e) => e.stopPropagation()}>
+              <button className="runbtn" title="Add a module" onClick={() => setAddOpen((o) => !o)}>＋</button>
+              {addOpen ? (
+                <div className="addmod-pop">
+                  <div className="addmod-h">Add a module</div>
+                  {RUN_MODULES.map((m) => (
+                    <button key={m.kind} className="addmod-item" disabled={adding} onClick={() => addModule(m.kind)}>
+                      <b>{m.label}</b><span>{m.blurb}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </>
         ) : null}
         <div className="sp" />
