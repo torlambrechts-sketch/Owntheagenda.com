@@ -1,25 +1,56 @@
-# Assessment module extension — build plan
+# Assessment module extension — shipped
 
 Driven by the Strategium audit + market map (June 2026 research). The module
-already implements the research's "moat" fundamentals: multi-rater, anchored
-Likert, radar output, alignment-as-climate-strength, longitudinal re-measure,
-transparent scoring. This plan closes the named gaps.
+already had the research's "moat" fundamentals — multi-rater, anchored Likert,
+radar output, alignment-as-climate-strength, longitudinal re-measure, transparent
+scoring. This extension closed the named gaps. All phases shipped and verified
+(rolled-back DB tests + typecheck/lint/tests/build; security advisors 0 errors).
 
-## Phases
-1. **Composite 0–100 score** — transparent headline index per instrument.
-   `private.survey_composite` (single source of truth, reads the instrument
-   definition; equal dimension weight unless `definition.weights`), surfaced in
-   `survey_results.composite` + client display. ✅
-2. **Instruments (data)** — Strategy Health (team, Quality vs Readiness, quadrant
-   + weights), Strategy Kernel (solo, Rumelt kernel), Manager Skills (solo).
-3. **2×2 quadrant output** — `definition.quadrant {x,y,labels}`; render Quality ×
-   Readiness as a quadrant for Strategy Health.
-4. **Perception gap** — `survey.subject_user_id` + `survey_response.rater_role`;
-   `survey_perception_gap` (subject self vs raters' aggregate, raters min-3
-   masked). Manager 360 mode.
-5. **Benchmark percentile** — global anonymized pool of composites per kind;
-   `survey_benchmark` percentile with a minimum pool gate.
-6. **Review + docs + merge.**
+## What shipped
 
-Each phase: apply migration → rolled-back role/logic test → repo migration +
-types → UI → gate (typecheck/lint/test/build) → commit.
+### 1. Composite 0–100 score
+`private.survey_composite(survey)` is the single source of truth: reads the
+instrument definition (item→dimension map, scale, optional per-dimension
+`weights`), computes the weighted mean of dimension means, normalizes to 0–100.
+Null when masked (<3) or instrument unknown. Surfaced via `survey_results.composite`
+and shown as "NN / 100 overall index". `lib/survey.compositeScore()` mirrors it
+exactly for the individual immediate result (which never hits `survey_results`).
+
+### 2. New instruments (pure data — `assessment_template` rows)
+- **Strategy Health** (team) — Strategy Quality (Rumelt) vs Execution Readiness
+  (Speculand/BSC); carries the 2×2 quadrant config.
+- **Strategy Kernel Check** (solo) — Rumelt's kernel: diagnosis / guiding policy
+  / coherent action.
+- **Manager Skills Self-Check** (solo) — direction, coaching, communication,
+  accountability.
+
+### 3. 2×2 quadrant output
+`definition.quadrant {x, y, xLabel, yLabel, q:{ll,hl,lh,hh}}`. `QuadrantPlot`
+plots the two named dimension means and names the landed quadrant. Only
+instruments that define one render it (Strategy Health).
+
+### 4. Perception gap (self vs team)
+`survey.subject_user_id` + `set_survey_subject` (lead/admin; subject must be on
+the team) + `survey_perception_gap`. Contrasts a designated subject's view vs the
+rest of the team, per dimension + composite. **Anonymity:** the subject is named
+(their own self-score is theirs to see); the rest stay aggregated behind the min-3
+mask, so individual raters are never identified. Visible to a team manager OR the
+subject themselves.
+
+### 5. Benchmark percentile
+`benchmark_sample` — one composite per closed survey, by instrument kind, with **no
+team/workspace/identity** stored. RLS on with **no policies** (API-unreadable;
+only definer functions touch it — this is intentional, flagged as INFO by the
+linter). A trigger records a sample on the open→closed transition (any close path)
+when the composite is computable (≥3). `private.benchmark_rank` returns a percentile
+gated by a **minimum pool of 8**, so a thin pool never shows a misleading number.
+No fabricated baseline — it builds honestly as teams complete each instrument.
+
+## Invariants to preserve
+- Nothing un-masks below 3 respondents (composite, benchmark, gap-others all null <3).
+- The benchmark pool stores only `(kind, composite)` — never anything identifying.
+- The composite formula lives once on the server; the client helper must match it.
+
+## Not built (bigger bets, deferred)
+- A full 360 with subject-relative item wording (the gap reuses team-worded items).
+- Per-workspace benchmark cohorts / industry filters.
