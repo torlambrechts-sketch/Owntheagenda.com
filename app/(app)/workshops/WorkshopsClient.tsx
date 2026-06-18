@@ -51,6 +51,7 @@ export function WorkshopsClient({
   workshops,
   recommendation,
   surveyInsts = [],
+  scienceByCategory = {},
 }: {
   teamId: string;
   canManage: boolean;
@@ -58,6 +59,7 @@ export function WorkshopsClient({
   workshops: WorkshopRow[];
   recommendation: Recommendation | null;
   surveyInsts?: { kind: string; name: string }[];
+  scienceByCategory?: Record<string, string>;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -276,6 +278,9 @@ export function WorkshopsClient({
             <div key={cat}>
               <div className="cat-head" style={{ fontSize: 15, marginTop: 18 }}>
                 {CATEGORY[cat] ?? cat} <span className="n">{items.length}</span>
+                {scienceByCategory[cat] ? (
+                  <Link className="cat-sci" href={`/help/${scienceByCategory[cat]}`}>Learn the science →</Link>
+                ) : null}
               </div>
               <div className="tpl-grid">{items.map(renderTemplate)}</div>
             </div>

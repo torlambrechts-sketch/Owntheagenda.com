@@ -104,6 +104,18 @@ export default async function WorkshopsPage() {
     : { data: [] as { key: string; name: string }[] };
   const surveyInsts = (instRows ?? []).map((t) => ({ kind: t.key, name: t.name }));
 
+  // Science deep-links per workshop category (topic_key = workshop:<category>).
+  const { data: sciArticles } = await supabase
+    .from("help_article")
+    .select("slug, topic_key")
+    .like("topic_key", "workshop:%")
+    .eq("status", "published");
+  const scienceByCategory: Record<string, string> = {};
+  for (const a of sciArticles ?? []) {
+    const tk = a.topic_key as string | null;
+    if (tk) scienceByCategory[tk.slice("workshop:".length)] = a.slug;
+  }
+
   return (
     <div>
       <h1 className="page-title">Workshops</h1>
@@ -118,6 +130,7 @@ export default async function WorkshopsPage() {
           workshops={workshops}
           recommendation={recommendation}
           surveyInsts={surveyInsts}
+          scienceByCategory={scienceByCategory}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>

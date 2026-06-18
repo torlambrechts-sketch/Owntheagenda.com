@@ -144,6 +144,8 @@ button { font-family:inherit; }
 .md-preview{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:var(--canvas);max-height:360px;overflow:auto}
 .rec-sci{color:var(--forest);font-weight:600;text-decoration:none;white-space:nowrap}
 .rec-sci:hover{text-decoration:underline}
+.cat-sci{margin-left:12px;font-size:12px;font-weight:600;color:var(--forest);text-decoration:none;white-space:nowrap}
+.cat-sci:hover{text-decoration:underline}
 
 /* ---------- avatars ---------- */
 .av{width:30px;height:30px;border-radius:50%;background:var(--forest);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex:none}
