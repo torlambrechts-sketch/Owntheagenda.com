@@ -1002,6 +1002,14 @@ export type Database = {
         Args: { p_snapshot: string; p_session: string; p_block_ord: number }
         Returns: number
       }
+      quick_start_workshop: {
+        Args: { p_team: string; p_title: string; p_kind: string }
+        Returns: string
+      }
+      add_block_live: {
+        Args: { p_workshop: string; p_kind: string; p_title?: string | null }
+        Returns: number
+      }
       survey_perception_gap: {
         Args: { p_survey: string }
         Returns: Json

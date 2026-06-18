@@ -21,6 +21,23 @@ export async function buildFromTemplate(
   return { id: (data as any)?.id as string };
 }
 
+// Run an on-demand session: create an ad-hoc workshop with one starting module
+// and start it. Returns the workshop id to navigate straight into the run.
+export async function quickStart(
+  teamId: string,
+  title: string,
+  kind: string,
+): Promise<{ workshopId?: string; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("quick_start_workshop", {
+    p_team: teamId,
+    p_title: title,
+    p_kind: kind,
+  });
+  if (error) return { error: error.message };
+  return { workshopId: data as string };
+}
+
 // Attach a specific open assessment to a survey step (or null to detach → auto-match).
 export async function setBlockSurvey(
   workshopId: string,

@@ -5,7 +5,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY } from "@/lib/util";
 import { useTableControls } from "@/components/TableControls";
-import { buildFromTemplate, deleteWorkshop } from "./actions";
+import { SideWindow } from "@/components/SideWindow";
+import { buildFromTemplate, deleteWorkshop, quickStart } from "./actions";
+
+const QUICK_MODULES = [
+  { kind: "canvas", label: "Canvas", blurb: "Freeform board — notes, shapes, connectors" },
+  { kind: "brainstorm", label: "Brainstorm", blurb: "Gather ideas, then cluster" },
+  { kind: "vote", label: "Vote", blurb: "Dot-vote to prioritize" },
+  { kind: "discuss", label: "Discuss", blurb: "A guided discussion prompt" },
+  { kind: "feedback", label: "Feedback", blurb: "Sort thoughts into lanes" },
+  { kind: "checkin", label: "Check-in", blurb: "A quick round to open" },
+  { kind: "outcome", label: "Outcomes", blurb: "Capture decisions & actions" },
+  { kind: "manual", label: "Notes", blurb: "Facilitator notes / freeform" },
+];
 
 export type TemplateCard = {
   id: string;
@@ -46,10 +58,21 @@ export function WorkshopsClient({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickKind, setQuickKind] = useState("canvas");
+  const [quickTitle, setQuickTitle] = useState("");
 
   function flash(m: string) {
     setToast(m);
     setTimeout(() => setToast(null), 2400);
+  }
+
+  function runQuick() {
+    startTransition(async () => {
+      const res = await quickStart(teamId, quickTitle, quickKind);
+      if (res.error) flash(res.error);
+      else if (res.workshopId) router.push(`/run/${res.workshopId}`);
+    });
   }
 
   function use(templateId: string, pulseId?: string | null) {
@@ -144,6 +167,16 @@ export function WorkshopsClient({
 
   return (
     <>
+      {canManage ? (
+        <div className="quickbar">
+          <div className="quickbar-l">
+            <div className="quickbar-t">Run on-demand</div>
+            <div className="quickbar-s">Start a live session now and add modules as you go — no template needed.</div>
+          </div>
+          <button className="btn-prim" onClick={() => setQuickOpen(true)}>Quick start ▸</button>
+        </div>
+      ) : null}
+
       {recommendation ? (
         <div className="rec">
           <div className="rec-l">
@@ -236,6 +269,38 @@ export function WorkshopsClient({
           );
         })
       )}
+
+      <SideWindow
+        open={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        title="Quick start a session"
+        subtitle="Pick a starting module — you can add more live"
+        size="compact"
+        footer={
+          <>
+            <button className="btn-sec" onClick={() => setQuickOpen(false)}>Cancel</button>
+            <div className="right">
+              <button className="btn-prim" disabled={pending} onClick={runQuick}>Start session ▸</button>
+            </div>
+          </>
+        }
+      >
+        <div className="field">
+          <label htmlFor="qs-title">Session name <span className="opt">(optional)</span></label>
+          <input className="inp" id="qs-title" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} placeholder="Quick session" />
+        </div>
+        <div className="field">
+          <label>Starting module</label>
+          <div className="quickmods">
+            {QUICK_MODULES.map((m) => (
+              <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => setQuickKind(m.kind)}>
+                <span className="quickmod-t">{m.label}</span>
+                <span className="quickmod-s">{m.blurb}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </SideWindow>
 
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6">
