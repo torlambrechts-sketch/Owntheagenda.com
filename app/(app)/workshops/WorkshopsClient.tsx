@@ -48,18 +48,21 @@ export function WorkshopsClient({
   templates,
   workshops,
   recommendation,
+  surveyInsts = [],
 }: {
   teamId: string;
   canManage: boolean;
   templates: TemplateCard[];
   workshops: WorkshopRow[];
   recommendation: Recommendation | null;
+  surveyInsts?: { kind: string; name: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickKind, setQuickKind] = useState("canvas");
+  const [quickInst, setQuickInst] = useState("");
   const [quickTitle, setQuickTitle] = useState("");
 
   function flash(m: string) {
@@ -69,7 +72,7 @@ export function WorkshopsClient({
 
   function runQuick() {
     startTransition(async () => {
-      const res = await quickStart(teamId, quickTitle, quickKind);
+      const res = await quickStart(teamId, quickTitle, quickKind, quickKind === "survey" ? quickInst : undefined);
       if (res.error) flash(res.error);
       else if (res.workshopId) router.push(`/run/${res.workshopId}`);
     });
@@ -280,7 +283,7 @@ export function WorkshopsClient({
           <>
             <button className="btn-sec" onClick={() => setQuickOpen(false)}>Cancel</button>
             <div className="right">
-              <button className="btn-prim" disabled={pending} onClick={runQuick}>Start session ▸</button>
+              <button className="btn-prim" disabled={pending || (quickKind === "survey" && !quickInst)} onClick={runQuick}>Start session ▸</button>
             </div>
           </>
         }
@@ -293,13 +296,26 @@ export function WorkshopsClient({
           <label>Starting module</label>
           <div className="quickmods">
             {QUICK_MODULES.map((m) => (
-              <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => setQuickKind(m.kind)}>
+              <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => { setQuickKind(m.kind); setQuickInst(""); }}>
                 <span className="quickmod-t">{m.label}</span>
                 <span className="quickmod-s">{m.blurb}</span>
               </button>
             ))}
           </div>
         </div>
+        {surveyInsts.length ? (
+          <div className="field">
+            <label>Or an assessment</label>
+            <div className="quickmods">
+              {surveyInsts.map((s) => (
+                <button key={s.kind} type="button" className={`quickmod${quickKind === "survey" && quickInst === s.kind ? " on" : ""}`} onClick={() => { setQuickKind("survey"); setQuickInst(s.kind); }}>
+                  <span className="quickmod-t">{s.name}</span>
+                  <span className="quickmod-s">Anonymous team survey</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </SideWindow>
 
       <div className={`toast${toast ? " show" : ""}`}>

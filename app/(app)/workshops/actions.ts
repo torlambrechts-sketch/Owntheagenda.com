@@ -27,12 +27,14 @@ export async function quickStart(
   teamId: string,
   title: string,
   kind: string,
+  instrument?: string,
 ): Promise<{ workshopId?: string; error?: string }> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("quick_start_workshop", {
     p_team: teamId,
     p_title: title,
     p_kind: kind,
+    ...(instrument ? { p_instrument: instrument } : {}),
   });
   if (error) return { error: error.message };
   return { workshopId: data as string };

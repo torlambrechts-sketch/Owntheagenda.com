@@ -13,7 +13,7 @@ import { SurveyModule } from "./SurveyModule";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { SurveyInstrument } from "@/lib/survey";
-import type { Enums } from "@/types/database.types";
+import type { Enums, Json } from "@/types/database.types";
 
 export type RunBlock = {
   id: string;
@@ -106,6 +106,7 @@ export function RunClient({
   const [blocks, setBlocks] = useState<RunBlock[]>(initialBlocks);
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [surveyInsts, setSurveyInsts] = useState<{ kind: string; name: string }[]>([]);
   const [session, setSession] = useState<SessionState>(initialSession);
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
   const [actions, setActions] = useState<Action[]>(initialActions);
@@ -242,6 +243,14 @@ export function RunClient({
     return () => clearInterval(t);
   }, []);
 
+  // team-scoped instruments available to add as a live assessment step
+  useEffect(() => {
+    if (!isFacilitator) return;
+    supabase.from("assessment_template").select("key, name").eq("scope", "team").order("name").then(({ data }) => {
+      if (data) setSurveyInsts(data.map((t) => ({ kind: t.key, name: t.name })));
+    });
+  }, [supabase, isFacilitator]);
+
   const remaining = session.timerRunning && session.timerEndsAt
     ? Math.max(0, Math.ceil((new Date(session.timerEndsAt).getTime() - now) / 1000))
     : session.timerRemaining;
@@ -253,9 +262,14 @@ export function RunClient({
   const timer = async (action: string) => {
     await supabase.rpc("session_timer", { p_session: sid, p_action: action });
   };
-  async function addModule(kind: string) {
+  async function addModule(kind: string, config?: Record<string, unknown>) {
     setAdding(true);
-    const { data, error } = await supabase.rpc("add_block_live", { p_workshop: workshopId, p_kind: kind, p_title: null });
+    const { data, error } = await supabase.rpc("add_block_live", {
+      p_workshop: workshopId,
+      p_kind: kind,
+      p_title: null,
+      ...(config ? { p_config: config as Json } : {}),
+    });
     setAdding(false);
     setAddOpen(false);
     if (error) { setEndErr(error.message); return; }
@@ -329,6 +343,16 @@ export function RunClient({
                       <b>{m.label}</b><span>{m.blurb}</span>
                     </button>
                   ))}
+                  {surveyInsts.length ? (
+                    <>
+                      <div className="addmod-h">Assessment</div>
+                      {surveyInsts.map((s) => (
+                        <button key={s.kind} className="addmod-item" disabled={adding} onClick={() => addModule("survey", { kind: s.kind })}>
+                          <b>{s.name}</b><span>Anonymous team survey</span>
+                        </button>
+                      ))}
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>

@@ -84,6 +84,12 @@ export default async function WorkshopsPage() {
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
+  // team-scoped assessment instruments — offered as a starting/added module
+  const { data: instRows } = canManage
+    ? await supabase.from("assessment_template").select("key, name").eq("scope", "team").order("name")
+    : { data: [] as { key: string; name: string }[] };
+  const surveyInsts = (instRows ?? []).map((t) => ({ kind: t.key, name: t.name }));
+
   return (
     <div>
       <h1 className="page-title">Workshops</h1>
@@ -97,6 +103,7 @@ export default async function WorkshopsPage() {
           templates={tplCards}
           workshops={workshops}
           recommendation={recommendation}
+          surveyInsts={surveyInsts}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>

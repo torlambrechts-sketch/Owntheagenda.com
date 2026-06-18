@@ -1003,11 +1003,11 @@ export type Database = {
         Returns: number
       }
       quick_start_workshop: {
-        Args: { p_team: string; p_title: string; p_kind: string }
+        Args: { p_team: string; p_title: string; p_kind: string; p_instrument?: string | null }
         Returns: string
       }
       add_block_live: {
-        Args: { p_workshop: string; p_kind: string; p_title?: string | null }
+        Args: { p_workshop: string; p_kind: string; p_title?: string | null; p_config?: Json }
         Returns: number
       }
       survey_perception_gap: {
