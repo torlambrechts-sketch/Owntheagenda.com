@@ -22,11 +22,15 @@ Decisions (from product owner):
 - [x] **P3 · Organization section + GDPR** — `/organization` route + admin-gated nav group;
       org settings (name, logo, data_region, `retention_months`, Company ID rotate);
       GDPR `export_member_data` + `erase_member` wired into Members (Export / Erase).
-- [ ] **P4 · Integrations section** — `/integrations`; `integration` table
-      (workspace_id, provider, status, config); catalog (Slack, Teams, Google, Zoom…).
-- [ ] **P5 · CSV user import** — upload → parse (email, role, team, role_title) →
-      preview/validate → bulk `create_invitation`.
-- [ ] **P6 · External facilitator scoping (RLS)** — constrain `facilitator` reads to assigned
-      teams/workshops/sessions; heavy rolled-back RLS tests. (Riskiest — last.)
+- [x] **P4 · Integrations section** — `/integrations`; admin-scoped `integration` table;
+      catalog (Slack + Webhook connectable; Teams/Google/Zoom/Entra coming soon).
+- [x] **P5 · CSV user import** — paste/upload → parse (email, role, team, role_title) →
+      validate + preview → bulk `create_invitation`.
+- [x] **P6 · External facilitator scoping (RLS)** — facilitator-aware
+      `can_read_team/workshop/session` + scoped policies on team/workshop/session/membership/
+      action_item/follow_up/pulse/canvas_snapshot/user_manual; Health hidden + redirected.
+      Verified as the authenticated role (sees only assigned team).
+
+**All phases complete.**
 
 Project: fqeohcfkimoopwjxxcft · Branch: claude/nice-feynman-x7xgh4

@@ -108,9 +108,9 @@ const ICONS = {
   ),
 };
 
-const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean }[] = [
+const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
-  { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace" },
+  { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace", facilitatorHidden: true },
   { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
@@ -138,7 +138,8 @@ export function Shell({
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
   const admin = isAdmin(chrome.role);
-  const visibleNav = NAV.filter((n) => !n.adminOnly || admin);
+  const facilitator = chrome.role === "facilitator";
+  const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
   const groups = ["Workspace", "People", "Effectiveness", "Organization"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );

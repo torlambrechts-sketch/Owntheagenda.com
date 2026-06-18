@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
@@ -7,6 +8,9 @@ import { HealthClient, type Entity } from "./HealthClient";
 // dynamics, strategy and performance, with a manual status overlay.
 export default async function HealthPage() {
   const { userId, workspace, role } = await requireSession();
+  // Org-wide Health rolls up every team via a definer RPC (bypasses RLS), so
+  // scoped facilitators don't get it.
+  if (role === "facilitator") redirect("/dashboard");
   const supabase = createClient();
 
   const { data } = await supabase.rpc("workspace_health", { p_workspace: workspace.id });
