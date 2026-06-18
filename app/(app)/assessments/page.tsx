@@ -142,6 +142,23 @@ export default async function AssessmentsPage({
   const teamTemplates = templates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
   const instruments = instrumentsFrom(templates);
 
+  // Per-open-survey response status (lead/admin only): count + who's answered.
+  type SurveyStatus = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
+  const surveyStatus: Record<string, SurveyStatus> = {};
+  if (canManage) {
+    for (const s of openSurveys ?? []) {
+      const { data: part } = await supabase.rpc("survey_participation", { p_survey: s.id });
+      const roster = (part ?? [])
+        .map((p) => ({ name: nameOf(p.user_id), completed: p.completed }))
+        .sort((a, b) => Number(b.completed) - Number(a.completed) || a.name.localeCompare(b.name));
+      surveyStatus[s.id] = {
+        responded: roster.filter((r) => r.completed).length,
+        total: roster.length,
+        roster,
+      };
+    }
+  }
+
   // Participation roster for an open pulse (lead/admin only): who has responded.
   let participation: { name: string; completed: boolean }[] | null = null;
   if (openPulse && canManage) {
@@ -181,6 +198,7 @@ export default async function AssessmentsPage({
           teamId={teamId}
           openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null }[]}
           templates={teamTemplates}
+          status={surveyStatus}
         />
       ) : null}
 

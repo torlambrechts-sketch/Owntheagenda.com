@@ -927,6 +927,13 @@ export type Database = {
           completed: boolean
         }[]
       }
+      survey_participation: {
+        Args: { p_survey: string }
+        Returns: {
+          user_id: string
+          completed: boolean
+        }[]
+      }
       remind_pulse: {
         Args: { p_pulse: string }
         Returns: number
