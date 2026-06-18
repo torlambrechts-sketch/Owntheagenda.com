@@ -123,6 +123,17 @@ export function CanvasBoard({
   const boardRef = useRef<HTMLDivElement>(null);
 
   const [objects, setObjects] = useState<Obj[]>([]);
+  const [saveState, setSaveState] = useState<"" | "saving" | "done">("");
+  async function saveSnapshot() {
+    setSaveState("saving");
+    const { error } = await supabase.rpc("save_canvas_snapshot", { p_session: sessionId, p_block_ord: blockOrd, p_title: title || null });
+    if (error) {
+      setSaveState("");
+    } else {
+      setSaveState("done");
+      setTimeout(() => setSaveState(""), 2500);
+    }
+  }
   const [tool, setTool] = useState<Tool>("select");
   const [fill, setFill] = useState("lemon");
   const [stroke, setStroke] = useState("ink");
@@ -1087,6 +1098,13 @@ export function CanvasBoard({
           <button className="zlabel" onClick={resetView} title="Reset view">{Math.round(view.zoom * 100)}%</button>
           <button onClick={() => zoomBy(1.2)} title="Zoom in" aria-label="Zoom in">+</button>
         </div>
+        {isFacilitator ? (
+          <div className="savectl" onPointerDown={(e) => e.stopPropagation()}>
+            <button onClick={saveSnapshot} disabled={saveState === "saving"} title="Save this canvas to reuse later">
+              {saveState === "saving" ? "Saving…" : saveState === "done" ? "Saved ✓" : "Save canvas"}
+            </button>
+          </div>
+        ) : null}
         {selectedIds.length > 1 && canEdit ? (
           <div className="selchip" onPointerDown={(e) => e.stopPropagation()}>
             <span>{selectedIds.length} selected</span>
