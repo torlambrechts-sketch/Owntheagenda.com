@@ -22,7 +22,7 @@ Product facts:
       `help_article` + `help_faq` tables (read published to all, write staff); nav
       "Help & Science" (everyone); `/help` landing (search + sections); `/help/[slug]`
       article (markdown); guides & science indexes; FAQ accordion; seed real content.
-- [ ] **H2 · Roadmap (interactive)** — `roadmap_item` + `roadmap_vote` + vote-count
+- [x] **H2 · Roadmap (interactive)** — `roadmap_item` + `roadmap_vote` + vote-count
       trigger + RLS; `/help/roadmap` (columns, upvote, request form); staff triage queue.
 - [ ] **H3 · Admin CMS** — staff-only editor for articles/FAQ (list + create/edit/publish)
       and roadmap item management.

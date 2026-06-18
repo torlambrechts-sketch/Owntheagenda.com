@@ -411,6 +411,34 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      roadmap_item: {
+        Row: {
+          id: string
+          title: string
+          description: string
+          status: string
+          category: string | null
+          sort: number
+          vote_count: number
+          created_by: string | null
+          shipped_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      roadmap_vote: {
+        Row: {
+          roadmap_item_id: string
+          user_id: string
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       integration: {
         Row: {
           id: string

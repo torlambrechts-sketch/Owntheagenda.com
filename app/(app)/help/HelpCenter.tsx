@@ -77,6 +77,13 @@ export function HelpCenter({ articles, faqs }: { articles: Article[]; faqs: Faq[
           <Section title="FAQ" sub="Quick answers to common questions">
             <div className="faq-list">{faqs.map(faqItem)}</div>
           </Section>
+          <Link className="rm-cta" href="/help/roadmap">
+            <div>
+              <b>Product roadmap</b>
+              <span>See what we&apos;re building and upvote what matters to you.</span>
+            </div>
+            <span className="rm-cta-go">→</span>
+          </Link>
         </>
       )}
     </div>
