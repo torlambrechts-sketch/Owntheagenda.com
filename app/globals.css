@@ -868,6 +868,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .ideacard .taskbtn{border:1px solid var(--line-2);background:none;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap}
 .ideacard .taskbtn:hover{border-color:var(--green);color:var(--green)}
 .ideacard .taskbtn.on{color:var(--green);border-color:var(--green);background:var(--open-bg);cursor:default}
+.promotebar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:6px 0 12px;padding:9px 13px;background:var(--open-bg);border:1px solid var(--line);border-radius:9px;font-size:12.5px;color:var(--forest)}
 .ideacols{flex:1;min-height:0;display:grid;gap:12px;overflow:auto;padding-top:2px}
 .ideacol{background:var(--canvas);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:160px;overflow:hidden}
 .ideacol-h{font-size:12px;font-weight:700;color:var(--ink);padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}

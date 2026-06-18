@@ -202,11 +202,25 @@ export function IdeaModule({
   // rail via its action_item subscription. Facilitator-curated from the votes.
   async function promote(i: Idea) {
     setPromoted((s) => new Set(s).add(i.id));
-    const { error } = await supabase.rpc("add_action", { p_session: sessionId, p_text: i.text });
+    const owner = i.anon ? null : i.authorName; // carry the card's author onto the task
+    const { error } = await supabase.rpc("add_action", {
+      p_session: sessionId,
+      p_text: i.text,
+      ...(owner ? { p_owner: owner } : {}),
+    });
     if (error) {
       setErr(error.message);
       setPromoted((s) => { const n = new Set(s); n.delete(i.id); return n; });
     }
+  }
+
+  // Bulk: take the three highest-voted, not-yet-promoted cards forward as tasks.
+  async function promoteTop() {
+    const top = [...ideas]
+      .sort((a, b) => countFor(b.id) - countFor(a.id))
+      .filter((i) => countFor(i.id) > 0 && !promoted.has(i.id))
+      .slice(0, 3);
+    for (const i of top) await promote(i);
   }
 
   async function toggleVote(id: string) {
@@ -317,6 +331,12 @@ export function IdeaModule({
             <div className="silentbar">
               <span>✍️ Writing privately — only you can see your cards until the facilitator reveals them.</span>
               {isFacilitator ? <button className="btn-prim sm" onClick={reveal}>Reveal cards ▸</button> : null}
+            </div>
+          ) : null}
+          {isFacilitator && revealed && ideas.some((i) => countFor(i.id) > 0) ? (
+            <div className="promotebar">
+              <span>Take the top-voted cards forward as commitments.</span>
+              <button className="btn-sec sm" onClick={promoteTop}>Promote top 3 →</button>
             </div>
           ) : null}
           <div className="ideagrid">
