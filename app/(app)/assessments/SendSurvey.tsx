@@ -106,8 +106,8 @@ export function SendSurvey({ teamId, openSurveys, templates, status }: { teamId:
                 </div>
                 {openRoster === s.id && st ? (
                   <div className="roster">
-                    {st.roster.map((m) => (
-                      <div className="rosterrow" key={m.name}>
+                    {st.roster.map((m, i) => (
+                      <div className="rosterrow" key={`${m.name}-${i}`}>
                         <span className="person"><span className="av sm">{initials(m.name)}</span>{m.name}</span>
                         <span className={`pill sm ${m.completed ? "open" : "internal"}`}>{m.completed ? "Responded" : "Pending"}</span>
                       </div>

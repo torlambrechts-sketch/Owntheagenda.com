@@ -108,7 +108,13 @@ export function BuilderClient({
       if (res.error) return flash(res.error);
       if (res.id) {
         const a = await setWorkshopSurvey(workshop.id, res.id);
-        if (a.error) return flash(a.error);
+        if (a.error) {
+          // The survey was sent to the team; pinning failed. Surface it and
+          // refresh so it shows up in the candidate list to pin manually.
+          setNewDue("");
+          router.refresh();
+          return flash(`Sent, but couldn't pin it: ${a.error}. Pick it from the list.`);
+        }
       }
       setAsOpen(false);
       setNewDue("");
@@ -329,7 +335,11 @@ export function BuilderClient({
             <div className="asbound">
               <div className="asbound-main">
                 <b>{assessment.bound.name}</b>
-                <span className="src">{assessment.bound.responded}/{assessment.bound.total} responded · {assessment.bound.status}</span>
+                {assessment.bound.status === "open" ? (
+                  <span className="src">{assessment.bound.responded}/{assessment.bound.total} responded</span>
+                ) : (
+                  <span className="src" style={{ color: "var(--rust)" }}>closed · {assessment.bound.responded}/{assessment.bound.total} responded — detach to auto-match a live one</span>
+                )}
               </div>
               <button className="linkbtn" disabled={pending} onClick={() => { setPickSurvey(""); setAsOpen(true); }}>Change</button>
               <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={detachSurvey}>Detach</button>

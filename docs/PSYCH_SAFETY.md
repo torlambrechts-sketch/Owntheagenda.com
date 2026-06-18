@@ -65,14 +65,30 @@ Yes — you can send the assessment to the whole team *before* the workshop:
   async; the lead can **Remind** non-responders or **Close** early.
 - The **daily job** auto-reminds anyone still pending within 2 days of the
   deadline and **auto-closes** the survey once it passes.
-- Then run (or schedule) the workshop: its survey block (prerequisite)
-  **reuses that same open survey**, so the team discusses the read they already
-  gave. Results also show on **/assessments** and the **team page** (min-3 mask
-  + climate strength).
 - Email invites/reminders ride the same digest (dormant until `RESEND_API_KEY`).
 
+### Seeing where it stands
+Each open assessment row shows an **"X / Y responded"** chip (green when
+everyone's in). Click it for a **Responded / Pending roster** — who has answered,
+*never their answers* (those stay private; the roster is lead/admin-only via the
+`survey_participation` RPC). The aggregate reading still only appears at **≥3**
+respondents (min-3 mask + climate strength), on /assessments and the team page.
+
+### Tying it to a workshop
+A workshop's survey step links to a survey via `workshop.survey_id`:
+- **Auto-match (default):** when the facilitator opens the survey step,
+  `ensure_workshop_survey` reuses the **newest open survey of the same team +
+  instrument**, so a sent pre-work assessment is pulled in automatically — and
+  stamped onto the workshop.
+- **Explicit pin:** on the **workshop builder**, a *Pre-work assessment* panel
+  lets the lead **pin a specific open assessment** (with its live responded
+  count) or **send a new one and pin it** in one step. A pinned survey wins over
+  the auto-match. Only **open** assessments can be pinned; **Detach** reverts to
+  auto-match. The pin is validated to the workshop's team and instrument.
+
 **Scope:** an assessment goes to the **team** (the leadership group), not an
-arbitrary org-wide list — run one per team.
+arbitrary org-wide list — run one per team. One survey step per workshop is the
+supported shape (a workshop has a single `survey_id`).
 
 ## Instruments available
 Psychological Safety (Bang) · Team Effectiveness (Bang) · Team Learning
