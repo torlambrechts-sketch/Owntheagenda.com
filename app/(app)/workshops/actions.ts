@@ -21,14 +21,15 @@ export async function buildFromTemplate(
   return { id: (data as any)?.id as string };
 }
 
-// Attach a specific open assessment to a workshop (or null to detach → auto-match).
-export async function setWorkshopSurvey(
+// Attach a specific open assessment to a survey step (or null to detach → auto-match).
+export async function setBlockSurvey(
   workshopId: string,
+  blockId: string,
   surveyId: string | null,
 ): Promise<{ error?: string }> {
   const supabase = createClient();
-  const { error } = await supabase.rpc("set_workshop_survey", {
-    p_workshop: workshopId,
+  const { error } = await supabase.rpc("set_block_survey", {
+    p_block: blockId,
     p_survey: surveyId,
   });
   if (error) return { error: error.message };

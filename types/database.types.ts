@@ -464,7 +464,6 @@ export type Database = {
           title: string
           template_id: string | null
           pulse_id: string | null
-          survey_id: string | null
           status: Database["public"]["Enums"]["workshop_status"]
           scheduled_at: string | null
           objective: string | null
@@ -513,6 +512,7 @@ export type Database = {
           prompt: string | null
           linked_dynamic: Database["public"]["Enums"]["team_dynamic"] | null
           config: Json
+          survey_id: string | null
           created_at: string
           updated_at: string
         }
@@ -526,6 +526,7 @@ export type Database = {
           prompt?: string | null
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
           config?: Json
+          survey_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -539,6 +540,7 @@ export type Database = {
           prompt?: string | null
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
           config?: Json
+          survey_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -934,8 +936,8 @@ export type Database = {
           completed: boolean
         }[]
       }
-      set_workshop_survey: {
-        Args: { p_workshop: string; p_survey: string | null }
+      set_block_survey: {
+        Args: { p_block: string; p_survey: string | null }
         Returns: undefined
       }
       remind_pulse: {
@@ -1083,8 +1085,8 @@ export type Database = {
         Args: { p_survey: string }
         Returns: Database["public"]["Tables"]["survey"]["Row"]
       }
-      ensure_workshop_survey: {
-        Args: { p_workshop: string; p_kind: string; p_name: string }
+      ensure_block_survey: {
+        Args: { p_block: string }
         Returns: string
       }
       submit_agreement: {

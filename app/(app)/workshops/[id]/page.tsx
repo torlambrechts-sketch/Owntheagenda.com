@@ -15,7 +15,7 @@ export default async function BuilderPage({
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, status, team_id, workspace_id, scheduled_at, objective, survey_id")
+    .select("id, title, status, team_id, workspace_id, scheduled_at, objective")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -28,7 +28,7 @@ export default async function BuilderPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config")
+    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config, survey_id")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
 
@@ -45,53 +45,70 @@ export default async function BuilderPage({
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
-  // Assessment binding panel: if the agenda has a survey step, let the lead pin
-  // a specific open assessment (or send a new one) instead of the runtime
-  // newest-open-by-kind auto-match.
+  // Assessment binding: each survey step can pin a specific open assessment (or
+  // send a new one) instead of the runtime newest-open-by-kind auto-match.
   type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
-  let assessment:
-    | { kind: string; kindName: string; timing: string; bound: (Cand & { status: string }) | null; candidates: Cand[] }
-    | null = null;
-  const surveyBlock = (blocks ?? []).find((b) => b.activity_type === "survey");
-  if (surveyBlock && canManage) {
-    const cfg = (surveyBlock.config ?? {}) as Record<string, unknown>;
-    const kind = (cfg.kind as string) ?? "psych_safety_bang";
-    const timing = (cfg.timing as string) ?? "live";
-    const { data: tpl } = await supabase
-      .from("assessment_template")
-      .select("name")
-      .eq("key", kind)
-      .order("workspace_id", { ascending: true, nullsFirst: false });
-    const kindName = (tpl ?? [])[0]?.name ?? kind;
-
+  type Panel = {
+    blockId: string;
+    stepTitle: string;
+    kind: string;
+    kindName: string;
+    timing: string;
+    bound: (Cand & { status: string }) | null;
+    candidates: Cand[];
+  };
+  const assessments: Panel[] = [];
+  const surveyBlocks = (blocks ?? []).filter((b) => b.activity_type === "survey");
+  if (surveyBlocks.length && canManage) {
     const counts = async (sid: string) => {
       const { data: part } = await supabase.rpc("survey_participation", { p_survey: sid });
-      const rows = part ?? [];
-      return { responded: rows.filter((p) => p.completed).length, total: rows.length };
+      const r = part ?? [];
+      return { responded: r.filter((p) => p.completed).length, total: r.length };
     };
-
-    const { data: cands } = await supabase
-      .from("survey")
-      .select("id, name, due_at")
-      .eq("team_id", workshop.team_id)
-      .eq("kind", kind)
-      .eq("status", "open")
-      .order("created_at", { ascending: false });
-    const candidates: Cand[] = [];
-    for (const c of cands ?? []) {
-      candidates.push({ id: c.id, name: c.name, dueAt: c.due_at, ...(await counts(c.id)) });
-    }
-
-    let bound: (Cand & { status: string }) | null = null;
-    if (workshop.survey_id) {
-      const { data: bs } = await supabase
+    // instrument display names for every kind in play
+    const kinds = Array.from(new Set(surveyBlocks.map((b) => ((b.config ?? {}) as Record<string, unknown>).kind as string ?? "psych_safety_bang")));
+    const { data: tpls } = await supabase
+      .from("assessment_template")
+      .select("key, name, workspace_id")
+      .in("key", kinds)
+      .order("workspace_id", { ascending: true, nullsFirst: false });
+    const nameOfKind = (k: string) => (tpls ?? []).find((t) => t.key === k)?.name ?? k;
+    // open candidates per kind (fetched once per distinct kind)
+    const candsByKind: Record<string, Cand[]> = {};
+    for (const k of kinds) {
+      const { data: cands } = await supabase
         .from("survey")
-        .select("id, name, status, due_at")
-        .eq("id", workshop.survey_id)
-        .maybeSingle();
-      if (bs) bound = { id: bs.id, name: bs.name, dueAt: bs.due_at, status: bs.status, ...(await counts(bs.id)) };
+        .select("id, name, due_at")
+        .eq("team_id", workshop.team_id)
+        .eq("kind", k)
+        .eq("status", "open")
+        .order("created_at", { ascending: false });
+      const list: Cand[] = [];
+      for (const c of cands ?? []) list.push({ id: c.id, name: c.name, dueAt: c.due_at, ...(await counts(c.id)) });
+      candsByKind[k] = list;
     }
-    assessment = { kind, kindName, timing, bound, candidates };
+    for (const b of surveyBlocks) {
+      const cfg = (b.config ?? {}) as Record<string, unknown>;
+      const kind = (cfg.kind as string) ?? "psych_safety_bang";
+      let bound: (Cand & { status: string }) | null = null;
+      if (b.survey_id) {
+        const { data: bs } = await supabase
+          .from("survey")
+          .select("id, name, status, due_at")
+          .eq("id", b.survey_id)
+          .maybeSingle();
+        if (bs) bound = { id: bs.id, name: bs.name, dueAt: bs.due_at, status: bs.status, ...(await counts(bs.id)) };
+      }
+      assessments.push({
+        blockId: b.id,
+        stepTitle: b.title,
+        kind,
+        kindName: nameOfKind(kind),
+        timing: (cfg.timing as string) ?? "live",
+        bound,
+        candidates: candsByKind[kind] ?? [],
+      });
+    }
   }
 
   return (
@@ -105,7 +122,7 @@ export default async function BuilderPage({
         teamName={team?.name ?? ""}
         canManage={canManage}
         blocks={rows}
-        assessment={assessment}
+        assessments={assessments}
       />
     </div>
   );

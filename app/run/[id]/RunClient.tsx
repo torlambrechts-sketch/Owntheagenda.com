@@ -16,6 +16,7 @@ import type { SurveyInstrument } from "@/lib/survey";
 import type { Enums } from "@/types/database.types";
 
 export type RunBlock = {
+  id: string;
   ord: number;
   title: string;
   activityType: Enums<"activity_type">;
@@ -23,6 +24,7 @@ export type RunBlock = {
   prompt: string | null;
   linkedDynamic: Enums<"team_dynamic"> | null;
   config: ModuleConfig;
+  surveyId: string | null;
 };
 export type Participant = {
   userId: string;
@@ -51,7 +53,6 @@ export function RunClient({
   workspaceId,
   teamId,
   initialPulseId,
-  initialSurveyId,
   title,
   blocks,
   instruments,
@@ -66,7 +67,6 @@ export function RunClient({
   workspaceId: string;
   teamId: string | null;
   initialPulseId: string | null;
-  initialSurveyId: string | null;
   title: string;
   blocks: RunBlock[];
   instruments: Record<string, SurveyInstrument>;
@@ -372,10 +372,9 @@ export function RunClient({
           <div className="stage canvasstage">
             <SurveyModule
               key={session.currentBlockOrd}
-              workshopId={workshopId}
+              blockId={block.id}
               isFacilitator={isFacilitator}
-              initialSurveyId={initialSurveyId}
-              kind={((block?.config as Record<string, unknown>)?.kind as string) ?? "psych_safety_bang"}
+              initialSurveyId={block.surveyId}
               instrument={instruments[((block?.config as Record<string, unknown>)?.kind as string) ?? "psych_safety_bang"] ?? null}
               timing={((block?.config as Record<string, unknown>)?.timing as string) ?? "live"}
               userId={userId}

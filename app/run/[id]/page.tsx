@@ -16,7 +16,7 @@ export default async function RunPage({
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, team_id, workspace_id, pulse_id, survey_id")
+    .select("id, title, team_id, workspace_id, pulse_id")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -31,10 +31,11 @@ export default async function RunPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("ord, title, activity_type, duration, prompt, linked_dynamic, config")
+    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config, survey_id")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
   const runBlocks: RunBlock[] = (blocks ?? []).map((b) => ({
+    id: b.id,
     ord: b.ord,
     title: b.title,
     activityType: b.activity_type,
@@ -42,6 +43,7 @@ export default async function RunPage({
     prompt: b.prompt,
     linkedDynamic: b.linked_dynamic,
     config: (b.config ?? {}) as RunBlock["config"],
+    surveyId: b.survey_id,
   }));
 
   const { data: session } = await supabase
@@ -105,7 +107,6 @@ export default async function RunPage({
       workspaceId={workshop.workspace_id}
       teamId={workshop.team_id}
       initialPulseId={workshop.pulse_id}
-      initialSurveyId={workshop.survey_id}
       title={workshop.title}
       blocks={runBlocks}
       instruments={instruments}

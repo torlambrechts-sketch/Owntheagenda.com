@@ -17,10 +17,9 @@ import {
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null };
 
 export function SurveyModule({
-  workshopId,
+  blockId,
   isFacilitator,
   initialSurveyId,
-  kind,
   instrument,
   timing,
   userId,
@@ -31,10 +30,9 @@ export function SurveyModule({
   ready,
   onToggleReady,
 }: {
-  workshopId: string;
+  blockId: string;
   isFacilitator: boolean;
   initialSurveyId: string | null;
-  kind: string;
   instrument: SurveyInstrument | null;
   timing: string;
   userId: string;
@@ -75,8 +73,8 @@ export function SurveyModule({
 
   useEffect(() => {
     const ch = supabase
-      .channel(`survey:${workshopId}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "workshop", filter: `id=eq.${workshopId}` }, (p) => {
+      .channel(`survey:${blockId}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "block", filter: `id=eq.${blockId}` }, (p) => {
         const sid = (p.new as any)?.survey_id;
         if (sid && sid !== surveyId) setSurveyId(sid);
       })
@@ -84,11 +82,11 @@ export function SurveyModule({
     const poll = setInterval(() => { if (surveyId) loadResults(surveyId); }, 6000);
     return () => { supabase.removeChannel(ch); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workshopId, surveyId]);
+  }, [blockId, surveyId]);
 
   async function openSurvey() {
     setBusy(true);
-    const { data, error } = await supabase.rpc("ensure_workshop_survey", { p_workshop: workshopId, p_kind: kind, p_name: inst?.name ?? "Survey" });
+    const { data, error } = await supabase.rpc("ensure_block_survey", { p_block: blockId });
     setBusy(false);
     if (!error && data) setSurveyId(data as string);
   }

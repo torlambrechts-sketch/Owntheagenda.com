@@ -13,12 +13,14 @@ import {
   updateWorkshopTitle,
   scheduleWorkshop,
   setWorkshopObjective,
-  setWorkshopSurvey,
+  setBlockSurvey,
 } from "../actions";
 import { sendSurvey } from "../../assessments/actions";
 
 type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
 export type AssessmentPanel = {
+  blockId: string;
+  stepTitle: string;
   kind: string;
   kindName: string;
   timing: string;
@@ -76,38 +78,43 @@ export function BuilderClient({
   teamName,
   canManage,
   blocks,
-  assessment,
+  assessments,
 }: {
   workshop: { id: string; title: string; scheduledAt: string | null; objective: string | null };
   teamId: string;
   teamName: string;
   canManage: boolean;
   blocks: BlockRow[];
-  assessment: AssessmentPanel | null;
+  assessments: AssessmentPanel[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
 
-  // assessment binding side-window
-  const [asOpen, setAsOpen] = useState(false);
+  // assessment binding side-window — asBlockId is the survey step being bound
+  const [asBlockId, setAsBlockId] = useState<string | null>(null);
   const [pickSurvey, setPickSurvey] = useState("");
   const [newDue, setNewDue] = useState("");
-  function attachSurvey() {
+  const asPanel = assessments.find((a) => a.blockId === asBlockId) ?? null;
+  function openPicker(blockId: string) {
+    setPickSurvey("");
+    setNewDue("");
+    setAsBlockId(blockId);
+  }
+  function attachSurvey(blockId: string) {
     if (!pickSurvey) return;
-    run(() => setWorkshopSurvey(workshop.id, pickSurvey), "Assessment attached");
-    setAsOpen(false);
+    run(() => setBlockSurvey(workshop.id, blockId, pickSurvey), "Assessment attached");
+    setAsBlockId(null);
   }
-  function detachSurvey() {
-    run(() => setWorkshopSurvey(workshop.id, null), "Detached — will auto-match at start");
+  function detachSurvey(blockId: string) {
+    run(() => setBlockSurvey(workshop.id, blockId, null), "Detached — will auto-match at start");
   }
-  function sendAndAttach() {
+  function sendAndAttach(panel: AssessmentPanel) {
     startTransition(async () => {
-      if (!assessment) return;
-      const res = await sendSurvey(teamId, assessment.kind, newDue || null);
+      const res = await sendSurvey(teamId, panel.kind, newDue || null);
       if (res.error) return flash(res.error);
       if (res.id) {
-        const a = await setWorkshopSurvey(workshop.id, res.id);
+        const a = await setBlockSurvey(workshop.id, panel.blockId, res.id);
         if (a.error) {
           // The survey was sent to the team; pinning failed. Surface it and
           // refresh so it shows up in the candidate list to pin manually.
@@ -116,7 +123,7 @@ export function BuilderClient({
           return flash(`Sent, but couldn't pin it: ${a.error}. Pick it from the list.`);
         }
       }
-      setAsOpen(false);
+      setAsBlockId(null);
       setNewDue("");
       flash("Assessment sent & attached");
       router.refresh();
@@ -322,36 +329,43 @@ export function BuilderClient({
         </div>
       </div>
 
-      {assessment ? (
+      {assessments.length ? (
         <div className="card aspanel">
-          <div className="aspanel-h">
-            <div>
-              <div className="eyebrow">Pre-work assessment</div>
-              <h3>{assessment.kindName}</h3>
-            </div>
-            <span className="pill sm draft">{assessment.timing === "prerequisite" ? "Prerequisite" : "Live in session"}</span>
+          <div className="eyebrow" style={{ marginBottom: 10 }}>
+            {assessments.length > 1 ? `Pre-work assessments · ${assessments.length} steps` : "Pre-work assessment"}
           </div>
-          {assessment.bound ? (
-            <div className="asbound">
-              <div className="asbound-main">
-                <b>{assessment.bound.name}</b>
-                {assessment.bound.status === "open" ? (
-                  <span className="src">{assessment.bound.responded}/{assessment.bound.total} responded</span>
-                ) : (
-                  <span className="src" style={{ color: "var(--rust)" }}>closed · {assessment.bound.responded}/{assessment.bound.total} responded — detach to auto-match a live one</span>
-                )}
+          {assessments.map((a) => (
+            <div className="asrow" key={a.blockId}>
+              <div className="asrow-h">
+                <div>
+                  <b>{a.kindName}</b>
+                  {assessments.length > 1 ? <span className="src">{a.stepTitle}</span> : null}
+                </div>
+                <span className="pill sm draft">{a.timing === "prerequisite" ? "Prerequisite" : "Live in session"}</span>
               </div>
-              <button className="linkbtn" disabled={pending} onClick={() => { setPickSurvey(""); setAsOpen(true); }}>Change</button>
-              <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={detachSurvey}>Detach</button>
+              {a.bound ? (
+                <div className="asbound">
+                  <div className="asbound-main">
+                    <b>{a.bound.name}</b>
+                    {a.bound.status === "open" ? (
+                      <span className="src">{a.bound.responded}/{a.bound.total} responded</span>
+                    ) : (
+                      <span className="src" style={{ color: "var(--rust)" }}>closed · {a.bound.responded}/{a.bound.total} responded — detach to auto-match a live one</span>
+                    )}
+                  </div>
+                  <button className="linkbtn" disabled={pending} onClick={() => openPicker(a.blockId)}>Change</button>
+                  <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => detachSurvey(a.blockId)}>Detach</button>
+                </div>
+              ) : (
+                <div className="asauto">
+                  <span className="form-note" style={{ flex: 1 }}>
+                    Nothing pinned — the newest open “{a.kindName}” for {teamName} is used automatically at session start.
+                  </span>
+                  <button className="btn-sec" disabled={pending} onClick={() => openPicker(a.blockId)}>Attach ▸</button>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="asauto">
-              <p className="form-note" style={{ margin: "0 0 10px" }}>
-                Nothing pinned — at session start the newest open “{assessment.kindName}” for {teamName} is used automatically. Pin a specific one for certainty.
-              </p>
-              <button className="btn-sec" disabled={pending} onClick={() => { setPickSurvey(""); setAsOpen(true); }}>Attach an assessment ▸</button>
-            </div>
-          )}
+          ))}
         </div>
       ) : null}
 
@@ -548,26 +562,26 @@ export function BuilderClient({
       </SideWindow>
 
       {/* attach assessment */}
-      {assessment ? (
+      {asPanel ? (
         <SideWindow
-          open={asOpen}
-          onClose={() => setAsOpen(false)}
+          open={!!asBlockId}
+          onClose={() => setAsBlockId(null)}
           title="Attach an assessment"
-          subtitle={assessment.kindName}
+          subtitle={asPanel.kindName}
           size="compact"
           footer={
             <>
-              <button className="btn-sec" onClick={() => setAsOpen(false)}>Cancel</button>
+              <button className="btn-sec" onClick={() => setAsBlockId(null)}>Cancel</button>
               <div className="right">
-                <button className="btn-prim" disabled={pending || !pickSurvey} onClick={attachSurvey}>Attach selected</button>
+                <button className="btn-prim" disabled={pending || !pickSurvey} onClick={() => attachSurvey(asPanel.blockId)}>Attach selected</button>
               </div>
             </>
           }
         >
-          {assessment.candidates.length ? (
+          {asPanel.candidates.length ? (
             <div className="field">
-              <label>Open {assessment.kindName} assessments for {teamName}</label>
-              {assessment.candidates.map((c) => (
+              <label>Open {asPanel.kindName} assessments for {teamName}</label>
+              {asPanel.candidates.map((c) => (
                 <label className="pickrow" key={c.id}>
                   <input type="radio" name="cand" checked={pickSurvey === c.id} onChange={() => setPickSurvey(c.id)} />
                   <span>
@@ -584,9 +598,9 @@ export function BuilderClient({
             <label>…or send a new one <span className="opt">(optional due date)</span></label>
             <div style={{ display: "flex", gap: 8 }}>
               <input className="inp" type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
-              <button className="btn-sec" disabled={pending} onClick={sendAndAttach}>Send &amp; attach</button>
+              <button className="btn-sec" disabled={pending} onClick={() => sendAndAttach(asPanel)}>Send &amp; attach</button>
             </div>
-            <div className="form-note">Sends the assessment to {teamName} and pins it to this session.</div>
+            <div className="form-note">Sends the assessment to {teamName} and pins it to this step.</div>
           </div>
         </SideWindow>
       ) : null}
