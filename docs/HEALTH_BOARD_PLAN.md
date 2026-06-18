@@ -33,3 +33,17 @@ Decisions (confirmed):
 ## Scope/visibility
 Workspace admins see all teams; leads see the teams they can read (RLS via
 can_read_team). The roll-up RPC filters to readable teams.
+
+## Build status (shipped)
+Phases A–E built, verified (rolled-back tests per phase) and merged. Security
+advisors: 0 errors. Phase F is the standing review/gate.
+
+## Invariants to preserve
+- `workspace_health` returns only teams the caller can read (per-row
+  `can_read_team`), gated to active workspace members (`is_workspace_member`).
+- No composite is shown for a <3 survey (`team_latest_composite` requires ≥3 and
+  `survey_composite` returns null <3); masked dynamics are excluded (`pct` null).
+- `health_status` writes go through `set_health_status` only (RLS has a read
+  policy, no write policy); reads gated by `can_read_team`.
+- The auto RAG is derived; the manual overlay only *pins on top*, never relaxes
+  the min-3 masks underneath.
