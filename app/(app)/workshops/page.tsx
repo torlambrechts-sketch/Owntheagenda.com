@@ -74,6 +74,13 @@ export default async function WorkshopsPage() {
         .order("closed_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      // Contextual deep-link: the science article for this dynamic, if published.
+      const { data: sci } = await supabase
+        .from("help_article")
+        .select("slug")
+        .eq("topic_key", `dynamic:${weak.dynamic}`)
+        .eq("status", "published")
+        .maybeSingle();
       recommendation = {
         templateId: card.id,
         templateName: card.name,
@@ -83,6 +90,7 @@ export default async function WorkshopsPage() {
         targetLow: weak.target_low,
         belowBand: weak.in_band === false && (weak.pct ?? 0) < weak.target_low,
         pulseId: lp?.id ?? null,
+        scienceSlug: sci?.slug ?? null,
       };
     }
   }

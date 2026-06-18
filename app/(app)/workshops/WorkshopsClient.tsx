@@ -41,6 +41,7 @@ export type Recommendation = {
   targetLow: number;
   belowBand: boolean;
   pulseId: string | null;
+  scienceSlug: string | null;
 };
 
 export function WorkshopsClient({
@@ -196,6 +197,12 @@ export function WorkshopsClient({
             </div>
             <div className="rec-why">
               Run <b>{recommendation.templateName}</b> to {recommendation.why}.
+              {recommendation.scienceSlug ? (
+                <>
+                  {" "}
+                  <Link className="rec-sci" href={`/help/${recommendation.scienceSlug}`}>Learn the science →</Link>
+                </>
+              ) : null}
             </div>
           </div>
           {canManage ? (

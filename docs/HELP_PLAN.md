@@ -26,7 +26,9 @@ Product facts:
       trigger + RLS; `/help/roadmap` (columns, upvote, request form); staff triage queue.
 - [x] **H3 · Admin CMS** — staff-only editor for articles/FAQ (list + create/edit/publish)
       and roadmap item management.
-- [ ] **H4 · Contextual deep-links** — "Learn the science" links from assessments/health/
-      workshops to the matching science article via `topic_key`.
+- [x] **H4 · Contextual deep-links** — "Learn the science" link on the Workshops grounded
+      recommendation → the science article for the weak dynamic via `topic_key`.
+
+**All phases complete.**
 
 Project: fqeohcfkimoopwjxxcft · Branch: claude/nice-feynman-x7xgh4
