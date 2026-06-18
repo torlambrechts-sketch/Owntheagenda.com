@@ -28,6 +28,13 @@ export default async function AssessmentsPage({
       <div>
         <h1 className="page-title">Assessments</h1>
         <p className="page-sub">Team-dynamics pulses and individual fingerprints.</p>
+        <Link className="rm-cta lead-cta" href="/assessments/leadership">
+          <div>
+            <b>Leadership effectiveness test</b>
+            <span>A 63-item self-assessment across 21 facets — scored by category, reverse-scoring handled for you.</span>
+          </div>
+          <span className="rm-cta-go">→</span>
+        </Link>
         <div className="card empty">
           No teams yet. Create a team first, then run a pulse.
         </div>
@@ -203,6 +210,14 @@ export default async function AssessmentsPage({
       <p className="page-sub">
         Team-dynamics pulses and individual fingerprints for {activeTeam.name}.
       </p>
+
+      <Link className="rm-cta lead-cta" href="/assessments/leadership">
+        <div>
+          <b>Leadership effectiveness test</b>
+          <span>A 63-item self-assessment across 21 facets — scored by category, reverse-scoring handled for you.</span>
+        </div>
+        <span className="rm-cta-go">→</span>
+      </Link>
 
       {teamList.length > 1 ? (
         <div className="chips" style={{ display: "flex", gap: 7, marginBottom: 18 }}>

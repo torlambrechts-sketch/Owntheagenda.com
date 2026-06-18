@@ -149,6 +149,44 @@ button { font-family:inherit; }
 .help-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;color:var(--muted);text-decoration:none}
 .help-btn:hover{background:var(--canvas-2);color:var(--ink)}
 
+/* ---------- leadership effectiveness test ---------- */
+.lead-cta{margin:6px 0 20px}
+.lead-test{max-width:820px}
+.lead-progress{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:10px 0;background:var(--canvas);margin-bottom:8px}
+.lead-progress-bar{flex:1;height:6px;background:var(--canvas-2);border-radius:20px;overflow:hidden}
+.lead-progress-bar span{display:block;height:100%;background:var(--forest);transition:width .2s}
+.lead-progress>span{font-size:12px;font-weight:700;color:var(--muted);min-width:46px;text-align:right}
+.lead-cat-title{font-size:16px;margin:22px 0 6px}
+.lead-facet{margin:14px 0}
+.lead-facet-name{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--forest);margin-bottom:8px}
+.lq{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.lq-text{font-size:13.5px;color:var(--ink);flex:1;line-height:1.45}
+.lscale{display:inline-flex;gap:5px;flex-shrink:0}
+.lopt{width:30px;height:30px;border:1px solid var(--line);background:var(--surface);border-radius:7px;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+.lopt:hover{border-color:var(--forest)}
+.lopt.on{background:var(--forest);border-color:var(--forest);color:#fff}
+.lead-submit{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 0;background:var(--canvas);border-top:1px solid var(--line);margin-top:10px}
+.lscale-legend{font-size:12px;color:var(--muted)}
+.lead-results{max-width:680px}
+.lead-overall{display:flex;flex-direction:column;align-items:center;text-align:center;padding:22px;background:var(--open-bg);border-radius:14px;margin-bottom:20px}
+.lead-score{font-size:46px;font-weight:800;color:var(--forest);line-height:1}
+.lead-score small{font-size:18px;color:var(--muted);font-weight:600}
+.lead-overall-l{font-size:13px;color:var(--muted);margin-top:4px}
+.lead-h{font-size:14px;margin:18px 0 10px}
+.lead-cats{display:flex;flex-direction:column;gap:11px}
+.lead-cat-h{display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px}
+.lead-cat-h b{color:var(--ink)}
+.lead-bar{height:8px;background:var(--canvas-2);border-radius:20px;overflow:hidden}
+.lead-bar span{display:block;height:100%;background:var(--forest)}
+.lead-low{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:7px}
+.lead-low li{display:flex;justify-content:space-between;padding:10px 13px;background:var(--reject-bg);border-radius:9px;font-size:13px}
+.lead-low li span{font-weight:700;color:var(--reject-fg)}
+.lead-allfacets{margin-top:16px}
+.lead-allfacets summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--forest)}
+.lead-allfacets ul{list-style:none;padding:10px 0 0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px 18px}
+.lead-allfacets li{display:flex;justify-content:space-between;font-size:12.5px;border-bottom:1px solid var(--line);padding:4px 0}
+@media (max-width:640px){.lq{flex-direction:column;align-items:flex-start;gap:8px}.lead-allfacets ul{grid-template-columns:1fr}}
+
 /* ---------- avatars ---------- */
 .av{width:30px;height:30px;border-radius:50%;background:var(--forest);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex:none}
 .av.sm{width:24px;height:24px;font-size:10px}

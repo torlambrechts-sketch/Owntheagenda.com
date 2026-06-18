@@ -375,6 +375,46 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      assessment_category: {
+        Row: {
+          id: string
+          instrument: string
+          code: string
+          name: string
+          ord: number
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      assessment_facet: {
+        Row: {
+          id: string
+          category_id: string
+          code: string
+          name: string
+          ord: number
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      assessment_question: {
+        Row: {
+          id: string
+          facet_id: string
+          item_key: string
+          ord: number
+          text: string
+          reverse_scored: boolean
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       help_article: {
         Row: {
           id: string
@@ -1070,6 +1110,14 @@ export type Database = {
       }
       erase_member: {
         Args: { p_user: string; p_workspace: string }
+        Returns: Json
+      }
+      score_leadership: {
+        Args: { p_scores: Json }
+        Returns: Json
+      }
+      leadership_inventory: {
+        Args: Record<string, never>
         Returns: Json
       }
       set_team_consent: {
