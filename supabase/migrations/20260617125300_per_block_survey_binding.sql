@@ -14,7 +14,11 @@ where b.workshop_id = w.id
   and b.ord = (select min(b2.ord) from public.block b2 where b2.workshop_id = w.id and b2.activity_type = 'survey');
 
 -- 3) realtime: the run flow now signals "survey opened" via block updates
-alter publication supabase_realtime add table public.block;
+do $$ begin
+  if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'block') then
+    alter publication supabase_realtime add table public.block;
+  end if;
+end $$;
 
 -- 4) resolver per survey BLOCK: reuse newest open survey of the same team+kind,
 --    else create one; stamp it on the block.

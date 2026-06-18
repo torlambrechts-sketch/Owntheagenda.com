@@ -67,6 +67,18 @@ export function SurveyModule({
     [supabase, userId],
   );
 
+  // Self-heal from the block's current binding on (re)mount: initialSurveyId is
+  // an SSR snapshot, so navigating away from this survey step and back (which
+  // remounts the module) would otherwise re-seed a stale null and strand
+  // participants on "Waiting…" for an already-opened survey.
+  useEffect(() => {
+    let active = true;
+    supabase.from("block").select("survey_id").eq("id", blockId).maybeSingle().then(({ data }) => {
+      if (active && data?.survey_id) setSurveyId(data.survey_id as string);
+    });
+    return () => { active = false; };
+  }, [blockId, supabase]);
+
   useEffect(() => {
     if (surveyId) { loadResults(surveyId); loadMine(surveyId); }
   }, [surveyId, loadResults, loadMine]);
