@@ -24,7 +24,7 @@ Product facts:
       article (markdown); guides & science indexes; FAQ accordion; seed real content.
 - [x] **H2 · Roadmap (interactive)** — `roadmap_item` + `roadmap_vote` + vote-count
       trigger + RLS; `/help/roadmap` (columns, upvote, request form); staff triage queue.
-- [ ] **H3 · Admin CMS** — staff-only editor for articles/FAQ (list + create/edit/publish)
+- [x] **H3 · Admin CMS** — staff-only editor for articles/FAQ (list + create/edit/publish)
       and roadmap item management.
 - [ ] **H4 · Contextual deep-links** — "Learn the science" links from assessments/health/
       workshops to the matching science article via `topic_key`.

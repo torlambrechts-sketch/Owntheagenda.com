@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireSession } from "@/lib/workspace";
 import { HelpCenter } from "./HelpCenter";
 
 export default async function HelpPage() {
+  const ctx = await requireSession();
   const supabase = createClient();
   const { data: articles } = await supabase
     .from("help_article")
@@ -18,7 +20,7 @@ export default async function HelpPage() {
     <div>
       <h1 className="page-title">Help &amp; Science</h1>
       <p className="page-sub">Learn the product — and the research behind the workshops and assessments.</p>
-      <HelpCenter articles={articles ?? []} faqs={faqs ?? []} />
+      <HelpCenter articles={articles ?? []} faqs={faqs ?? []} isStaff={!!ctx.profile?.is_staff} />
     </div>
   );
 }

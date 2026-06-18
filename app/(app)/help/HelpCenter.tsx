@@ -16,7 +16,7 @@ type Article = {
 };
 type Faq = { id: string; question: string; answer: string; category: string; sort: number };
 
-export function HelpCenter({ articles, faqs }: { articles: Article[]; faqs: Faq[] }) {
+export function HelpCenter({ articles, faqs, isStaff }: { articles: Article[]; faqs: Faq[]; isStaff: boolean }) {
   const [q, setQ] = useState("");
   const query = q.trim().toLowerCase();
 
@@ -46,6 +46,9 @@ export function HelpCenter({ articles, faqs }: { articles: Article[]; faqs: Faq[
 
   return (
     <div className="help">
+      {isStaff ? (
+        <Link className="help-manage" href="/help/manage">✎ Manage content</Link>
+      ) : null}
       <div className="help-search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <circle cx="11" cy="11" r="7" />
