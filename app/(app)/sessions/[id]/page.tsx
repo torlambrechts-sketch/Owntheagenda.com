@@ -37,7 +37,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
     .eq("id", session.workshop_id)
     .maybeSingle();
   const { data: team } = workshop
-    ? await supabase.from("team").select("name").eq("id", workshop.team_id).maybeSingle()
+    ? await supabase.from("team").select("name, lead_user_id").eq("id", workshop.team_id).maybeSingle()
     : { data: null };
 
   const [{ data: blocks }, { data: ideas }, { data: votes }, { data: notes }, { data: actions }, { data: parts }, { data: decisions }] =
@@ -114,7 +114,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
     created_at: s.created_at,
     data: (s.data ?? []) as unknown as CanvasObj[],
   }));
-  const canManageCanvas = isAdmin(ctx.role) || session.facilitator_id === ctx.userId;
+  const canManageCanvas = isAdmin(ctx.role) || session.facilitator_id === ctx.userId || team?.lead_user_id === ctx.userId;
 
   // Next-step follow-ups for this session + the picker's templates/members.
   const { data: fuRows } = await supabase

@@ -42,8 +42,15 @@ export default async function SessionsPage() {
   const { data: fus } = sids.length
     ? await supabase.from("follow_up").select("source_session_id, kind, scheduled_at, status").in("source_session_id", sids).neq("status", "skipped").order("scheduled_at", { ascending: true })
     : { data: [] as { source_session_id: string | null; kind: string; scheduled_at: string | null; status: string }[] };
+  // rows arrive ordered by scheduled_at asc, so the first seen per session is the
+  // earliest; prefer a still-planned follow-up over an already-completed one.
   const nextBySession = new Map<string, { kind: string; at: string | null; status: string }>();
-  for (const f of fus ?? []) if (f.source_session_id && !nextBySession.has(f.source_session_id)) nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+  for (const f of fus ?? []) {
+    if (!f.source_session_id) continue;
+    const cur = nextBySession.get(f.source_session_id);
+    if (!cur) nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+    else if (cur.status !== "planned" && f.status === "planned") nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+  }
 
   const rows: SessionRow[] = list.map((s) => {
     const wk = wkById.get(s.workshop_id);

@@ -32,3 +32,11 @@ export async function skipFollowUp(sessionId: string, id: string): Promise<{ err
   revalidatePath(`/sessions/${sessionId}`);
   return {};
 }
+
+export async function completeFollowUp(sessionId: string, id: string): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("complete_follow_up", { p_id: id });
+  if (error) return { error: error.message };
+  revalidatePath(`/sessions/${sessionId}`);
+  return {};
+}

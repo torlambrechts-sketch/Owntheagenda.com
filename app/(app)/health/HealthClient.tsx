@@ -119,7 +119,11 @@ function fmtDate(iso: string): string {
 function MomentumChip({ m }: { m?: { nextAt: string | null; open: number } }) {
   if (!m) return null;
   if (m.nextAt) {
-    return <span className="moment ok" title="Next step scheduled">Next · {new Date(m.nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>;
+    const d = new Date(m.nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const overdue = m.nextAt.slice(0, 10) < new Date().toISOString().slice(0, 10);
+    return overdue
+      ? <span className="moment flag" title="Next step is overdue">Overdue · {d}</span>
+      : <span className="moment ok" title="Next step scheduled">Next · {d}</span>;
   }
   if (m.open > 0) {
     return <span className="moment flag" title={`${m.open} open commitment${m.open === 1 ? "" : "s"}, no next step scheduled`}>No next step</span>;

@@ -1061,6 +1061,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      complete_follow_up: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
       seed_plan_from_session: {
         Args: { p_source: string; p_target: string; p_block: number }
         Returns: number

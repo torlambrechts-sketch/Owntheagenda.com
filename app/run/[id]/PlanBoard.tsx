@@ -51,6 +51,7 @@ export function PlanBoard({
   const supabase = useMemo(() => createClient(), []);
   const [tasks, setTasks] = useState<PlanTask[]>([]);
   const [view, setView] = useState<"list" | "timeline">("list");
+  const [seeding, setSeeding] = useState(false);
   const editingId = useRef<string | null>(null);
 
   const load = useCallback(async () => {
@@ -133,9 +134,11 @@ export function PlanBoard({
     save(t.id, { status: next });
   }
   async function pullForward() {
-    if (!sourceSessionId) return;
+    if (!sourceSessionId || seeding) return;
+    setSeeding(true);
     await supabase.rpc("seed_plan_from_session", { p_source: sourceSessionId, p_target: sessionId, p_block: blockOrd });
     await load();
+    setSeeding(false);
   }
 
   // ---- ordered display: top-level tasks, each followed by its sub-tasks ----
@@ -177,8 +180,10 @@ export function PlanBoard({
           onChange={(e) => patchLocal(t.id, { owner_name: e.target.value })}
         />
         <input className="pl-date" type="date" value={t.start_date ?? ""} disabled={!canEdit}
+          onFocus={() => (editingId.current = t.id)} onBlur={() => (editingId.current = null)}
           onChange={(e) => { patchLocal(t.id, { start_date: e.target.value || null }); save(t.id, { start_date: e.target.value || null }); }} />
         <input className="pl-date" type="date" value={t.end_date ?? ""} disabled={!canEdit}
+          onFocus={() => (editingId.current = t.id)} onBlur={() => (editingId.current = null)}
           onChange={(e) => { patchLocal(t.id, { end_date: e.target.value || null }); save(t.id, { end_date: e.target.value || null }); }} />
         {canEdit ? (
           <div className="pl-act">
@@ -225,7 +230,7 @@ export function PlanBoard({
           <button className={view === "timeline" ? "on" : ""} onClick={() => setView("timeline")}>Timeline</button>
         </div>
         <div className="pl-bar-r">
-          {canEdit && sourceSessionId ? <button className="btn-ghost sm" onClick={pullForward} title="Copy last session's open tasks">⤵ Pull forward last plan</button> : null}
+          {canEdit && sourceSessionId && !display.length ? <button className="btn-ghost sm" disabled={seeding} onClick={pullForward} title="Copy last session's open tasks">{seeding ? "Pulling…" : "⤵ Pull forward last plan"}</button> : null}
           {canEdit ? <button className="btn-prim sm" onClick={() => addTask(null)}>＋ Add task</button> : null}
         </div>
       </div>

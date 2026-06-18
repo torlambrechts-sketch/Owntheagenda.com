@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { scheduleFollowUp, skipFollowUp } from "./followup-actions";
+import { scheduleFollowUp, skipFollowUp, completeFollowUp } from "./followup-actions";
 
 export type FollowUp = {
   id: string;
@@ -32,13 +32,24 @@ function fmt(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
+function isOverdue(d: string | null, status: string) {
+  if (!d || status !== "planned") return false;
+  return d.slice(0, 10) < new Date().toISOString().slice(0, 10);
+}
+function escIcs(s: string) {
+  return s.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/[\r\n]+/g, "\\n");
+}
 function downloadIcs(title: string, when: string | null) {
-  const day = (when ?? new Date().toISOString()).slice(0, 10).replace(/-/g, "");
+  const base = (when ?? new Date().toISOString()).slice(0, 10);
+  const day = base.replace(/-/g, "");
+  const endD = new Date(base + "T00:00:00");
+  endD.setDate(endD.getDate() + 1);
+  const end = endD.toISOString().slice(0, 10).replace(/-/g, "");
   const stamp = new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15) + "Z";
   const ics = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//OwnTheAgenda//Follow-up//EN", "BEGIN:VEVENT",
     `UID:${Math.random().toString(36).slice(2)}@owntheagenda`, `DTSTAMP:${stamp}`,
-    `DTSTART;VALUE=DATE:${day}`, `SUMMARY:${title.replace(/[\r\n]+/g, " ")}`, "END:VEVENT", "END:VCALENDAR",
+    `DTSTART;VALUE=DATE:${day}`, `DTEND;VALUE=DATE:${end}`, `SUMMARY:${escIcs(title)}`, "END:VEVENT", "END:VCALENDAR",
   ].join("\r\n");
   const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
   const a = document.createElement("a");
@@ -108,6 +119,12 @@ export function FollowUpPanel({
       router.refresh();
     });
   }
+  function complete(id: string) {
+    start(async () => {
+      await completeFollowUp(sessionId, id);
+      router.refresh();
+    });
+  }
 
   const active = followUps.filter((f) => f.status !== "skipped");
 
@@ -135,7 +152,8 @@ export function FollowUpPanel({
               <div className="fu-main">
                 <div className="fu-title">{f.title}</div>
                 <div className="fu-meta">
-                  {fmt(f.scheduled_at)}
+                  <span className={isOverdue(f.scheduled_at, f.status) ? "fu-overdue" : ""}>{fmt(f.scheduled_at)}</span>
+                  {isOverdue(f.scheduled_at, f.status) ? " · overdue" : ""}
                   {ownerName(f.owner_id) ? ` · ${ownerName(f.owner_id)}` : ""}
                   {f.status === "completed" ? " · done" : ""}
                 </div>
@@ -143,6 +161,7 @@ export function FollowUpPanel({
               <div className="fu-act">
                 <button className="linkbtn xs" onClick={() => downloadIcs(f.title, f.scheduled_at)}>Add to calendar</button>
                 {f.workshop_id ? <Link className="linkbtn xs" href={`/run/${f.workshop_id}`}>Open ▸</Link> : null}
+                {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => complete(f.id)}>Mark complete</button> : null}
                 {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => skip(f.id)}>Skip</button> : null}
               </div>
             </div>
@@ -177,16 +196,17 @@ export function FollowUpPanel({
             {def.spawn ? (
               <label className="field"><span>From template</span>
                 <select className="inp" value={template} onChange={(e) => setTemplate(e.target.value)}>
-                  <option value="">— none (just a hold) —</option>
+                  <option value="" disabled>— choose a template —</option>
                   {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
+                <small className="field-hint">This spins up a ready-to-run session you can open later.</small>
               </label>
             ) : null}
           </div>
           {err ? <div className="form-err">{err}</div> : null}
           <div className="fu-foot">
             <button className="btn-sec" onClick={() => setOpen(false)}>Cancel</button>
-            <button className="btn-prim" disabled={pending} onClick={submit}>Schedule ▸</button>
+            <button className="btn-prim" disabled={pending || (def.spawn && !template)} onClick={submit}>Schedule ▸</button>
           </div>
         </div>
       ) : null}
