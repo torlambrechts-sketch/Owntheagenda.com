@@ -38,6 +38,24 @@ can_read_team). The roll-up RPC filters to readable teams.
 Phases A–E built, verified (rolled-back tests per phase) and merged. Security
 advisors: 0 errors. Phase F is the standing review/gate.
 
+## Review outcome
+External review (recall mode, privacy-focused). Findings:
+- **#1 (alleged min-3 leak via dynamics) — false positive.** The reviewer read an
+  older `team_dynamics` migration; the deployed function (redefined in
+  `..._privacy_and_licensing.sql`) masks `pct`/`in_band`/`responses` at <3 distinct
+  respondents. Proven end-to-end: at n=2 the board returns `dynamics: null`, no
+  score, `development: []`.
+- **#2 (membership guard) — fixed.** `workspace_health` now gates on
+  `private.is_workspace_member` (active-only), matching the rest of the app. (No
+  leak before — the per-row `can_read_team` filter already excluded every team for
+  a non-active member — but a suspended user now gets `42501`, not an empty board.)
+- **#3 (open-survey composites) — kept by design.** `team_latest_composite` shows
+  the latest survey with ≥3 responses, open or closed, so the board is a *current*
+  read; min-3 is enforced regardless. (Dynamics use the latest closed pulse by the
+  pulse lifecycle; surveys don't require closing to surface a live read.)
+- `health_status` write-path, both setter RPCs, and the entire client
+  grouping/rendering path were reviewed clean.
+
 ## Invariants to preserve
 - `workspace_health` returns only teams the caller can read (per-row
   `can_read_team`), gated to active workspace members (`is_workspace_member`).
