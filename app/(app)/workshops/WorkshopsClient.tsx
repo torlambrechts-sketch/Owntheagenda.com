@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY } from "@/lib/util";
+import { useTableControls } from "@/components/TableControls";
 import { buildFromTemplate, deleteWorkshop } from "./actions";
 
 export type TemplateCard = {
@@ -72,6 +73,75 @@ export function WorkshopsClient({
 
   const cats = Array.from(new Set(templates.map((t) => t.category)));
 
+  const tpl = useTableControls<TemplateCard>(templates, {
+    search: { placeholder: "Search templates…", text: (t) => `${t.name} ${t.source ?? ""} ${t.description ?? ""}` },
+    sorts: [
+      { key: "cat", label: "Category", cmp: () => 0 },
+      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.name.localeCompare(b.name) },
+      { key: "short", label: "Shortest first", cmp: (a, b) => a.minutes - b.minutes },
+      { key: "long", label: "Longest first", cmp: (a, b) => b.minutes - a.minutes },
+      { key: "steps", label: "Most steps", cmp: (a, b) => b.steps - a.steps },
+    ],
+    facets: [
+      { key: "category", label: "Category", multi: true, options: cats.map((c) => ({ value: c, label: CATEGORY[c] ?? c, test: (t: TemplateCard) => t.category === c })) },
+    ],
+  });
+
+  const wkStatuses = Array.from(new Set(workshops.map((w) => w.status)));
+  const wk = useTableControls<WorkshopRow>(workshops, {
+    search: { placeholder: "Search workshops…", text: (w) => w.title },
+    sorts: [
+      { key: "none", label: "Default", cmp: () => 0 },
+      { key: "title", label: "Title (A–Z)", cmp: (a, b) => a.title.localeCompare(b.title) },
+      { key: "status", label: "Status", cmp: (a, b) => a.status.localeCompare(b.status) },
+    ],
+    facets: [
+      { key: "status", label: "Status", multi: true, options: wkStatuses.map((s) => ({ value: s, label: s, test: (w: WorkshopRow) => w.status === s })) },
+    ],
+  });
+
+  const renderTemplate = (t: TemplateCard) => (
+    <div className="tpl" key={t.id}>
+      <div className="thumb">
+        {t.types.slice(0, 7).map((ty, i) => (
+          <span
+            key={i}
+            className="bar"
+            style={{
+              height: `${30 + ((i * 13) % 60)}%`,
+              background:
+                ty === "vote" ? "var(--internal-fg)"
+                  : ty === "outcome" ? "var(--rust)"
+                    : ty === "discuss" ? "var(--draft-fg)"
+                      : ty === "checkin" ? "var(--green)"
+                        : "var(--role)",
+              opacity: 0.55,
+            }}
+          />
+        ))}
+      </div>
+      <div className="body">
+        <h3>{t.name}</h3>
+        <div className="src">{t.source}</div>
+        <p>{t.description}</p>
+        <div className="meta">
+          <span>⏱ {t.minutes} min</span>
+          <span>▥ {t.steps} steps</span>
+        </div>
+        <div className="foot">
+          <button
+            className="btn-prim"
+            disabled={!canManage || pending}
+            onClick={() => use(t.id)}
+            title={canManage ? "" : "Only a team lead or admin can build"}
+          >
+            Use template
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {recommendation ? (
@@ -102,10 +172,11 @@ export function WorkshopsClient({
           <div className="cat-head">
             Your workshops <span className="n">{workshops.length}</span>
           </div>
+          {workshops.length >= 5 ? wk.controls : null}
           <div className="tbl-card">
             <table className="tbl">
               <tbody>
-                {workshops.map((w) => (
+                {(workshops.length >= 5 ? wk.view : workshops).map((w) => (
                   <tr key={w.id}>
                     <td>
                       <Link
@@ -144,64 +215,27 @@ export function WorkshopsClient({
       <div className="cat-head" style={{ marginTop: 28 }}>
         Library
       </div>
+      {tpl.controls}
 
-      {cats.map((cat) => {
-        const items = templates.filter((t) => t.category === cat);
-        return (
-          <div key={cat}>
-            <div className="cat-head" style={{ fontSize: 15, marginTop: 18 }}>
-              {CATEGORY[cat] ?? cat} <span className="n">{items.length}</span>
+      {tpl.active ? (
+        tpl.view.length ? (
+          <div className="tpl-grid">{tpl.view.map(renderTemplate)}</div>
+        ) : (
+          <div className="empty">No templates match these filters.</div>
+        )
+      ) : (
+        cats.map((cat) => {
+          const items = templates.filter((t) => t.category === cat);
+          return (
+            <div key={cat}>
+              <div className="cat-head" style={{ fontSize: 15, marginTop: 18 }}>
+                {CATEGORY[cat] ?? cat} <span className="n">{items.length}</span>
+              </div>
+              <div className="tpl-grid">{items.map(renderTemplate)}</div>
             </div>
-            <div className="tpl-grid">
-              {items.map((t) => (
-                <div className="tpl" key={t.id}>
-                  <div className="thumb">
-                    {t.types.slice(0, 7).map((ty, i) => (
-                      <span
-                        key={i}
-                        className={`bar`}
-                        style={{
-                          height: `${30 + ((i * 13) % 60)}%`,
-                          background:
-                            ty === "vote"
-                              ? "var(--internal-fg)"
-                              : ty === "outcome"
-                                ? "var(--rust)"
-                                : ty === "discuss"
-                                  ? "var(--draft-fg)"
-                                  : ty === "checkin"
-                                    ? "var(--green)"
-                                    : "var(--role)",
-                          opacity: 0.55,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div className="body">
-                    <h3>{t.name}</h3>
-                    <div className="src">{t.source}</div>
-                    <p>{t.description}</p>
-                    <div className="meta">
-                      <span>⏱ {t.minutes} min</span>
-                      <span>▥ {t.steps} steps</span>
-                    </div>
-                    <div className="foot">
-                      <button
-                        className="btn-prim"
-                        disabled={!canManage || pending}
-                        onClick={() => use(t.id)}
-                        title={canManage ? "" : "Only a team lead or admin can build"}
-                      >
-                        Use template
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
 
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6">
