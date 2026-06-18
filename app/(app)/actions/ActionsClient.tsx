@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
+import { useTableControls } from "@/components/TableControls";
 import { initials } from "@/lib/util";
 import { addAction, editAction, toggleAction, removeAction } from "./actions";
 
@@ -106,9 +107,18 @@ export function ActionsClient({
     return info ? info.days <= 7 : false;
   }).length;
 
+  const ac = useTableControls<ActionRow>(rows, {
+    search: { placeholder: "Search actions…", text: (r) => `${r.text} ${r.owner ?? ""} ${r.teamName}` },
+    sorts: [
+      { key: "team", label: "By team", cmp: () => 0 },
+      { key: "due", label: "Due (soonest)", cmp: (a, b) => { const ad = a.dueAt ?? "9999-12-31"; const bd = b.dueAt ?? "9999-12-31"; return ad < bd ? -1 : ad > bd ? 1 : 0; } },
+      { key: "owner", label: "Owner (A–Z)", cmp: (a, b) => (a.owner ?? "~").localeCompare(b.owner ?? "~") },
+    ],
+  });
+
   const visible = useMemo(
-    () => rows.filter((r) => (filter === "all" ? true : r.status === filter)),
-    [rows, filter],
+    () => ac.view.filter((r) => (filter === "all" ? true : r.status === filter)),
+    [ac.view, filter],
   );
 
   // Open before done; within a status, soonest due first (no-due sinks last).
@@ -301,33 +311,45 @@ export function ActionsClient({
         </button>
       </div>
 
-      {groups.length === 0 && orphans.length === 0 ? (
-        <div className="card empty">
-          {filter === "open"
-            ? "No open actions — you're all caught up."
-            : filter === "done"
-              ? "No completed actions yet."
-              : "No actions yet. Run a session or add one to start the loop."}
-        </div>
-      ) : null}
+      {rows.length >= 4 ? ac.controls : null}
 
-      {groups.map(({ team, items }) => (
-        <div key={team.id}>
-          <div className="cat-head" style={{ fontSize: 16 }}>
-            {team.name} <span className="n">{items.length}</span>
-          </div>
-          <div className="tbl-card">{items.map(row)}</div>
-        </div>
-      ))}
+      {ac.active ? (
+        visible.length ? (
+          <div className="tbl-card">{visible.map(row)}</div>
+        ) : (
+          <div className="card empty">No actions match these filters.</div>
+        )
+      ) : (
+        <>
+          {groups.length === 0 && orphans.length === 0 ? (
+            <div className="card empty">
+              {filter === "open"
+                ? "No open actions — you're all caught up."
+                : filter === "done"
+                  ? "No completed actions yet."
+                  : "No actions yet. Run a session or add one to start the loop."}
+            </div>
+          ) : null}
 
-      {orphans.length > 0 ? (
-        <div>
-          <div className="cat-head" style={{ fontSize: 16 }}>
-            Unassigned <span className="n">{orphans.length}</span>
-          </div>
-          <div className="tbl-card">{orphans.map(row)}</div>
-        </div>
-      ) : null}
+          {groups.map(({ team, items }) => (
+            <div key={team.id}>
+              <div className="cat-head" style={{ fontSize: 16 }}>
+                {team.name} <span className="n">{items.length}</span>
+              </div>
+              <div className="tbl-card">{items.map(row)}</div>
+            </div>
+          ))}
+
+          {orphans.length > 0 ? (
+            <div>
+              <div className="cat-head" style={{ fontSize: 16 }}>
+                Unassigned <span className="n">{orphans.length}</span>
+              </div>
+              <div className="tbl-card">{orphans.map(row)}</div>
+            </div>
+          ) : null}
+        </>
+      )}
 
       <SideWindow
         open={open}
