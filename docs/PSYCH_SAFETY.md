@@ -75,20 +75,25 @@ everyone's in). Click it for a **Responded / Pending roster** — who has answer
 respondents (min-3 mask + climate strength), on /assessments and the team page.
 
 ### Tying it to a workshop
-A workshop's survey step links to a survey via `workshop.survey_id`:
-- **Auto-match (default):** when the facilitator opens the survey step,
-  `ensure_workshop_survey` reuses the **newest open survey of the same team +
+Binding is **per survey step** — a workshop can have several survey steps, each
+linked to its own assessment via `block.survey_id`:
+- **Auto-match (default):** when the facilitator opens a survey step,
+  `ensure_block_survey` reuses the **newest open survey of the same team +
   instrument**, so a sent pre-work assessment is pulled in automatically — and
-  stamped onto the workshop.
-- **Explicit pin:** on the **workshop builder**, a *Pre-work assessment* panel
-  lets the lead **pin a specific open assessment** (with its live responded
-  count) or **send a new one and pin it** in one step. A pinned survey wins over
-  the auto-match. Only **open** assessments can be pinned; **Detach** reverts to
-  auto-match. The pin is validated to the workshop's team and instrument.
+  stamped onto that step.
+- **Explicit pin:** on the **workshop builder**, the *Pre-work assessment* panel
+  lists **one row per survey step**. Each step can **pin a specific open
+  assessment** (with its live responded count) or **send a new one and pin it**.
+  A pinned survey wins over the auto-match. Only **open** assessments of the
+  step's instrument can be pinned; **Detach** reverts to auto-match. The pin is
+  validated to the workshop's team and that step's instrument.
+- At session start the run flow signals "survey opened" via a **block update**
+  (realtime), so every participant's step resolves to the same survey.
 
 **Scope:** an assessment goes to the **team** (the leadership group), not an
-arbitrary org-wide list — run one per team. One survey step per workshop is the
-supported shape (a workshop has a single `survey_id`).
+arbitrary org-wide list — run one per team. Two survey steps of the *same*
+instrument with no pin will auto-match the *same* open survey (they share one
+read); pin distinct surveys if you want them separate.
 
 ## Instruments available
 Psychological Safety (Bang) · Team Effectiveness (Bang) · Team Learning
