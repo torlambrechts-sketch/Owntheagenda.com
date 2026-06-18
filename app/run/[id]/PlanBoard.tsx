@@ -8,13 +8,14 @@ export type PlanTask = {
   parent_id: string | null;
   title: string;
   owner_name: string | null;
+  owner_id: string | null;
   start_date: string | null;
   end_date: string | null;
   status: string;
   ord: number;
 };
 
-const COLS = "id, parent_id, title, owner_name, start_date, end_date, status, ord";
+const COLS = "id, parent_id, title, owner_name, owner_id, start_date, end_date, status, ord";
 const STATUS_NEXT: Record<string, string> = { todo: "doing", doing: "done", done: "todo" };
 const STATUS_LABEL: Record<string, string> = { todo: "To do", doing: "In progress", done: "Done" };
 
@@ -24,6 +25,7 @@ function row(r: Record<string, unknown>): PlanTask {
     parent_id: (r.parent_id as string) ?? null,
     title: (r.title as string) ?? "",
     owner_name: (r.owner_name as string) ?? null,
+    owner_id: (r.owner_id as string) ?? null,
     start_date: (r.start_date as string) ?? null,
     end_date: (r.end_date as string) ?? null,
     status: (r.status as string) ?? "todo",
@@ -45,7 +47,7 @@ export function PlanBoard({
   sessionId: string;
   blockOrd: number;
   canEdit: boolean;
-  members: { name: string }[];
+  members: { id?: string; name: string }[];
   sourceSessionId?: string | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
@@ -99,6 +101,19 @@ export function PlanBoard({
 
   function patchLocal(id: string, p: Partial<PlanTask>) {
     setTasks((t) => t.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  }
+  // Resolve a typed owner to a member id when it matches one, so a member-owned
+  // task is linkable (consistent with follow-up owners); free text stays free text.
+  function resolveOwnerId(name: string | null): string | null {
+    const n = (name ?? "").trim().toLowerCase();
+    if (!n) return null;
+    return members.find((m) => m.id && m.name.trim().toLowerCase() === n)?.id ?? null;
+  }
+  function saveOwner(id: string, name: string | null) {
+    const owner_name = name || null;
+    const owner_id = resolveOwnerId(owner_name);
+    patchLocal(id, { owner_name, owner_id });
+    save(id, { owner_name, owner_id });
   }
   async function save(id: string, p: Partial<PlanTask>) {
     await supabase.from("plan_task").update(p).eq("id", id);
@@ -176,7 +191,7 @@ export function PlanBoard({
           placeholder="Owner"
           disabled={!canEdit}
           onFocus={() => (editingId.current = t.id)}
-          onBlur={() => { editingId.current = null; save(t.id, { owner_name: t.owner_name || null }); }}
+          onBlur={() => { editingId.current = null; saveOwner(t.id, t.owner_name); }}
           onChange={(e) => patchLocal(t.id, { owner_name: e.target.value })}
         />
         <input className="pl-date" type="date" value={t.start_date ?? ""} disabled={!canEdit}

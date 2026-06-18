@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { scheduleFollowUp, skipFollowUp, completeFollowUp } from "./followup-actions";
+import { scheduleFollowUp, skipFollowUp, completeFollowUp, rescheduleFollowUp } from "./followup-actions";
 
 export type FollowUp = {
   id: string;
@@ -85,6 +85,9 @@ export function FollowUpPanel({
   const [owner, setOwner] = useState("");
   const [template, setTemplate] = useState("");
   const [err, setErr] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editWhen, setEditWhen] = useState("");
+  const [editTitle, setEditTitle] = useState("");
 
   const def = KINDS.find((k) => k.key === kind)!;
   const ownerName = (id: string | null) => members.find((m) => m.id === id)?.name ?? null;
@@ -125,6 +128,19 @@ export function FollowUpPanel({
       router.refresh();
     });
   }
+  function startEdit(f: FollowUp) {
+    setEditId(f.id);
+    setEditWhen((f.scheduled_at ?? "").slice(0, 10));
+    setEditTitle(f.title);
+  }
+  function saveEdit() {
+    if (!editId || !editWhen) return;
+    start(async () => {
+      await rescheduleFollowUp(sessionId, editId, editWhen, editTitle);
+      setEditId(null);
+      router.refresh();
+    });
+  }
 
   const active = followUps.filter((f) => f.status !== "skipped");
 
@@ -149,21 +165,33 @@ export function FollowUpPanel({
           {active.map((f) => (
             <div className="fu-item" key={f.id}>
               <span className={`pill sm ${f.status === "completed" ? "open" : "draft"}`}>{KIND_LABEL[f.kind] ?? f.kind}</span>
-              <div className="fu-main">
-                <div className="fu-title">{f.title}</div>
-                <div className="fu-meta">
-                  <span className={isOverdue(f.scheduled_at, f.status) ? "fu-overdue" : ""}>{fmt(f.scheduled_at)}</span>
-                  {isOverdue(f.scheduled_at, f.status) ? " · overdue" : ""}
-                  {ownerName(f.owner_id) ? ` · ${ownerName(f.owner_id)}` : ""}
-                  {f.status === "completed" ? " · done" : ""}
+              {editId === f.id ? (
+                <div className="fu-edit">
+                  <input className="inp" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} placeholder="Title" />
+                  <input className="inp" type="date" value={editWhen} onChange={(e) => setEditWhen(e.target.value)} />
+                  <button className="linkbtn xs" disabled={pending || !editWhen} onClick={saveEdit}>Save</button>
+                  <button className="linkbtn xs" onClick={() => setEditId(null)}>Cancel</button>
                 </div>
-              </div>
-              <div className="fu-act">
-                <button className="linkbtn xs" onClick={() => downloadIcs(f.title, f.scheduled_at)}>Add to calendar</button>
-                {f.workshop_id ? <Link className="linkbtn xs" href={`/run/${f.workshop_id}`}>Open ▸</Link> : null}
-                {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => complete(f.id)}>Mark complete</button> : null}
-                {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => skip(f.id)}>Skip</button> : null}
-              </div>
+              ) : (
+                <>
+                  <div className="fu-main">
+                    <div className="fu-title">{f.title}</div>
+                    <div className="fu-meta">
+                      <span className={isOverdue(f.scheduled_at, f.status) ? "fu-overdue" : ""}>{fmt(f.scheduled_at)}</span>
+                      {isOverdue(f.scheduled_at, f.status) ? " · overdue" : ""}
+                      {ownerName(f.owner_id) ? ` · ${ownerName(f.owner_id)}` : ""}
+                      {f.status === "completed" ? " · done" : ""}
+                    </div>
+                  </div>
+                  <div className="fu-act">
+                    <button className="linkbtn xs" onClick={() => downloadIcs(f.title, f.scheduled_at)}>Add to calendar</button>
+                    {f.workshop_id ? <Link className="linkbtn xs" href={`/run/${f.workshop_id}`}>Open ▸</Link> : null}
+                    {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => startEdit(f)}>Reschedule</button> : null}
+                    {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => complete(f.id)}>Mark complete</button> : null}
+                    {canManage && f.status === "planned" ? <button className="linkbtn xs" disabled={pending} onClick={() => skip(f.id)}>Skip</button> : null}
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>

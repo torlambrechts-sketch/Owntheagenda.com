@@ -1065,6 +1065,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      reschedule_follow_up: {
+        Args: { p_id: string; p_when: string; p_title?: string | null }
+        Returns: undefined
+      }
       seed_plan_from_session: {
         Args: { p_source: string; p_target: string; p_block: number }
         Returns: number

@@ -40,3 +40,20 @@ export async function completeFollowUp(sessionId: string, id: string): Promise<{
   revalidatePath(`/sessions/${sessionId}`);
   return {};
 }
+
+export async function rescheduleFollowUp(
+  sessionId: string,
+  id: string,
+  when: string,
+  title?: string | null,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("reschedule_follow_up", {
+    p_id: id,
+    p_when: when,
+    ...(title != null ? { p_title: title } : {}),
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/sessions/${sessionId}`);
+  return {};
+}

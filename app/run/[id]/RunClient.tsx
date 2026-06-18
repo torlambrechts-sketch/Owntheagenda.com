@@ -507,7 +507,7 @@ export function RunClient({
               <h2>{block?.title}</h2>
               {block?.prompt ? <div className="ptext">{block.prompt}</div> : null}
             </div>
-            <PlanBoard sessionId={sid} blockOrd={session.currentBlockOrd} canEdit={true} members={participants.map((p) => ({ name: p.name }))} sourceSessionId={planSource} />
+            <PlanBoard sessionId={sid} blockOrd={session.currentBlockOrd} canEdit={true} members={participants.map((p) => ({ id: p.userId, name: p.name }))} sourceSessionId={planSource} />
           </div>
         ) : (
           <div className="stage">
