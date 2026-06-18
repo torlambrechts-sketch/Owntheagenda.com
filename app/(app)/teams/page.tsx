@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
+import { OrgShell } from "@/components/OrgShell";
 import { TeamsClient, type TeamCard } from "./TeamsClient";
 
 export default async function TeamsPage() {
@@ -47,17 +48,17 @@ export default async function TeamsPage() {
   });
 
   return (
-    <div>
-      <h1 className="page-title">Teams</h1>
-      <p className="page-sub">
-        Leadership teams in {ctx.workspace.name}, and the org hierarchy.
-      </p>
+    <OrgShell
+      active="teams"
+      isAdmin={isAdmin(ctx.role)}
+      subtitle={`Leadership teams in ${ctx.workspace.name}, and the org hierarchy.`}
+    >
       <TeamsClient
         workspaceId={wsId}
         canManage={isAdmin(ctx.role)}
         teams={cards}
         parents={teamList.map((t) => ({ id: t.id, name: t.name }))}
       />
-    </div>
+    </OrgShell>
   );
 }

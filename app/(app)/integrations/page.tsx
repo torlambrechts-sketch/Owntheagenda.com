@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { isAdmin } from "@/lib/util";
 import { createClient } from "@/lib/supabase/server";
+import { OrgShell } from "@/components/OrgShell";
 import { IntegrationsClient, type Conn } from "./IntegrationsClient";
 
 export default async function IntegrationsPage() {
@@ -23,10 +24,12 @@ export default async function IntegrationsPage() {
   }
 
   return (
-    <div>
-      <h1 className="page-title">Integrations</h1>
-      <p className="page-sub">Connect {ctx.workspace.name} to the tools your teams already use.</p>
+    <OrgShell
+      active="integrations"
+      isAdmin
+      subtitle={`Connect ${ctx.workspace.name} to the tools your teams already use.`}
+    >
       <IntegrationsClient workspaceId={ctx.workspace.id} connected={connected} />
-    </div>
+    </OrgShell>
   );
 }

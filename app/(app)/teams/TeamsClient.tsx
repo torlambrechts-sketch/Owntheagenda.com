@@ -105,54 +105,51 @@ export function TeamsClient({
         {tc.view.length === 0 ? (
           <div className="card empty">No teams match these filters.</div>
         ) : (
-        <div className="cardgrid">
-          {tc.view.map((t) => (
-            <Link
-              className="card"
-              key={t.id}
-              href={`/teams/${t.id}`}
-              style={{ textDecoration: "none", color: "inherit", display: "block" }}
-            >
-              <div className="eyebrow">
-                {t.parentName ? `↳ ${t.parentName}` : "Team"}
-              </div>
-              <h3
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: 18,
-                  margin: "4px 0 6px",
-                }}
-              >
-                {t.name}
-              </h3>
-              {t.description ? (
-                <p style={{ color: "var(--muted)", fontSize: 12.5, margin: "0 0 12px" }}>
-                  {t.description}
-                </p>
-              ) : null}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 12,
-                  color: "var(--muted)",
-                }}
-              >
-                {t.leadName ? (
-                  <>
-                    <span className="av sm green">{initials(t.leadName)}</span>
-                    <span>{t.leadName} · lead</span>
-                  </>
-                ) : (
-                  <span>No lead set</span>
-                )}
-                <span style={{ marginLeft: "auto" }}>
-                  {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
-                </span>
-              </div>
-            </Link>
-          ))}
+        <div className="tbl-card">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th style={{ width: 210 }}>Lead</th>
+                <th style={{ width: 150 }}>Level</th>
+                <th style={{ width: 100 }} className="r">Members</th>
+                <th style={{ width: 48 }} />
+              </tr>
+            </thead>
+            <tbody>
+              {tc.view.map((t) => (
+                <tr key={t.id}>
+                  <td>
+                    <Link className="tname" href={`/teams/${t.id}`}>
+                      <b>{t.name}</b>
+                      {t.description ? <small>{t.description}</small> : null}
+                    </Link>
+                  </td>
+                  <td>
+                    {t.leadName ? (
+                      <div className="person">
+                        <span className="av sm green">{initials(t.leadName)}</span>
+                        <span>{t.leadName}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: "var(--faint)" }}>No lead</span>
+                    )}
+                  </td>
+                  <td>
+                    {t.parentName ? (
+                      <span className="pill sm draft">↳ {t.parentName}</span>
+                    ) : (
+                      <span className="pill sm open">Top level</span>
+                    )}
+                  </td>
+                  <td className="r">{t.memberCount}</td>
+                  <td className="r">
+                    <Link className="linkbtn xs" href={`/teams/${t.id}`}>Open</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
         )}
         </>

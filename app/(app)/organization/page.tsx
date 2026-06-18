@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { isAdmin } from "@/lib/util";
+import { OrgShell } from "@/components/OrgShell";
 import { OrganizationClient } from "./OrganizationClient";
 
 export default async function OrganizationPage() {
@@ -9,9 +10,7 @@ export default async function OrganizationPage() {
   const w = ctx.workspace;
 
   return (
-    <div>
-      <h1 className="page-title">Organization</h1>
-      <p className="page-sub">Settings, data residency and privacy for {w.name}.</p>
+    <OrgShell active="organization" isAdmin subtitle={`Settings, data residency and privacy for ${w.name}.`}>
       <OrganizationClient
         workspaceId={w.id}
         initial={{
@@ -23,6 +22,6 @@ export default async function OrganizationPage() {
           plan: w.plan,
         }}
       />
-    </div>
+    </OrgShell>
   );
 }

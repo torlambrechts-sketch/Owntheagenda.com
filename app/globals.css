@@ -149,6 +149,17 @@ button { font-family:inherit; }
 .help-btn{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;color:var(--muted);text-decoration:none}
 .help-btn:hover{background:var(--canvas-2);color:var(--ink)}
 
+/* ---------- Organization section: green heading + forest tab band (§3) ---------- */
+.org-title{color:var(--forest)}
+.tabband{display:inline-flex;flex-wrap:wrap;gap:3px;background:var(--forest);border-radius:8px;padding:5px;margin:12px 0 0}
+.tabband a{padding:8px 15px;border-radius:6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.72);text-decoration:none;line-height:1;display:inline-flex;align-items:center;transition:color .15s,background .15s}
+.tabband a:hover{color:#fff}
+.tabband a.on{background:var(--surface);color:var(--forest);box-shadow:var(--shadow)}
+.org-subtitle{font-size:13px;color:var(--muted);margin:14px 0 18px}
+.tname{display:block;text-decoration:none;color:inherit}
+.tname b{display:block;font-size:13px;color:var(--ink)}
+.tname small{color:var(--muted)}
+
 /* ---------- leadership effectiveness test ---------- */
 .lead-cta{margin:6px 0 20px}
 .lead-test{max-width:820px}

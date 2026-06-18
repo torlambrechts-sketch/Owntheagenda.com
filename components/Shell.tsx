@@ -118,8 +118,6 @@ const ICONS = {
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
   { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace", facilitatorHidden: true },
-  { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
-  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/sessions", label: "Sessions", icon: ICONS.sessions, group: "Effectiveness" },
   { href: "/canvas", label: "Canvas", icon: ICONS.canvas, group: "Effectiveness" },
@@ -127,6 +125,8 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
+  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
+  { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
   { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Organization", adminOnly: true },
   { href: "/help", label: "Help & Science", icon: ICONS.help, group: "Help" },
 ];
@@ -164,7 +164,7 @@ export function Shell({
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
-  const groups = ["Workspace", "People", "Effectiveness", "Organization", "Help"].filter((g) =>
+  const groups = ["Workspace", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];

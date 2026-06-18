@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
+import { OrgShell } from "@/components/OrgShell";
 import { MembersClient, type MemberRow, type InviteRow, type RequestRow } from "./MembersClient";
 
 export default async function MembersPage() {
@@ -74,11 +75,11 @@ export default async function MembersPage() {
     .order("name");
 
   return (
-    <div>
-      <h1 className="page-title">Members</h1>
-      <p className="page-sub">
-        Everyone in {ctx.workspace.name}. Invite people and set what they can do.
-      </p>
+    <OrgShell
+      active="members"
+      isAdmin={isAdmin(ctx.role)}
+      subtitle={`Everyone in ${ctx.workspace.name}. Invite people and set what they can do.`}
+    >
       <MembersClient
         workspaceId={wsId}
         canManage={isAdmin(ctx.role)}
@@ -88,6 +89,6 @@ export default async function MembersPage() {
         teams={teamRows ?? []}
         joinCode={ctx.workspace.join_code ?? null}
       />
-    </div>
+    </OrgShell>
   );
 }
