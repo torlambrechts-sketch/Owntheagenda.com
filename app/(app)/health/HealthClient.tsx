@@ -6,14 +6,14 @@ import Link from "next/link";
 import { SideWindow } from "@/components/SideWindow";
 import { setHealthStatus, setTeamKind } from "./actions";
 
-type Composite = { composite: number; survey_id: string; percentile: number | null } | null;
+type Composite = { composite: number; survey_id: string; percentile: number | null; trend: string | null } | null;
 export type Entity = {
   team_id: string;
   name: string;
   kind: string;
   parent_team_id: string | null;
   lead: string | null;
-  dynamics: { score: number; in_band: number; total: number } | null;
+  dynamics: { score: number; in_band: number; total: number; trend: string | null } | null;
   strategy: Composite;
   performance: Composite;
   development: string[];
@@ -33,6 +33,16 @@ function ragForDynamics(d: { in_band: number; total: number }): string {
   if (d.total === 0) return "none";
   if (d.in_band === d.total) return "green";
   return d.in_band * 2 >= d.total ? "amber" : "red";
+}
+
+function TrendArrow({ dir }: { dir: string | null }) {
+  if (!dir) return null;
+  if (dir === "flat") return <span className="tarrow flat" title="No change since last">→</span>;
+  return (
+    <span className={`tarrow ${dir}`} title={dir === "up" ? "Improving since last" : "Slipping since last"}>
+      {dir === "up" ? "↑" : "↓"}
+    </span>
+  );
 }
 
 export function HealthClient({ entities, manageable }: { entities: Entity[]; manageable: string[] }) {
@@ -99,18 +109,22 @@ export function HealthClient({ entities, manageable }: { entities: Entity[]; man
     let rag = "none";
     let value: string = "—";
     let sub: string | null = null;
+    let trend: string | null = null;
     if (axis === "dynamics" && e.dynamics) {
       rag = ragForDynamics(e.dynamics);
       value = `${e.dynamics.score}`;
       sub = `${e.dynamics.in_band}/${e.dynamics.total} in band`;
+      trend = e.dynamics.trend;
     } else if (axis === "strategy" && e.strategy) {
       rag = ragForComposite(e.strategy.composite);
       value = `${e.strategy.composite}`;
       sub = e.strategy.percentile != null ? `${e.strategy.percentile}th pct` : "of 100";
+      trend = e.strategy.trend;
     } else if (axis === "performance" && e.performance) {
       rag = ragForComposite(e.performance.composite);
       value = `${e.performance.composite}`;
       sub = e.performance.percentile != null ? `${e.performance.percentile}th pct` : "of 100";
+      trend = e.performance.trend;
     }
     const editable = canManage.has(e.team_id);
     return (
@@ -121,7 +135,7 @@ export function HealthClient({ entities, manageable }: { entities: Entity[]; man
         title={manual?.note ?? (editable ? "Set a manual status" : undefined)}
       >
         <span className="htile-l">{label}{manual ? <span className={`mdot ${manual.status}`} /> : null}</span>
-        <span className="htile-v">{value}</span>
+        <span className="htile-v">{value}<TrendArrow dir={trend} /></span>
         {sub ? <span className="htile-s">{sub}</span> : null}
       </button>
     );

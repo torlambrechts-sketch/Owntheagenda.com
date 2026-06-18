@@ -452,7 +452,11 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .htile.editable{cursor:pointer}
 .htile.editable:hover{border-color:var(--forest)}
 .htile-l{display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--faint)}
-.htile-v{font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ink);line-height:1}
+.htile-v{display:inline-flex;align-items:baseline;gap:3px;font-family:var(--font-display);font-size:20px;font-weight:700;color:var(--ink);line-height:1}
+.tarrow{font-size:12px;font-weight:700;line-height:1}
+.tarrow.up{color:var(--forest)}
+.tarrow.down{color:var(--rust)}
+.tarrow.flat{color:var(--faint)}
 .htile-s{font-size:10px;color:var(--muted)}
 .rag-green{border-left-color:var(--green)}
 .rag-amber{border-left-color:#d8a630}
