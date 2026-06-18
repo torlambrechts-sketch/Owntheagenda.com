@@ -21,6 +21,21 @@ export async function buildFromTemplate(
   return { id: (data as any)?.id as string };
 }
 
+// Attach a specific open assessment to a workshop (or null to detach → auto-match).
+export async function setWorkshopSurvey(
+  workshopId: string,
+  surveyId: string | null,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_workshop_survey", {
+    p_workshop: workshopId,
+    p_survey: surveyId,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/workshops/${workshopId}`);
+  return {};
+}
+
 export async function deleteWorkshop(id: string): Promise<{ error?: string }> {
   const supabase = createClient();
   const { error } = await supabase.from("workshop").delete().eq("id", id);

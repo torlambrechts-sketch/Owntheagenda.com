@@ -9,7 +9,7 @@ export async function sendSurvey(
   teamId: string,
   kind: string,
   dueAt: string | null,
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; id?: string }> {
   const supabase = createClient();
   const { data: tpl } = await supabase
     .from("assessment_template")
@@ -19,7 +19,7 @@ export async function sendSurvey(
   const name = (tpl ?? [])[0]?.name as string | undefined;
   if (!name) return { error: "Unknown instrument." };
   const due = dueAt ? new Date(dueAt + "T23:59:00") : null;
-  const { error } = await supabase.rpc("create_survey", {
+  const { data, error } = await supabase.rpc("create_survey", {
     p_team: teamId,
     p_kind: kind,
     p_name: name,
@@ -27,7 +27,7 @@ export async function sendSurvey(
   });
   if (error) return { error: error.message };
   revalidatePath("/assessments");
-  return {};
+  return { id: (data as { id?: string } | null)?.id };
 }
 
 export async function remindSurvey(surveyId: string): Promise<{ error?: string; pending?: number }> {

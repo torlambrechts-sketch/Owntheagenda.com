@@ -13,7 +13,18 @@ import {
   updateWorkshopTitle,
   scheduleWorkshop,
   setWorkshopObjective,
+  setWorkshopSurvey,
 } from "../actions";
+import { sendSurvey } from "../../assessments/actions";
+
+type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
+export type AssessmentPanel = {
+  kind: string;
+  kindName: string;
+  timing: string;
+  bound: (Cand & { status: string }) | null;
+  candidates: Cand[];
+};
 
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
@@ -61,18 +72,50 @@ function fmtSched(iso: string): string {
 
 export function BuilderClient({
   workshop,
+  teamId,
   teamName,
   canManage,
   blocks,
+  assessment,
 }: {
   workshop: { id: string; title: string; scheduledAt: string | null; objective: string | null };
+  teamId: string;
   teamName: string;
   canManage: boolean;
   blocks: BlockRow[];
+  assessment: AssessmentPanel | null;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
+
+  // assessment binding side-window
+  const [asOpen, setAsOpen] = useState(false);
+  const [pickSurvey, setPickSurvey] = useState("");
+  const [newDue, setNewDue] = useState("");
+  function attachSurvey() {
+    if (!pickSurvey) return;
+    run(() => setWorkshopSurvey(workshop.id, pickSurvey), "Assessment attached");
+    setAsOpen(false);
+  }
+  function detachSurvey() {
+    run(() => setWorkshopSurvey(workshop.id, null), "Detached — will auto-match at start");
+  }
+  function sendAndAttach() {
+    startTransition(async () => {
+      if (!assessment) return;
+      const res = await sendSurvey(teamId, assessment.kind, newDue || null);
+      if (res.error) return flash(res.error);
+      if (res.id) {
+        const a = await setWorkshopSurvey(workshop.id, res.id);
+        if (a.error) return flash(a.error);
+      }
+      setAsOpen(false);
+      setNewDue("");
+      flash("Assessment sent & attached");
+      router.refresh();
+    });
+  }
 
   // block editor side-window
   const [open, setOpen] = useState(false);
@@ -273,6 +316,35 @@ export function BuilderClient({
         </div>
       </div>
 
+      {assessment ? (
+        <div className="card aspanel">
+          <div className="aspanel-h">
+            <div>
+              <div className="eyebrow">Pre-work assessment</div>
+              <h3>{assessment.kindName}</h3>
+            </div>
+            <span className="pill sm draft">{assessment.timing === "prerequisite" ? "Prerequisite" : "Live in session"}</span>
+          </div>
+          {assessment.bound ? (
+            <div className="asbound">
+              <div className="asbound-main">
+                <b>{assessment.bound.name}</b>
+                <span className="src">{assessment.bound.responded}/{assessment.bound.total} responded · {assessment.bound.status}</span>
+              </div>
+              <button className="linkbtn" disabled={pending} onClick={() => { setPickSurvey(""); setAsOpen(true); }}>Change</button>
+              <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={detachSurvey}>Detach</button>
+            </div>
+          ) : (
+            <div className="asauto">
+              <p className="form-note" style={{ margin: "0 0 10px" }}>
+                Nothing pinned — at session start the newest open “{assessment.kindName}” for {teamName} is used automatically. Pin a specific one for certainty.
+              </p>
+              <button className="btn-sec" disabled={pending} onClick={() => { setPickSurvey(""); setAsOpen(true); }}>Attach an assessment ▸</button>
+            </div>
+          )}
+        </div>
+      ) : null}
+
       <div className="blocks">
         {blocks.map((b, i) => {
           const start = acc;
@@ -464,6 +536,50 @@ export function BuilderClient({
           <div className="form-note">Everyone on {teamName} gets an in-app heads-up.</div>
         </div>
       </SideWindow>
+
+      {/* attach assessment */}
+      {assessment ? (
+        <SideWindow
+          open={asOpen}
+          onClose={() => setAsOpen(false)}
+          title="Attach an assessment"
+          subtitle={assessment.kindName}
+          size="compact"
+          footer={
+            <>
+              <button className="btn-sec" onClick={() => setAsOpen(false)}>Cancel</button>
+              <div className="right">
+                <button className="btn-prim" disabled={pending || !pickSurvey} onClick={attachSurvey}>Attach selected</button>
+              </div>
+            </>
+          }
+        >
+          {assessment.candidates.length ? (
+            <div className="field">
+              <label>Open {assessment.kindName} assessments for {teamName}</label>
+              {assessment.candidates.map((c) => (
+                <label className="pickrow" key={c.id}>
+                  <input type="radio" name="cand" checked={pickSurvey === c.id} onChange={() => setPickSurvey(c.id)} />
+                  <span>
+                    <b>{c.name}</b>
+                    <span className="src"> {c.responded}/{c.total} responded{c.dueAt ? ` · due ${new Date(c.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="form-note">No open assessments of this type yet — send one below.</div>
+          )}
+          <div className="field" style={{ borderTop: "1px solid var(--line)", paddingTop: 14, marginTop: 4 }}>
+            <label>…or send a new one <span className="opt">(optional due date)</span></label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input className="inp" type="date" value={newDue} onChange={(e) => setNewDue(e.target.value)} />
+              <button className="btn-sec" disabled={pending} onClick={sendAndAttach}>Send &amp; attach</button>
+            </div>
+            <div className="form-note">Sends the assessment to {teamName} and pins it to this session.</div>
+          </div>
+        </SideWindow>
+      ) : null}
 
       {/* objective */}
       <SideWindow

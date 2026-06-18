@@ -934,6 +934,10 @@ export type Database = {
           completed: boolean
         }[]
       }
+      set_workshop_survey: {
+        Args: { p_workshop: string; p_survey: string | null }
+        Returns: undefined
+      }
       remind_pulse: {
         Args: { p_pulse: string }
         Returns: number
