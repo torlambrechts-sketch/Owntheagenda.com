@@ -1,8 +1,30 @@
 import type { Enums } from "@/types/database.types";
 
+// Workspace-wide control: organization settings, people, integrations, GDPR.
 export function isAdmin(role: Enums<"workspace_role">) {
   return role === "owner" || role === "admin";
 }
+// Can lead/run teams (a Team Manager and everyone above).
+export function isManagerOrAbove(role: Enums<"workspace_role">) {
+  return role === "owner" || role === "admin" || role === "manager";
+}
+
+// Business-facing names for the workspace roles.
+export const ROLE_LABEL: Record<Enums<"workspace_role">, string> = {
+  owner: "Owner",
+  admin: "Company Admin",
+  manager: "Team Manager",
+  facilitator: "Facilitator",
+  member: "Employee",
+};
+
+// Roles an admin can hand out (owner is granted via a separate, deliberate step).
+export const ROLE_OPTIONS: { value: Enums<"workspace_role">; label: string; blurb: string }[] = [
+  { value: "admin", label: "Company Admin", blurb: "Runs the organization — people, settings, integrations" },
+  { value: "manager", label: "Team Manager", blurb: "Leads and runs their teams' workshops" },
+  { value: "facilitator", label: "Facilitator", blurb: "Runs sessions; can be external, sees only assigned work" },
+  { value: "member", label: "Employee", blurb: "Takes part in workshops and assessments" },
+];
 
 export function initials(name?: string | null, fallback = "?") {
   if (!name) return fallback;
@@ -14,7 +36,7 @@ export function initials(name?: string | null, fallback = "?") {
 }
 
 export function roleLabel(role: Enums<"workspace_role">) {
-  return role.charAt(0).toUpperCase() + role.slice(1);
+  return ROLE_LABEL[role] ?? role.charAt(0).toUpperCase() + role.slice(1);
 }
 
 export const ACTIVITY: Record<string, { label: string; cls: string }> = {

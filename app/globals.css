@@ -48,6 +48,8 @@ button { font-family:inherit; }
 .pill.reject{background:var(--reject-bg);color:var(--reject-fg)}
 .pill.role-owner{background:var(--reject-bg);color:var(--reject-fg)}
 .pill.role-admin{background:var(--internal-bg);color:var(--internal-fg)}
+.pill.role-manager{background:var(--open-bg);color:var(--open-fg)}
+.pill.role-facilitator{background:var(--draft-bg);color:var(--draft-fg)}
 .pill.role-member{background:var(--interview-bg);color:var(--interview-fg)}
 .grounded{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);background:var(--open-bg);padding:3px 9px;border-radius:20px}
 

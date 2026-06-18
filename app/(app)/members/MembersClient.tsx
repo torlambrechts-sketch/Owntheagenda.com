@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { useTableControls } from "@/components/TableControls";
-import { initials, roleLabel } from "@/lib/util";
+import { initials, roleLabel, ROLE_OPTIONS } from "@/lib/util";
 import type { Enums } from "@/types/database.types";
 import {
   inviteMember,
@@ -131,11 +131,9 @@ export function MembersClient({
       { key: "role", label: "Role", cmp: (a, b) => a.role.localeCompare(b.role) },
     ],
     facets: [
-      { key: "role", label: "Role", multi: true, options: [
-        { value: "owner", label: "Owner", test: (m) => m.role === "owner" },
-        { value: "admin", label: "Admin", test: (m) => m.role === "admin" },
-        { value: "member", label: "Member", test: (m) => m.role === "member" },
-      ] },
+      { key: "role", label: "Role", multi: true, options: (["owner", "admin", "manager", "facilitator", "member"] as Role[]).map((r) => ({
+        value: r, label: roleLabel(r), test: (m) => m.role === r,
+      })) },
     ],
   });
   const memberView = members.length >= 6 ? mc.view : members;
@@ -201,8 +199,9 @@ export function MembersClient({
                       }
                     >
                       <option value="owner">Owner</option>
-                      <option value="admin">Admin</option>
-                      <option value="member">Member</option>
+                      {ROLE_OPTIONS.map((r) => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
                     </select>
                   ) : (
                     <span className={`pill sm role-${m.role}`}>
@@ -354,10 +353,11 @@ export function MembersClient({
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
               >
-                <option value="member">Member</option>
-                <option value="admin">Admin</option>
-                <option value="owner">Owner</option>
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
               </select>
+              <div className="form-note">{ROLE_OPTIONS.find((r) => r.value === role)?.blurb}</div>
             </div>
             {teams.length > 0 ? (
               <div className="field">

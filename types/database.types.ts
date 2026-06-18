@@ -1259,7 +1259,7 @@ export type Database = {
         | "conflict_norms"
         | "role_clarity"
         | "decision_rights"
-      workspace_role: "owner" | "admin" | "member"
+      workspace_role: "owner" | "admin" | "manager" | "facilitator" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1306,7 +1306,7 @@ export const Constants = {
         "role_clarity",
         "decision_rights",
       ],
-      workspace_role: ["owner", "admin", "member"],
+      workspace_role: ["owner", "admin", "manager", "facilitator", "member"],
     },
   },
 } as const
