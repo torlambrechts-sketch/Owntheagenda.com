@@ -12,11 +12,30 @@ export type SessionRow = {
   people: number;
   actions: number;
   status: string;
+  nextStep: { kind: string; at: string | null; status: string } | null;
+};
+
+const KIND_LABEL: Record<string, string> = {
+  check_in: "Check-in", remeasure: "Re-measure", working_session: "Working session", meeting: "Meeting", review: "Review",
 };
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function fmtShort(d: string | null) {
+  if (!d) return "";
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function NextStep({ ns }: { ns: SessionRow["nextStep"] }) {
+  if (!ns) return <span style={{ color: "var(--faint)" }}>—</span>;
+  if (ns.status === "completed") return <span style={{ color: "var(--forest)", fontSize: 12 }}>✓ {KIND_LABEL[ns.kind] ?? ns.kind}</span>;
+  const overdue = ns.at ? new Date(ns.at) < new Date() : false;
+  return (
+    <span style={{ fontSize: 12, color: overdue ? "var(--rust)" : "var(--muted)" }}>
+      {KIND_LABEL[ns.kind] ?? ns.kind}{ns.at ? ` · ${fmtShort(ns.at)}` : ""}{overdue ? " · overdue" : ""}
+    </span>
+  );
 }
 
 export function SessionsClient({ rows }: { rows: SessionRow[] }) {
@@ -48,6 +67,7 @@ export function SessionsClient({ rows }: { rows: SessionRow[] }) {
               <th>When</th>
               <th style={{ width: 90 }}>People</th>
               <th style={{ width: 90 }}>Actions</th>
+              <th style={{ width: 150 }}>Next step</th>
               <th style={{ width: 90 }}>Status</th>
               <th style={{ width: 90 }}></th>
             </tr>
@@ -62,6 +82,7 @@ export function SessionsClient({ rows }: { rows: SessionRow[] }) {
                 <td style={{ color: "var(--muted)" }}>{fmtDate(s.startedAt)}</td>
                 <td>{s.people}</td>
                 <td>{s.actions}</td>
+                <td><NextStep ns={s.nextStep} /></td>
                 <td>
                   <span className={`pill sm ${s.status === "live" ? "open" : "draft"}`}>{s.status}</span>
                 </td>

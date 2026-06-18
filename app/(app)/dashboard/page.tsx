@@ -3,6 +3,10 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { roleLabel } from "@/lib/util";
 
+const FU_LABEL: Record<string, string> = {
+  check_in: "Check-in", remeasure: "Re-measure", working_session: "Working session", meeting: "Meeting", review: "Review",
+};
+
 export default async function DashboardPage() {
   const ctx = await requireSession();
   const supabase = createClient();
@@ -23,6 +27,19 @@ export default async function DashboardPage() {
     .gte("scheduled_at", new Date(Date.now() - 3600 * 1000).toISOString())
     .order("scheduled_at", { ascending: true })
     .limit(5);
+
+  const { data: followUps } = await supabase
+    .from("follow_up")
+    .select("id, kind, title, scheduled_at, team_id, workshop_id")
+    .eq("workspace_id", wsId)
+    .eq("status", "planned")
+    .order("scheduled_at", { ascending: true })
+    .limit(8);
+  const fuTeamIds = Array.from(new Set((followUps ?? []).map((f) => f.team_id).filter((x): x is string => !!x)));
+  const { data: fuTeams } = fuTeamIds.length
+    ? await supabase.from("team").select("id, name").in("id", fuTeamIds)
+    : { data: [] as { id: string; name: string }[] };
+  const fuTeamName = new Map((fuTeams ?? []).map((t) => [t.id, t.name]));
 
   return (
     <div>
@@ -79,6 +96,37 @@ export default async function DashboardPage() {
                     </td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {(followUps ?? []).length ? (
+        <div style={{ marginBottom: 24 }}>
+          <div className="cat-head" style={{ fontSize: 16, marginTop: 8 }}>Upcoming follow-ups</div>
+          <div className="tbl-card">
+            <table className="tbl">
+              <tbody>
+                {(followUps ?? []).map((f) => {
+                  const overdue = f.scheduled_at ? new Date(f.scheduled_at) < new Date() : false;
+                  return (
+                    <tr key={f.id}>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{f.title}</span>{" "}
+                        <span style={{ color: "var(--faint)", fontSize: 12 }}>· {FU_LABEL[f.kind] ?? f.kind}</span>
+                      </td>
+                      <td style={{ color: "var(--muted)", width: 160 }}>{f.team_id ? fuTeamName.get(f.team_id) ?? "" : ""}</td>
+                      <td style={{ color: overdue ? "var(--rust)" : "var(--muted)", width: 180 }}>
+                        {f.scheduled_at ? new Date(f.scheduled_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "—"}
+                        {overdue ? " · overdue" : ""}
+                      </td>
+                      <td className="r" style={{ width: 110 }}>
+                        {f.workshop_id ? <Link className="linkbtn" href={`/run/${f.workshop_id}`}>Start ▸</Link> : null}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

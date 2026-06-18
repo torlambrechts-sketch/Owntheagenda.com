@@ -39,6 +39,12 @@ export default async function SessionsPage() {
   const actCount = new Map<string, number>();
   for (const a of acts ?? []) if (a.session_id) actCount.set(a.session_id, (actCount.get(a.session_id) ?? 0) + 1);
 
+  const { data: fus } = sids.length
+    ? await supabase.from("follow_up").select("source_session_id, kind, scheduled_at, status").in("source_session_id", sids).neq("status", "skipped").order("scheduled_at", { ascending: true })
+    : { data: [] as { source_session_id: string | null; kind: string; scheduled_at: string | null; status: string }[] };
+  const nextBySession = new Map<string, { kind: string; at: string | null; status: string }>();
+  for (const f of fus ?? []) if (f.source_session_id && !nextBySession.has(f.source_session_id)) nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+
   const rows: SessionRow[] = list.map((s) => {
     const wk = wkById.get(s.workshop_id);
     return {
@@ -50,6 +56,7 @@ export default async function SessionsPage() {
       people: partCount.get(s.id) ?? 0,
       actions: actCount.get(s.id) ?? 0,
       status: s.status,
+      nextStep: nextBySession.get(s.id) ?? null,
     };
   });
 

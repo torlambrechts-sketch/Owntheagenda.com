@@ -54,12 +54,16 @@ export function FollowUpPanel({
   followUps,
   templates,
   members,
+  backSession,
+  commitments,
 }: {
   sessionId: string;
   canManage: boolean;
   followUps: FollowUp[];
   templates: { id: string; name: string; category: string }[];
   members: { id: string; name: string }[];
+  backSession?: string | null;
+  commitments?: { done: number; total: number };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -113,6 +117,15 @@ export function FollowUpPanel({
         <h3>Next steps</h3>
         {canManage && !open ? <button className="btn-prim" onClick={() => setOpen(true)}>Plan the follow-up ▸</button> : null}
       </div>
+
+      {(backSession || (commitments && commitments.total > 0)) ? (
+        <div className="fu-context">
+          {backSession ? <Link className="linkbtn xs" href={`/sessions/${backSession}`}>↩ Continues a prior session</Link> : null}
+          {commitments && commitments.total > 0 ? (
+            <span className="fu-commit">{commitments.done} of {commitments.total} plan tasks done</span>
+          ) : null}
+        </div>
+      ) : null}
 
       {active.length ? (
         <div className="fu-list">

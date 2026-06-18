@@ -132,6 +132,13 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
     : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
   const fuMembers = (fuProfiles ?? []).map((p) => ({ id: p.id, name: p.full_name || p.display_name || p.email || "Member" }));
 
+  // is this session itself a follow-up of a prior one? + plan completion
+  const { data: backFu } = await supabase.from("follow_up").select("source_session_id").eq("workshop_id", session.workshop_id).not("source_session_id", "is", null).limit(1).maybeSingle();
+  const backSession = (backFu as { source_session_id: string } | null)?.source_session_id ?? null;
+  const { data: planRows } = await supabase.from("plan_task").select("status").eq("session_id", session.id);
+  const planDone = (planRows ?? []).filter((p) => p.status === "done").length;
+  const planTotal = (planRows ?? []).length;
+
   const totalVotes = (votes ?? []).length;
   const liveBanner = session.status === "live";
 
@@ -250,6 +257,8 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
         followUps={(fuRows ?? []) as any}
         templates={fuTemplates ?? []}
         members={fuMembers}
+        backSession={backSession}
+        commitments={{ done: planDone, total: planTotal }}
       />
 
       {decisionList.length > 0 ? (

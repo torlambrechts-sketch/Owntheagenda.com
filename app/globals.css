@@ -420,6 +420,8 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .agenda-p{font-size:12.5px;color:var(--muted);margin-top:2px}
 
 /* Next-step follow-ups */
+.fu-context{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:6px}
+.fu-commit{font-size:12px;color:var(--muted)}
 .fu-list{display:flex;flex-direction:column;gap:8px}
 .fu-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
 .fu-main{flex:1;min-width:0}
@@ -571,6 +573,9 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .hlink{font-weight:700;color:var(--ink);text-decoration:none}
 .hlink:hover{color:var(--forest)}
 .hrow-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.moment{font-size:11px;font-weight:600;border-radius:20px;padding:1px 9px}
+.moment.ok{color:var(--forest);background:var(--open-bg)}
+.moment.flag{color:var(--rust);background:#f6ddd5}
 .htiles{display:flex;gap:8px}
 .htile-wrap{position:relative;display:flex}
 .htile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:84px;padding:7px 22px 7px 10px;border-radius:9px;border:1px solid var(--line);border-left:3px solid var(--line);background:var(--canvas-2);text-align:left;font:inherit;flex:1;text-decoration:none;color:inherit}

@@ -116,7 +116,26 @@ function fmtDate(iso: string): string {
   return isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function HealthClient({ entities, manageable }: { entities: Entity[]; manageable: string[] }) {
+function MomentumChip({ m }: { m?: { nextAt: string | null; open: number } }) {
+  if (!m) return null;
+  if (m.nextAt) {
+    return <span className="moment ok" title="Next step scheduled">Next · {new Date(m.nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>;
+  }
+  if (m.open > 0) {
+    return <span className="moment flag" title={`${m.open} open commitment${m.open === 1 ? "" : "s"}, no next step scheduled`}>No next step</span>;
+  }
+  return null;
+}
+
+export function HealthClient({
+  entities,
+  manageable,
+  momentum = {},
+}: {
+  entities: Entity[];
+  manageable: string[];
+  momentum?: Record<string, { nextAt: string | null; open: number }>;
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const canManage = useMemo(() => new Set(manageable), [manageable]);
@@ -262,6 +281,7 @@ export function HealthClient({ entities, manageable }: { entities: Entity[]; man
           </div>
           <div className="hrow-meta">
             {e.lead ? <span className="src">Lead · {e.lead}</span> : null}
+            <MomentumChip m={momentum[e.team_id]} />
             <button className="linkbtn xs" onClick={() => openDetail(e)}>Details</button>
             {editable ? (
               <button className="linkbtn xs" disabled={pending} onClick={() => toggleKind(e)}>
