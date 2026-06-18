@@ -312,6 +312,23 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      canvas_snapshot: {
+        Row: {
+          id: string
+          session_id: string | null
+          workshop_id: string
+          workspace_id: string
+          block_ord: number
+          title: string | null
+          data: Json
+          object_count: number
+          created_by: string | null
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       team: {
         Row: {
           created_at: string
@@ -976,6 +993,14 @@ export type Database = {
       team_health_detail: {
         Args: { p_team: string }
         Returns: Json
+      }
+      save_canvas_snapshot: {
+        Args: { p_session: string; p_block_ord: number; p_title?: string | null }
+        Returns: string
+      }
+      seed_canvas_from_snapshot: {
+        Args: { p_snapshot: string; p_session: string; p_block_ord: number }
+        Returns: number
       }
       survey_perception_gap: {
         Args: { p_survey: string }

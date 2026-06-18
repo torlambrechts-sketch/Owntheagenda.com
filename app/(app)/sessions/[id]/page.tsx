@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { ACTIVITY, initials } from "@/lib/util";
+import { ACTIVITY, initials, isAdmin } from "@/lib/util";
 import { SessionSynthesis } from "./Synthesis";
 import { PrintButton } from "./PrintButton";
+import { CanvasReadout } from "./CanvasReadout";
+import type { CanvasObj } from "@/components/CanvasStatic";
 
 function fmtDateTime(d: string | null) {
   if (!d) return "—";
@@ -42,7 +44,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
       supabase.from("block").select("ord, title, activity_type, prompt, config").eq("workshop_id", session.workshop_id).order("ord", { ascending: true }),
       supabase.from("idea").select("id, block_ord, lane, text, author_name").eq("session_id", session.id),
       supabase.from("idea_vote").select("idea_id, block_ord").eq("session_id", session.id),
-      supabase.from("canvas_object").select("block_ord, text").eq("session_id", session.id),
+      supabase.from("canvas_object").select("id, block_ord, kind, text, color, x, y, w, h, points, src_id, dst_id, src_anchor, dst_anchor, line_style, stroke, fill, stroke_w, variant, z, author_name").eq("session_id", session.id).neq("kind", "__board"),
       supabase.from("action_item").select("text, owner_name, status, due_at, decision_id").eq("session_id", session.id).order("created_at", { ascending: true }),
       supabase.from("participant").select("user_id, is_facilitator").eq("session_id", session.id),
       supabase.from("decision").select("id, title, rationale, status, decider_user_id, resource_note, override_note").eq("session_id", session.id).order("created_at", { ascending: true }),
@@ -87,12 +89,31 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
   );
   const aggByOrd = new Map(agg.map((a) => [a.ord, a]));
 
-  const notesByOrd = new Map<number, string[]>();
-  for (const n of notes ?? []) {
-    const arr = notesByOrd.get(n.block_ord) ?? [];
-    if (n.text) arr.push(n.text);
-    notesByOrd.set(n.block_ord, arr);
+  const canvasObjs = (notes ?? []) as unknown as (CanvasObj & { block_ord: number })[];
+  const canvasByOrd = new Map<number, CanvasObj[]>();
+  for (const o of canvasObjs) {
+    const arr = canvasByOrd.get(o.block_ord) ?? [];
+    arr.push(o);
+    canvasByOrd.set(o.block_ord, arr);
   }
+  const canvasBlocks = blockList
+    .filter((b) => b.activity_type === "canvas" && (canvasByOrd.get(b.ord)?.length ?? 0) > 0)
+    .map((b) => ({ ord: b.ord, title: b.title ?? "", objects: canvasByOrd.get(b.ord) ?? [] }));
+
+  const { data: snapRows } = await supabase
+    .from("canvas_snapshot")
+    .select("id, title, block_ord, object_count, created_at, data")
+    .eq("workshop_id", session.workshop_id)
+    .order("created_at", { ascending: false });
+  const snapshots = (snapRows ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    block_ord: s.block_ord,
+    object_count: s.object_count,
+    created_at: s.created_at,
+    data: (s.data ?? []) as unknown as CanvasObj[],
+  }));
+  const canManageCanvas = isAdmin(ctx.role) || session.facilitator_id === ctx.userId;
 
   const totalVotes = (votes ?? []).length;
   const liveBanner = session.status === "live";
@@ -125,7 +146,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
         <div className="vr" />
         <div className="stat"><div className="num">{totalVotes}</div><div className="lab">Votes</div></div>
         <div className="vr" />
-        <div className="stat"><div className="num">{(notes ?? []).length}</div><div className="lab">Canvas notes</div></div>
+        <div className="stat"><div className="num">{(notes ?? []).length}</div><div className="lab">Canvas items</div></div>
         <div className="vr" />
         <div className="stat"><div className="num">{(actions ?? []).length}</div><div className="lab">Actions</div></div>
       </div>
@@ -148,7 +169,6 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
         const isIdeaVote = b.activity_type === "brainstorm" || b.activity_type === "vote";
         const blockIdeas = ideaList.filter((i) => i.block_ord === b.ord);
         const lanes: string[] = (b.config as any)?.lanes ?? [];
-        const canvasNotes = notesByOrd.get(b.ord) ?? [];
 
         return (
           <div className="ro-block" key={b.ord}>
@@ -201,18 +221,11 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
               </div>
             ) : null}
 
-            {b.activity_type === "canvas" ? (
-              canvasNotes.length ? (
-                <div className="ro-chips">
-                  {canvasNotes.map((t, i) => <span className="ro-chip" key={i}>{t || "—"}</span>)}
-                </div>
-              ) : (
-                <div className="ro-empty">No notes captured.</div>
-              )
-            ) : null}
           </div>
         );
       })}
+
+      <CanvasReadout sessionId={session.id} blocks={canvasBlocks} snapshots={snapshots} canManage={canManageCanvas} />
 
       {decisionList.length > 0 ? (
         <div className="ro-block">
