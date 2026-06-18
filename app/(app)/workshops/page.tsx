@@ -35,6 +35,12 @@ export default async function WorkshopsPage() {
       steps: phases.length,
       minutes: minutes || t.default_duration,
       types: phases.map((p) => p?.type ?? "canvas"),
+      phases: phases.map((p) => ({
+        title: (p?.title ?? "Step") as string,
+        type: (p?.type ?? "canvas") as string,
+        minutes: (p?.minutes ?? 0) as number,
+        prompt: (p?.prompt ?? null) as string | null,
+      })),
     };
   });
 

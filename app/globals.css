@@ -410,6 +410,13 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .tplview-blurb{font-size:12.5px;color:var(--muted);margin:2px 0 6px}
 .tplview-items{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
 .tplview-items li{font-size:13px;color:var(--ink)}
+.agenda{margin:12px 0 0;padding:0;list-style:none;counter-reset:ag;display:flex;flex-direction:column;gap:9px}
+.agenda-step{position:relative;padding-left:30px;counter-increment:ag}
+.agenda-step::before{content:counter(ag);position:absolute;left:0;top:0;width:21px;height:21px;border-radius:50%;background:var(--canvas-2);border:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.agenda-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.agenda-t{font-weight:600;font-size:13.5px;color:var(--ink)}
+.agenda-meta{font-size:11px;color:var(--faint);white-space:nowrap}
+.agenda-p{font-size:12.5px;color:var(--muted);margin-top:2px}
 .histctl{position:absolute;left:14px;bottom:14px;z-index:25;display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:3px}
 .histctl button{border:none;background:none;width:30px;height:26px;border-radius:6px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .histctl button:hover:not(:disabled){background:var(--canvas)}

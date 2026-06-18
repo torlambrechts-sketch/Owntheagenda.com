@@ -29,6 +29,7 @@ export type TemplateCard = {
   steps: number;
   minutes: number;
   types: string[];
+  phases?: { title: string; type: string; minutes: number; prompt: string | null }[];
 };
 export type WorkshopRow = { id: string; title: string; status: string };
 export type Recommendation = {
@@ -64,6 +65,7 @@ export function WorkshopsClient({
   const [quickKind, setQuickKind] = useState("canvas");
   const [quickInst, setQuickInst] = useState("");
   const [quickTitle, setQuickTitle] = useState("");
+  const [preview, setPreview] = useState<TemplateCard | null>(null);
 
   function flash(m: string) {
     setToast(m);
@@ -155,6 +157,7 @@ export function WorkshopsClient({
           <span>▥ {t.steps} steps</span>
         </div>
         <div className="foot">
+          <button className="btn-ghost sm" onClick={() => setPreview(t)}>View</button>
           <button
             className="btn-prim"
             disabled={!canManage || pending}
@@ -317,6 +320,36 @@ export function WorkshopsClient({
           </div>
         ) : null}
       </SideWindow>
+
+      {preview ? (
+        <SideWindow
+          open={!!preview}
+          onClose={() => setPreview(null)}
+          title={preview.name}
+          subtitle={`${preview.steps} steps · ${preview.minutes} min`}
+          footer={
+            canManage ? (
+              <div className="right">
+                <button className="btn-prim" disabled={pending} onClick={() => { const id = preview.id; setPreview(null); use(id); }}>Use template ▸</button>
+              </div>
+            ) : null
+          }
+        >
+          {preview.source ? <div className="src" style={{ marginTop: 0 }}>{preview.source}</div> : null}
+          {preview.description ? <p style={{ color: "var(--muted)", fontSize: 13 }}>{preview.description}</p> : null}
+          <ol className="agenda">
+            {(preview.phases ?? []).map((p, i) => (
+              <li key={i} className="agenda-step">
+                <div className="agenda-h">
+                  <span className="agenda-t">{p.title}</span>
+                  <span className="agenda-meta">{ACTIVITY[p.type]?.label ?? p.type} · {p.minutes}m</span>
+                </div>
+                {p.prompt ? <div className="agenda-p">{p.prompt}</div> : null}
+              </li>
+            ))}
+          </ol>
+        </SideWindow>
+      ) : null}
 
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6">
