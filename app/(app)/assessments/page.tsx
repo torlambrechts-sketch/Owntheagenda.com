@@ -132,7 +132,7 @@ export default async function AssessmentsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-    .select("id, name, kind, due_at")
+    .select("id, name, kind, due_at, subject_user_id")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
@@ -156,6 +156,32 @@ export default async function AssessmentsPage({
         total: roster.length,
         roster,
       };
+    }
+  }
+
+  // Perception gap (lead/admin): a designated subject's view vs the team's.
+  type GapDim = { key: string; label: string; subject: number | null; others: number | null };
+  type Gap = {
+    has_subject: boolean;
+    subject_present?: boolean;
+    others_n?: number;
+    others_masked?: boolean;
+    per_dim?: GapDim[];
+    subject_composite?: number | null;
+    others_composite?: number | null;
+    gap?: number | null;
+  };
+  const surveyGap: Record<string, { subjectId: string | null; gap: Gap | null }> = {};
+  const subjectMembers = tmList.map((t) => ({ id: t.user_id, name: nameOf(t.user_id) }));
+  if (canManage) {
+    for (const s of openSurveys ?? []) {
+      const subjectId = (s as { subject_user_id: string | null }).subject_user_id;
+      let gap: Gap | null = null;
+      if (subjectId) {
+        const { data } = await supabase.rpc("survey_perception_gap", { p_survey: s.id });
+        gap = (data as unknown as Gap) ?? null;
+      }
+      surveyGap[s.id] = { subjectId, gap };
     }
   }
 
@@ -199,6 +225,8 @@ export default async function AssessmentsPage({
           openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null }[]}
           templates={teamTemplates}
           status={surveyStatus}
+          members={subjectMembers}
+          gaps={surveyGap}
         />
       ) : null}
 

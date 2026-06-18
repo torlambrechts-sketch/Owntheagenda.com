@@ -3,22 +3,41 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { initials } from "@/lib/util";
-import { sendSurvey, remindSurvey, closeSurvey } from "./actions";
+import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject } from "./actions";
 
 type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null };
 type Pick = { key: string; name: string };
 type Status = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
+type Member = { id: string; name: string };
+type GapDim = { key: string; label: string; subject: number | null; others: number | null };
+type Gap = {
+  has_subject: boolean;
+  others_masked?: boolean;
+  per_dim?: GapDim[];
+  subject_composite?: number | null;
+  others_composite?: number | null;
+  gap?: number | null;
+};
+type GapInfo = { subjectId: string | null; gap: Gap | null };
 
 // Lead/admin surface: send a date-bound assessment to the team, then remind /
 // close it. The date-bound survey is the "pre-work" you send ahead of a workshop.
 // The instrument list comes from the template library (team-scope templates).
-export function SendSurvey({ teamId, openSurveys, templates, status }: { teamId: string; openSurveys: OpenSurvey[]; templates: Pick[]; status: Record<string, Status> }) {
+export function SendSurvey({ teamId, openSurveys, templates, status, members, gaps }: { teamId: string; openSurveys: OpenSurvey[]; templates: Pick[]; status: Record<string, Status>; members: Member[]; gaps: Record<string, GapInfo> }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState(templates[0]?.key ?? "");
   const [due, setDue] = useState("");
   const [openRoster, setOpenRoster] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  function setSubject(id: string, subjectId: string | null) {
+    startTransition(async () => {
+      const res = await setSurveySubject(id, subjectId);
+      if (res.error) flash(res.error);
+      else { flash(subjectId ? "Comparing that person's view vs the team" : "Cleared"); router.refresh(); }
+    });
+  }
 
   function flash(m: string) {
     setToast(m);
@@ -114,6 +133,23 @@ export function SendSurvey({ teamId, openSurveys, templates, status }: { teamId:
                     ))}
                   </div>
                 ) : null}
+                {gaps[s.id] ? (
+                  <div className="gaprow">
+                    <label className="gaplab">Compare one view vs the team</label>
+                    <select
+                      className="inp sm"
+                      value={gaps[s.id].subjectId ?? ""}
+                      disabled={pending}
+                      onChange={(e) => setSubject(s.id, e.target.value || null)}
+                    >
+                      <option value="">— no comparison —</option>
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+                {gaps[s.id]?.gap?.has_subject ? <GapCard gap={gaps[s.id].gap!} /> : null}
               </div>
             );
           })}
@@ -124,6 +160,38 @@ export function SendSurvey({ teamId, openSurveys, templates, status }: { teamId:
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
         <span>{toast}</span>
       </div>
+    </div>
+  );
+}
+
+// Perception gap: the subject's self-view vs the team's aggregate (min-3 masked).
+function GapCard({ gap }: { gap: Gap }) {
+  const masked = !!gap.others_masked || gap.others_composite == null;
+  return (
+    <div className="gapcard">
+      <div className="gaphead">
+        <div className="gapcol"><span className="gapnum">{gap.subject_composite ?? "—"}</span><span className="gapcaption">subject</span></div>
+        <span className="gapvs">vs</span>
+        <div className="gapcol">
+          <span className={`gapnum${masked ? " muted" : ""}`}>{masked ? "···" : gap.others_composite}</span>
+          <span className="gapcaption">team{masked ? " · hidden <3" : ""}</span>
+        </div>
+        {!masked && gap.gap != null ? (
+          <span className={`gapdelta ${gap.gap > 0 ? "over" : gap.gap < 0 ? "under" : ""}`}>
+            {gap.gap > 0 ? "+" : ""}{gap.gap} gap
+          </span>
+        ) : null}
+      </div>
+      {!masked && gap.per_dim ? (
+        <div className="gapdims">
+          {gap.per_dim.map((d) => (
+            <div className="gapdim" key={d.key}>
+              <span className="gapdim-l">{d.label}</span>
+              <span className="gapdim-v">{d.subject ?? "—"} <span className="muted">subj</span> · {d.others ?? "—"} <span className="muted">team</span></span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

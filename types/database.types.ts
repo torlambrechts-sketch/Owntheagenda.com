@@ -802,6 +802,7 @@ export type Database = {
           opened_at: string | null
           closed_at: string | null
           due_at: string | null
+          subject_user_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -939,6 +940,14 @@ export type Database = {
       set_block_survey: {
         Args: { p_block: string; p_survey: string | null }
         Returns: undefined
+      }
+      set_survey_subject: {
+        Args: { p_survey: string; p_subject: string | null }
+        Returns: undefined
+      }
+      survey_perception_gap: {
+        Args: { p_survey: string }
+        Returns: Json
       }
       remind_pulse: {
         Args: { p_pulse: string }

@@ -45,6 +45,15 @@ export async function closeSurvey(surveyId: string): Promise<{ error?: string }>
   return {};
 }
 
+// Designate (or clear) whose view to contrast against the team — the perception gap.
+export async function setSurveySubject(surveyId: string, subjectId: string | null): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_survey_subject", { p_survey: surveyId, p_subject: subjectId });
+  if (error) return { error: error.message };
+  revalidatePath("/assessments");
+  return {};
+}
+
 export async function runPulse(
   teamId: string,
   name: string,
