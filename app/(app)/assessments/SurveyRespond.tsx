@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { QuadrantPlot } from "@/components/QuadrantPlot";
 import {
   dimensionMeans,
   climateStrength,
@@ -120,6 +121,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
                 <span className="svc-lab">overall index</span>
               </div>
             ) : null}
+            {dims ? <QuadrantPlot inst={inst} dims={dims} /> : null}
             {dims ? dims.map((d) => {
               const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
               return (

@@ -424,6 +424,17 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .svgroup:first-of-type{border-top:none;padding-top:0;margin-top:0}
 .svgroup-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);margin-bottom:8px}
 .asopts.sv7 button{width:28px;height:28px}
+.quadwrap{display:grid;grid-template-columns:18px 1fr;grid-template-areas:"ylab plot" ". xlab" "now now";gap:5px;align-items:center;margin:4px 0 8px;max-width:300px}
+.quadylab{grid-area:ylab;writing-mode:vertical-rl;transform:rotate(180deg);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);justify-self:center;white-space:nowrap}
+.quadplot{grid-area:plot;position:relative;aspect-ratio:1;width:100%;border:1px solid var(--line);border-radius:8px;background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat,linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat,var(--canvas-2)}
+.qlab{position:absolute;font-size:9.5px;font-weight:600;color:var(--muted);max-width:46%;line-height:1.15}
+.qlab.tl{top:6px;left:6px}
+.qlab.tr{top:6px;right:6px;text-align:right}
+.qlab.bl{bottom:6px;left:6px}
+.qlab.br{bottom:6px;right:6px;text-align:right}
+.qdot{position:absolute;width:13px;height:13px;border-radius:50%;background:var(--forest);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--forest);transform:translate(-50%,50%)}
+.quadxlab{grid-area:xlab;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint);text-align:center}
+.quadnow{grid-area:now;font-size:12px;color:var(--ink);text-align:center;margin-top:3px}
 .svcomposite{display:flex;align-items:baseline;gap:7px;padding:2px 0 6px}
 .svc-num{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1;color:var(--forest)}
 .svc-den{font-size:14px;font-weight:600;color:var(--muted)}
