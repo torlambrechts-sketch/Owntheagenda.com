@@ -417,6 +417,25 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .agenda-t{font-weight:600;font-size:13.5px;color:var(--ink)}
 .agenda-meta{font-size:11px;color:var(--faint);white-space:nowrap}
 .agenda-p{font-size:12.5px;color:var(--muted);margin-top:2px}
+
+/* Next-step follow-ups */
+.fu-list{display:flex;flex-direction:column;gap:8px}
+.fu-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+.fu-main{flex:1;min-width:0}
+.fu-title{font-weight:600;font-size:13.5px;color:var(--ink)}
+.fu-meta{font-size:12px;color:var(--muted);margin-top:1px}
+.fu-act{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.fu-form{display:flex;flex-direction:column;gap:14px;margin-top:10px;padding:16px;border:1px solid var(--forest);border-radius:12px;background:var(--open-bg)}
+.fu-kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.fu-kind{display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:9px 11px;border:1.5px solid var(--line);border-radius:9px;background:var(--surface);cursor:pointer;text-align:left}
+.fu-kind:hover{border-color:var(--forest)}
+.fu-kind.on{border-color:var(--forest);background:var(--surface);box-shadow:0 0 0 1px var(--forest)}
+.fu-kind b{font-size:13px;color:var(--ink)}
+.fu-kind span{font-size:11px;color:var(--muted)}
+.fu-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.fu-fields .field{gap:4px}
+.fu-fields .field span{font-size:11px;font-weight:600;color:var(--muted)}
+.fu-foot{display:flex;justify-content:flex-end;gap:10px}
 .histctl{position:absolute;left:14px;bottom:14px;z-index:25;display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:3px}
 .histctl button{border:none;background:none;width:30px;height:26px;border-radius:6px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .histctl button:hover:not(:disabled){background:var(--canvas)}

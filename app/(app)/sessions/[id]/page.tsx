@@ -6,6 +6,7 @@ import { ACTIVITY, initials, isAdmin } from "@/lib/util";
 import { SessionSynthesis } from "./Synthesis";
 import { PrintButton } from "./PrintButton";
 import { CanvasReadout } from "./CanvasReadout";
+import { FollowUpPanel } from "./FollowUpPanel";
 import type { CanvasObj } from "@/components/CanvasStatic";
 
 function fmtDateTime(d: string | null) {
@@ -114,6 +115,22 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
     data: (s.data ?? []) as unknown as CanvasObj[],
   }));
   const canManageCanvas = isAdmin(ctx.role) || session.facilitator_id === ctx.userId;
+
+  // Next-step follow-ups for this session + the picker's templates/members.
+  const { data: fuRows } = await supabase
+    .from("follow_up")
+    .select("id, kind, title, owner_id, scheduled_at, workshop_id, status")
+    .eq("source_session_id", session.id)
+    .order("created_at", { ascending: false });
+  const { data: fuTemplates } = await supabase.from("template").select("id, name, category").order("name", { ascending: true });
+  const { data: fuTeamMembers } = workshop
+    ? await supabase.from("team_member").select("user_id").eq("team_id", workshop.team_id)
+    : { data: [] as { user_id: string }[] };
+  const fuMemberIds = (fuTeamMembers ?? []).map((m) => m.user_id);
+  const { data: fuProfiles } = fuMemberIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", fuMemberIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const fuMembers = (fuProfiles ?? []).map((p) => ({ id: p.id, name: p.full_name || p.display_name || p.email || "Member" }));
 
   const totalVotes = (votes ?? []).length;
   const liveBanner = session.status === "live";
@@ -226,6 +243,14 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
       })}
 
       <CanvasReadout sessionId={session.id} blocks={canvasBlocks} snapshots={snapshots} canManage={canManageCanvas} />
+
+      <FollowUpPanel
+        sessionId={session.id}
+        canManage={canManageCanvas}
+        followUps={(fuRows ?? []) as any}
+        templates={fuTemplates ?? []}
+        members={fuMembers}
+      />
 
       {decisionList.length > 0 ? (
         <div className="ro-block">

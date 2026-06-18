@@ -350,6 +350,28 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      follow_up: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string | null
+          source_session_id: string | null
+          kind: string
+          title: string
+          owner_id: string | null
+          scheduled_at: string | null
+          workshop_id: string | null
+          completed_session_id: string | null
+          status: string
+          note: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       team: {
         Row: {
           created_at: string
@@ -1030,6 +1052,14 @@ export type Database = {
       add_block_live: {
         Args: { p_workshop: string; p_kind: string; p_title?: string | null; p_config?: Json }
         Returns: number
+      }
+      schedule_follow_up: {
+        Args: { p_session: string; p_kind: string; p_title: string; p_when: string; p_owner?: string | null; p_template?: string | null }
+        Returns: string
+      }
+      skip_follow_up: {
+        Args: { p_id: string }
+        Returns: undefined
       }
       survey_perception_gap: {
         Args: { p_survey: string }
