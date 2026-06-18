@@ -108,6 +108,7 @@ export function RunClient({
   const [addOpen, setAddOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [surveyInsts, setSurveyInsts] = useState<{ kind: string; name: string }[]>([]);
+  const [planSource, setPlanSource] = useState<string | null>(null);
   const [session, setSession] = useState<SessionState>(initialSession);
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
   const [actions, setActions] = useState<Action[]>(initialActions);
@@ -251,6 +252,12 @@ export function RunClient({
       if (data) setSurveyInsts(data.map((t) => ({ kind: t.key, name: t.name })));
     });
   }, [supabase, isFacilitator]);
+
+  // if this run is a scheduled follow-up, the prior session whose plan we can pull forward
+  useEffect(() => {
+    supabase.from("follow_up").select("source_session_id").eq("workshop_id", workshopId).not("source_session_id", "is", null).limit(1)
+      .then(({ data }) => { if (data && data[0]) setPlanSource((data[0] as { source_session_id: string }).source_session_id); });
+  }, [supabase, workshopId]);
 
   const remaining = session.timerRunning && session.timerEndsAt
     ? Math.max(0, Math.ceil((new Date(session.timerEndsAt).getTime() - now) / 1000))
@@ -500,7 +507,7 @@ export function RunClient({
               <h2>{block?.title}</h2>
               {block?.prompt ? <div className="ptext">{block.prompt}</div> : null}
             </div>
-            <PlanBoard sessionId={sid} blockOrd={session.currentBlockOrd} canEdit={true} members={participants.map((p) => ({ name: p.name }))} />
+            <PlanBoard sessionId={sid} blockOrd={session.currentBlockOrd} canEdit={true} members={participants.map((p) => ({ name: p.name }))} sourceSessionId={planSource} />
           </div>
         ) : (
           <div className="stage">

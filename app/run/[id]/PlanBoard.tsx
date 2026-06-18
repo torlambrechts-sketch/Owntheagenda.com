@@ -40,11 +40,13 @@ export function PlanBoard({
   blockOrd,
   canEdit,
   members,
+  sourceSessionId,
 }: {
   sessionId: string;
   blockOrd: number;
   canEdit: boolean;
   members: { name: string }[];
+  sourceSessionId?: string | null;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [tasks, setTasks] = useState<PlanTask[]>([]);
@@ -129,6 +131,11 @@ export function PlanBoard({
     const next = STATUS_NEXT[t.status] ?? "todo";
     patchLocal(t.id, { status: next });
     save(t.id, { status: next });
+  }
+  async function pullForward() {
+    if (!sourceSessionId) return;
+    await supabase.rpc("seed_plan_from_session", { p_source: sourceSessionId, p_target: sessionId, p_block: blockOrd });
+    await load();
   }
 
   // ---- ordered display: top-level tasks, each followed by its sub-tasks ----
@@ -217,7 +224,10 @@ export function PlanBoard({
           <button className={view === "list" ? "on" : ""} onClick={() => setView("list")}>List</button>
           <button className={view === "timeline" ? "on" : ""} onClick={() => setView("timeline")}>Timeline</button>
         </div>
-        {canEdit ? <button className="btn-prim sm" onClick={() => addTask(null)}>＋ Add task</button> : null}
+        <div className="pl-bar-r">
+          {canEdit && sourceSessionId ? <button className="btn-ghost sm" onClick={pullForward} title="Copy last session's open tasks">⤵ Pull forward last plan</button> : null}
+          {canEdit ? <button className="btn-prim sm" onClick={() => addTask(null)}>＋ Add task</button> : null}
+        </div>
       </div>
 
       {!display.length ? (

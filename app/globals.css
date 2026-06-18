@@ -370,6 +370,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .pl-views button{border:none;background:none;padding:5px 14px;border-radius:7px;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer}
 .pl-views button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
 .btn-prim.sm{padding:6px 12px;font-size:13px;flex:none}
+.pl-bar-r{display:flex;gap:8px;align-items:center}
 .pl-empty{color:var(--faint);font-size:13px;padding:18px;text-align:center}
 .pl-list{display:flex;flex-direction:column}
 .pl-row{display:grid;grid-template-columns:26px 1fr 130px 138px 138px 54px;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}

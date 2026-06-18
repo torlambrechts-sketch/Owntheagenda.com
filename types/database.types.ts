@@ -1061,6 +1061,10 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      seed_plan_from_session: {
+        Args: { p_source: string; p_target: string; p_block: number }
+        Returns: number
+      }
       survey_perception_gap: {
         Args: { p_survey: string }
         Returns: Json
