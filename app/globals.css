@@ -865,6 +865,9 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .votebtn .dot{width:9px;height:9px;border-radius:50%;background:var(--line-2)}
 .votebtn.on{background:var(--open-bg);color:var(--green);border-color:var(--green)}
 .votebtn.on .dot{background:var(--green)}
+.ideacard .taskbtn{border:1px solid var(--line-2);background:none;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-radius:6px;padding:4px 8px;cursor:pointer;white-space:nowrap}
+.ideacard .taskbtn:hover{border-color:var(--green);color:var(--green)}
+.ideacard .taskbtn.on{color:var(--green);border-color:var(--green);background:var(--open-bg);cursor:default}
 .ideacols{flex:1;min-height:0;display:grid;gap:12px;overflow:auto;padding-top:2px}
 .ideacol{background:var(--canvas);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:160px;overflow:hidden}
 .ideacol-h{font-size:12px;font-weight:700;color:var(--ink);padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}

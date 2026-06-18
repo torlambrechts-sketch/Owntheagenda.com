@@ -70,6 +70,7 @@ export function IdeaModule({
   const [editing, setEditing] = useState<Idea | null>(null);
   const [editText, setEditText] = useState("");
   const [editDetail, setEditDetail] = useState("");
+  const [promoted, setPromoted] = useState<Set<string>>(new Set());
   const seededRef = useRef(false);
 
   const budget = Math.max(0, config.budget ?? (mode === "feedback" ? 0 : 3));
@@ -197,6 +198,17 @@ export function IdeaModule({
     if (error) { setErr(error.message); load(); }
   }
 
+  // Turn a card into a session commitment (task). Appears in the run's right
+  // rail via its action_item subscription. Facilitator-curated from the votes.
+  async function promote(i: Idea) {
+    setPromoted((s) => new Set(s).add(i.id));
+    const { error } = await supabase.rpc("add_action", { p_session: sessionId, p_text: i.text });
+    if (error) {
+      setErr(error.message);
+      setPromoted((s) => { const n = new Set(s); n.delete(i.id); return n; });
+    }
+  }
+
   async function toggleVote(id: string) {
     const had = iVoted(id);
     if (!had && remaining <= 0) {
@@ -274,6 +286,11 @@ export function IdeaModule({
                         {canRemove(i) ? (
                           <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button>
                         ) : null}
+                        {isFacilitator ? (
+                          <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
+                            {promoted.has(i.id) ? "✓ Task" : "→ Task"}
+                          </button>
+                        ) : null}
                       </div>
                     </div>
                   ))}
@@ -319,6 +336,11 @@ export function IdeaModule({
                       {revealed ? (
                         <button className={`votebtn${mine ? " on" : ""}`} onClick={() => toggleVote(i.id)} title={mine ? "Remove your dot" : "Add a dot"}>
                           <span className="dot" /> {c}
+                        </button>
+                      ) : null}
+                      {isFacilitator ? (
+                        <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
+                          {promoted.has(i.id) ? "✓ Task" : "→ Task"}
                         </button>
                       ) : null}
                     </div>
@@ -381,7 +403,8 @@ export function IdeaModule({
         }
       >
         {editing ? (
-          canRemove(editing) ? (
+          <>
+          {canRemove(editing) ? (
             <>
               <div className="field">
                 <label htmlFor="card-text">Card</label>
@@ -402,7 +425,13 @@ export function IdeaModule({
                 <div className="form-note">No detail added.</div>
               )}
             </>
-          )
+          )}
+          {isFacilitator ? (
+            <button className="btn-sec sm" disabled={promoted.has(editing.id)} onClick={() => promote(editing)} style={{ marginTop: 14 }}>
+              {promoted.has(editing.id) ? "✓ Added as a task" : "Make this a task →"}
+            </button>
+          ) : null}
+          </>
         ) : null}
       </SideWindow>
     </div>
