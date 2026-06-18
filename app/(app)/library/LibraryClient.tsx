@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { individualDimensionMeans, type SurveyInstrument } from "@/lib/survey";
+import { individualDimensionMeans, compositeScore, type SurveyInstrument } from "@/lib/survey";
 import { sendSurvey } from "../assessments/actions";
 import { submitIndividual, setShared, deleteTemplate } from "./actions";
 
@@ -284,11 +284,19 @@ function ProfileCard({
 }) {
   const max = inst.scale.max;
   const dims = individualDimensionMeans(inst, result.scores);
+  const composite = compositeScore(inst, dims);
   return (
     <div className="tpl">
       <div className="body">
         <h3 style={{ marginBottom: 8 }}>{name}</h3>
         <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: 0, flex: 1 }}>
+          {composite != null ? (
+            <div className="svcomposite">
+              <span className="svc-num">{composite}</span>
+              <span className="svc-den">/ 100</span>
+              <span className="svc-lab">overall index</span>
+            </div>
+          ) : null}
           {dims.map((d) => {
             const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
             return (
