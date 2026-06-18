@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { individualDimensionMeans, compositeScore, type SurveyInstrument } from "@/lib/survey";
+import { useTableControls } from "@/components/TableControls";
 import { sendSurvey } from "../assessments/actions";
 import { submitIndividual, setShared, deleteTemplate } from "./actions";
 
@@ -115,6 +116,41 @@ export function LibraryClient({
       </div>
     ) : null;
 
+  // One card renderer for both sections and the filtered view (scope-aware foot).
+  const renderCard = (t: LibTemplate) => (
+    <Card key={t.key} t={t} manage={manage(t)}>
+      {t.scope === "team" ? (
+        manageableTeams.length > 0 ? (
+          <button className="btn-prim" onClick={() => setPanel({ mode: "launch", tpl: t })}>Launch ▸</button>
+        ) : (
+          <span className="libhint">Only a team lead can launch</span>
+        )
+      ) : results[t.key] ? (
+        <button className="btn-ghost" onClick={() => setPanel({ mode: "take", tpl: t })}>✓ Completed · Retake</button>
+      ) : (
+        <button className="btn-prim" onClick={() => setPanel({ mode: "take", tpl: t })}>Take it ▸</button>
+      )}
+    </Card>
+  );
+
+  const lib = useTableControls<LibTemplate>(templates, {
+    search: { placeholder: "Search assessments…", text: (t) => `${t.name} ${t.source ?? ""} ${t.description ?? ""}` },
+    sorts: [
+      { key: "section", label: "By section", cmp: () => 0 },
+      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.name.localeCompare(b.name) },
+    ],
+    facets: [
+      { key: "scope", label: "Type", options: [
+        { value: "team", label: "Team", test: (t) => t.scope === "team" },
+        { value: "individual", label: "Individual", test: (t) => t.scope === "individual" },
+      ] },
+      { key: "custom", label: "Source", options: [
+        { value: "custom", label: "Custom", test: (t) => t.custom },
+        { value: "builtin", label: "Built-in", test: (t) => !t.custom },
+      ] },
+    ],
+  });
+
   return (
     <>
       {isAdmin ? (
@@ -142,35 +178,30 @@ export function LibraryClient({
         </div>
       ) : null}
 
-      <Section
-        title="Team assessments"
-        sub="Sent to a team as an anonymous survey — answered live in a workshop or ahead as pre-work."
-        items={team}
-        render={(t) => (
-          <Card key={t.key} t={t} manage={manage(t)}>
-            {manageableTeams.length > 0 ? (
-              <button className="btn-prim" onClick={() => setPanel({ mode: "launch", tpl: t })}>Launch ▸</button>
-            ) : (
-              <span className="libhint">Only a team lead can launch</span>
-            )}
-          </Card>
-        )}
-      />
+      {lib.controls}
 
-      <Section
-        title="Individual assessments"
-        sub="Self-assessments you take yourself. Your results are private to you."
-        items={individual}
-        render={(t) => (
-          <Card key={t.key} t={t} manage={manage(t)}>
-            {results[t.key] ? (
-              <button className="btn-ghost" onClick={() => setPanel({ mode: "take", tpl: t })}>✓ Completed · Retake</button>
-            ) : (
-              <button className="btn-prim" onClick={() => setPanel({ mode: "take", tpl: t })}>Take it ▸</button>
-            )}
-          </Card>
-        )}
-      />
+      {lib.active ? (
+        lib.view.length ? (
+          <div className="tpl-grid">{lib.view.map(renderCard)}</div>
+        ) : (
+          <div className="card empty">No assessments match these filters.</div>
+        )
+      ) : (
+        <>
+          <Section
+            title="Team assessments"
+            sub="Sent to a team as an anonymous survey — answered live in a workshop or ahead as pre-work."
+            items={team}
+            render={renderCard}
+          />
+          <Section
+            title="Individual assessments"
+            sub="Self-assessments you take yourself. Your results are private to you."
+            items={individual}
+            render={renderCard}
+          />
+        </>
+      )}
 
       {panel ? (
         <div className="libpanel-backdrop" onClick={() => setPanel(null)}>

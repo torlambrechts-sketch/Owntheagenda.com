@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
+import { useTableControls } from "@/components/TableControls";
 import { initials, roleLabel } from "@/lib/util";
 import type { Enums } from "@/types/database.types";
 import {
@@ -123,6 +124,22 @@ export function MembersClient({
     });
   }
 
+  const mc = useTableControls<MemberRow>(members, {
+    search: { placeholder: "Search members…", text: (m) => `${m.name} ${m.email ?? ""}` },
+    sorts: [
+      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.name.localeCompare(b.name) },
+      { key: "role", label: "Role", cmp: (a, b) => a.role.localeCompare(b.role) },
+    ],
+    facets: [
+      { key: "role", label: "Role", multi: true, options: [
+        { value: "owner", label: "Owner", test: (m) => m.role === "owner" },
+        { value: "admin", label: "Admin", test: (m) => m.role === "admin" },
+        { value: "member", label: "Member", test: (m) => m.role === "member" },
+      ] },
+    ],
+  });
+  const memberView = members.length >= 6 ? mc.view : members;
+
   return (
     <>
       <div className="summary">
@@ -150,6 +167,7 @@ export function MembersClient({
         ) : null}
       </div>
 
+      {members.length >= 6 ? mc.controls : null}
       <div className="tbl-card">
         <table className="tbl">
           <thead>
@@ -160,7 +178,7 @@ export function MembersClient({
             </tr>
           </thead>
           <tbody>
-            {members.map((m) => (
+            {memberView.map((m) => (
               <tr key={m.membershipId}>
                 <td>
                   <div className="person">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
+import { useTableControls } from "@/components/TableControls";
 import { initials } from "@/lib/util";
 import { createTeam } from "./actions";
 
@@ -61,6 +62,25 @@ export function TeamsClient({
     router.refresh();
   }
 
+  const tc = useTableControls<TeamCard>(teams, {
+    search: { placeholder: "Search teams…", text: (t) => `${t.name} ${t.leadName ?? ""} ${t.description ?? ""}` },
+    sorts: [
+      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.name.localeCompare(b.name) },
+      { key: "members", label: "Most members", cmp: (a, b) => b.memberCount - a.memberCount },
+      { key: "lead", label: "Lead (A–Z)", cmp: (a, b) => (a.leadName ?? "~").localeCompare(b.leadName ?? "~") },
+    ],
+    facets: [
+      { key: "lead", label: "Lead", options: [
+        { value: "has", label: "Has lead", test: (t) => !!t.leadName },
+        { value: "no", label: "No lead", test: (t) => !t.leadName },
+      ] },
+      { key: "level", label: "Level", options: [
+        { value: "top", label: "Top level", test: (t) => !t.parentName },
+        { value: "sub", label: "Sub-team", test: (t) => !!t.parentName },
+      ] },
+    ],
+  });
+
   return (
     <>
       <div className="summary">
@@ -80,8 +100,13 @@ export function TeamsClient({
       {teams.length === 0 ? (
         <div className="card empty">No teams yet.</div>
       ) : (
+        <>
+        {teams.length >= 4 ? tc.controls : null}
+        {tc.view.length === 0 ? (
+          <div className="card empty">No teams match these filters.</div>
+        ) : (
         <div className="cardgrid">
-          {teams.map((t) => (
+          {tc.view.map((t) => (
             <Link
               className="card"
               key={t.id}
@@ -129,6 +154,8 @@ export function TeamsClient({
             </Link>
           ))}
         </div>
+        )}
+        </>
       )}
 
       <SideWindow
