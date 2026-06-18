@@ -64,6 +64,16 @@ button { font-family:inherit; }
 .org-plan{font-size:13px;font-weight:600;text-transform:capitalize;color:var(--ink)}
 .row-acts{display:inline-flex;gap:12px;align-items:center;justify-content:flex-end}
 .linkbtn.danger{color:var(--rust)}
+.intgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;max-width:980px}
+.intcard{display:flex;flex-direction:column;gap:10px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.intcard.on{border-color:var(--forest)}
+.int-h{display:flex;align-items:center;gap:11px}
+.int-logo{width:34px;height:34px;border-radius:9px;background:var(--canvas);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;color:var(--ink)}
+.int-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.int-meta b{font-size:14px;color:var(--ink)}
+.int-blurb{font-size:12.5px;color:var(--muted);margin:0;flex:1}
+.int-form{display:flex;flex-direction:column;gap:8px}
+.int-acts{display:flex;gap:8px;justify-content:flex-end;align-items:center}
 .grounded{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);background:var(--open-bg);padding:3px 9px;border-radius:20px}
 
 /* ---------- avatars ---------- */

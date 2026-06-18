@@ -372,6 +372,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      integration: {
+        Row: {
+          id: string
+          workspace_id: string
+          provider: string
+          status: string
+          config: Json
+          connected_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       team: {
         Row: {
           created_at: string
