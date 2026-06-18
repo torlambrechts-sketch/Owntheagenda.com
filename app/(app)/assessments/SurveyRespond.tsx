@@ -16,7 +16,7 @@ import {
 // passed in as a kind → instrument map.
 
 type OpenSurvey = { id: string; name: string; kind: string };
-type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null };
+type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null };
 
 export function SurveyRespond({
   surveys,
@@ -113,6 +113,13 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
               {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
               {strength ? <span className={`svchip ${strength.tone}`}>{strength.label} on {strengthLabel}</span> : null}
             </div>
+            {results && !results.masked && results.composite != null ? (
+              <div className="svcomposite">
+                <span className="svc-num">{results.composite}</span>
+                <span className="svc-den">/ 100</span>
+                <span className="svc-lab">overall index</span>
+              </div>
+            ) : null}
             {dims ? dims.map((d) => {
               const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
               return (

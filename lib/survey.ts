@@ -14,6 +14,18 @@ export type SurveyInstrument = {
   dimensions: SurveyDimension[];
   items: SurveyItem[];
   strengthDimension: string; // dimension whose spread drives the climate-strength read
+  weights?: Record<string, number>; // optional per-dimension weights for the composite
+  quadrant?: QuadrantConfig; // optional 2×2 (e.g. strategy quality × execution readiness)
+};
+
+// Optional 2×2 output: plot two named dimensions against each other.
+export type QuadrantConfig = {
+  x: string; // dimension key
+  y: string; // dimension key
+  xLabel: string;
+  yLabel: string;
+  // labels for the four quadrants, indexed lowX/highX × lowY/highY
+  q?: { ll: string; hl: string; lh: string; hh: string };
 };
 
 export const PSYCH_SAFETY_BANG: SurveyInstrument = {
@@ -130,12 +142,38 @@ export function strengthItemKeys(inst: SurveyInstrument): string[] {
   return inst.items.filter((it) => it.dimension === inst.strengthDimension).map((it) => it.key);
 }
 
+// Normalize dimension means to a 0–100 composite. Matches the server's
+// private.survey_composite exactly: weighted mean of dimension means (equal
+// weight unless the instrument carries `weights`), normalized over the scale.
+// Used for the individual-scope immediate result (which never hits survey_results).
+export function compositeScore(
+  inst: SurveyInstrument,
+  dims: { key: string; mean: number | null }[],
+): number | null {
+  const vals = dims.filter((d): d is { key: string; mean: number } => typeof d.mean === "number");
+  if (!vals.length) return null;
+  let wsum = 0;
+  let sum = 0;
+  for (const d of vals) {
+    const w = inst.weights?.[d.key] ?? 1;
+    sum += d.mean * w;
+    wsum += w;
+  }
+  if (!wsum) return null;
+  const raw = sum / wsum;
+  const { min, max } = inst.scale;
+  if (max === min) return null;
+  return Math.round(((raw - min) / (max - min)) * 1000) / 10;
+}
+
 // Shape of the `definition` jsonb stored on an assessment_template row.
 export type InstrumentDefinition = {
   scale: SurveyInstrument["scale"];
   dimensions: SurveyDimension[];
   items: SurveyItem[];
   strengthDimension?: string;
+  weights?: Record<string, number>;
+  quadrant?: QuadrantConfig;
 };
 
 // Build a runtime SurveyInstrument from an assessment_template row: the row's
@@ -158,5 +196,7 @@ export function instrumentFromRow(row: {
     dimensions: def.dimensions,
     items: def.items,
     strengthDimension: def.strengthDimension ?? def.dimensions[0].key,
+    weights: def.weights,
+    quadrant: def.quadrant,
   };
 }
