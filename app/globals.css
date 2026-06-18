@@ -655,6 +655,13 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .libpanel-body{padding:16px 20px 20px}
 .xbtn{background:none;border:none;color:var(--faint);font-size:16px;cursor:pointer;line-height:1;padding:4px}
 .xbtn:hover{color:var(--ink)}
+.cardmanage{display:flex;gap:14px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.builder-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.builder-row .inp{flex:1}
+.rowdel{background:none;border:1px solid var(--line-2);color:var(--faint);border-radius:6px;width:32px;height:32px;flex:none;cursor:pointer;font-size:13px}
+.rowdel:hover:not(:disabled){background:var(--canvas);color:var(--rust)}
+.rowdel:disabled{opacity:.4;cursor:not-allowed}
+.formerr{background:rgba(176,74,52,.08);border:1px solid var(--rust);color:var(--rust);font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:12px}
 
 @media (max-width:980px){
   .app{grid-template-columns:60px 1fr}

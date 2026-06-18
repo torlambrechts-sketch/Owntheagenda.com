@@ -14,6 +14,7 @@ export default async function LibraryPage() {
   const rows = await listTemplates();
   const instruments = instrumentsFrom(rows);
   const templates: LibTemplate[] = rows.map((t) => ({
+    id: t.id,
     key: t.key,
     name: t.name,
     category: t.category,
@@ -61,6 +62,7 @@ export default async function LibraryPage() {
         instruments={instruments}
         manageableTeams={manageableTeams}
         myResults={myResults}
+        isAdmin={isAdmin(ctx.role)}
       />
     </div>
   );

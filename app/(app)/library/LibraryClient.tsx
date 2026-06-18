@@ -2,11 +2,13 @@
 
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { individualDimensionMeans, type SurveyInstrument } from "@/lib/survey";
 import { sendSurvey } from "../assessments/actions";
-import { submitIndividual, setShared } from "./actions";
+import { submitIndividual, setShared, deleteTemplate } from "./actions";
 
 export type LibTemplate = {
+  id: string;
   key: string;
   name: string;
   category: string;
@@ -35,11 +37,13 @@ export function LibraryClient({
   instruments,
   manageableTeams,
   myResults,
+  isAdmin,
 }: {
   templates: LibTemplate[];
   instruments: Record<string, SurveyInstrument>;
   manageableTeams: Team[];
   myResults: MyResult[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -47,10 +51,12 @@ export function LibraryClient({
   const [results, setResults] = useState<Record<string, MyResult>>(
     () => Object.fromEntries(myResults.map((r) => [r.key, r])),
   );
+  const [removed, setRemoved] = useState<Set<string>>(() => new Set());
   const [toast, setToast] = useState<string | null>(null);
 
-  const team = useMemo(() => templates.filter((t) => t.scope === "team"), [templates]);
-  const individual = useMemo(() => templates.filter((t) => t.scope === "individual"), [templates]);
+  const visible = useMemo(() => templates.filter((t) => !removed.has(t.id)), [templates, removed]);
+  const team = useMemo(() => visible.filter((t) => t.scope === "team"), [visible]);
+  const individual = useMemo(() => visible.filter((t) => t.scope === "individual"), [visible]);
   const nameByKey = useMemo(() => Object.fromEntries(templates.map((t) => [t.key, t.name])), [templates]);
   const myProfileKeys = useMemo(
     () => Object.keys(results).filter((k) => instruments[k] && results[k]),
@@ -76,8 +82,37 @@ export function LibraryClient({
     });
   }
 
+  function removeTpl(t: LibTemplate) {
+    if (!confirm(`Delete “${t.name}”? This can’t be undone.`)) return;
+    setRemoved((s) => new Set(s).add(t.id));
+    startTransition(async () => {
+      const res = await deleteTemplate(t.id);
+      if (res.error) {
+        flash(res.error);
+        setRemoved((s) => { const n = new Set(s); n.delete(t.id); return n; }); // revert
+      } else {
+        flash("Template deleted");
+        router.refresh();
+      }
+    });
+  }
+
+  const manage = (t: LibTemplate) =>
+    isAdmin && t.custom ? (
+      <div className="cardmanage">
+        <Link href={`/library/new?id=${t.id}`} className="linkbtn">Edit</Link>
+        <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => removeTpl(t)}>Delete</button>
+      </div>
+    ) : null;
+
   return (
     <>
+      {isAdmin ? (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <Link href="/library/new" className="btn-prim" style={{ flex: "none" }}>+ New template</Link>
+        </div>
+      ) : null}
+
       {myProfileKeys.length > 0 ? (
         <div>
           <div className="cat-head" style={{ fontSize: 15 }}>Your profile <span className="n">{myProfileKeys.length}</span></div>
@@ -102,7 +137,7 @@ export function LibraryClient({
         sub="Sent to a team as an anonymous survey — answered live in a workshop or ahead as pre-work."
         items={team}
         render={(t) => (
-          <Card key={t.key} t={t}>
+          <Card key={t.key} t={t} manage={manage(t)}>
             {manageableTeams.length > 0 ? (
               <button className="btn-prim" onClick={() => setPanel({ mode: "launch", tpl: t })}>Launch ▸</button>
             ) : (
@@ -117,7 +152,7 @@ export function LibraryClient({
         sub="Self-assessments you take yourself. Your results are private to you."
         items={individual}
         render={(t) => (
-          <Card key={t.key} t={t}>
+          <Card key={t.key} t={t} manage={manage(t)}>
             {results[t.key] ? (
               <button className="btn-ghost" onClick={() => setPanel({ mode: "take", tpl: t })}>✓ Completed · Retake</button>
             ) : (
@@ -206,7 +241,7 @@ function Section({
   );
 }
 
-function Card({ t, children }: { t: LibTemplate; children: ReactNode }) {
+function Card({ t, children, manage }: { t: LibTemplate; children: ReactNode; manage?: ReactNode }) {
   return (
     <div className="tpl">
       <div className="body">
@@ -218,6 +253,7 @@ function Card({ t, children }: { t: LibTemplate; children: ReactNode }) {
         {t.source ? <div className="src">{t.source}</div> : null}
         <p>{t.description}</p>
         <div className="foot">{children}</div>
+        {manage}
       </div>
     </div>
   );
