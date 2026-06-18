@@ -297,6 +297,21 @@ export type Database = {
         }
         Relationships: []
       }
+      health_status: {
+        Row: {
+          id: string
+          team_id: string
+          workspace_id: string
+          axis: string
+          status: string
+          note: string | null
+          updated_by: string | null
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       team: {
         Row: {
           created_at: string
@@ -304,6 +319,7 @@ export type Database = {
           deleted_at: string | null
           description: string | null
           id: string
+          kind: string
           lead_user_id: string | null
           name: string
           parent_team_id: string | null
@@ -944,6 +960,18 @@ export type Database = {
       set_survey_subject: {
         Args: { p_survey: string; p_subject: string | null }
         Returns: undefined
+      }
+      set_team_kind: {
+        Args: { p_team: string; p_kind: string }
+        Returns: undefined
+      }
+      set_health_status: {
+        Args: { p_team: string; p_axis: string; p_status: string | null; p_note?: string | null }
+        Returns: undefined
+      }
+      workspace_health: {
+        Args: { p_workspace: string }
+        Returns: Json
       }
       survey_perception_gap: {
         Args: { p_survey: string }

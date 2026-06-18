@@ -81,10 +81,16 @@ const ICONS = {
       <path d="M12 8v4l3 2" />
     </svg>
   ),
+  health: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 12h4l2 5 4-12 2 7h6" />
+    </svg>
+  ),
 };
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
+  { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "People" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
