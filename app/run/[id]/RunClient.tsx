@@ -130,6 +130,7 @@ export function RunClient({
     block?.activityType === "brainstorm" ? "brainstorm" as const
     : block?.activityType === "vote" ? "poll" as const
     : block?.activityType === "feedback" ? "feedback" as const
+    : block?.activityType === "checkin" && !!(block?.config as Record<string, unknown>)?.capture ? "brainstorm" as const
     : null;
 
   const reloadParticipants = useCallback(async () => {
@@ -492,6 +493,7 @@ export function RunClient({
               prompt={block?.prompt ?? null}
               stepLabel={`${ACTIVITY[block!.activityType]?.label ?? ""} · Step ${session.currentBlockOrd} of ${N}`}
               config={block?.config ?? {}}
+              addPlaceholder={block?.activityType === "checkin" ? "Share your response…" : undefined}
               userId={userId}
               userName={userName}
               isFacilitator={isFacilitator}
@@ -516,8 +518,9 @@ export function RunClient({
                 {ACTIVITY[block?.activityType ?? "canvas"]?.label} · Step {session.currentBlockOrd} of {N}
               </div>
               <h2>{block?.title}</h2>
-              <div className="ptext">
-                {block?.prompt || "Discuss this step together. The facilitator advances when you're ready."}
+              {block?.prompt ? <div className="ptext">{block.prompt}</div> : null}
+              <div className="stage-hint">
+                Reflect and share out loud — the facilitator moves on when everyone’s ready.
               </div>
               {!isFacilitator || view === "participant" ? (
                 <button className={`ready${me?.ready ? " on" : ""}`} onClick={toggleReady}>

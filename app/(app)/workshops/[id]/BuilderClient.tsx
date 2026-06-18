@@ -31,7 +31,7 @@ export type AssessmentPanel = {
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
 
-export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean };
+export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; capture?: boolean };
 
 export type BlockRow = {
   id: string;
@@ -142,6 +142,7 @@ export function BuilderClient({
   const [optionsText, setOptionsText] = useState("");
   const [budget, setBudget] = useState(3);
   const [silent, setSilent] = useState(false);
+  const [capture, setCapture] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -206,6 +207,7 @@ export function BuilderClient({
     setOptionsText("");
     setBudget(3);
     setSilent(false);
+    setCapture(false);
     setError(null);
     setOpen(true);
   }
@@ -220,6 +222,7 @@ export function BuilderClient({
     setOptionsText((b.config?.options ?? []).join("\n"));
     setBudget(b.config?.budget ?? 3);
     setSilent(!!b.config?.silent);
+    setCapture(!!b.config?.capture);
     setError(null);
     setOpen(true);
   }
@@ -230,6 +233,7 @@ export function BuilderClient({
     if (activity === "feedback") return { lanes };
     if (activity === "vote") return { options, budget: b };
     if (activity === "brainstorm") return { budget: b, silent };
+    if (activity === "checkin") return { capture };
     return {};
   }
   async function saveBlock() {
@@ -501,6 +505,15 @@ export function BuilderClient({
               <div className="form-note">Cards stay hidden from others until the facilitator reveals them — prevents loud-voice anchoring.</div>
             </div>
           </>
+        ) : null}
+        {activity === "checkin" ? (
+          <div className="field">
+            <label className="checkrow">
+              <input type="checkbox" checked={capture} onChange={(e) => setCapture(e.target.checked)} />
+              Collect written responses
+            </label>
+            <div className="form-note">On: participants type a response (shown as cards you can edit, vote on and turn into tasks). Off: a reflect-and-ready round with no typing.</div>
+          </div>
         ) : null}
         <div className="field">
           <label>Facilitator prompt <span className="opt">(optional)</span></label>

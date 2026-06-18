@@ -40,6 +40,7 @@ export function IdeaModule({
   showReady,
   ready,
   onToggleReady,
+  addPlaceholder,
 }: {
   sessionId: string;
   blockOrd: number;
@@ -54,6 +55,7 @@ export function IdeaModule({
   showReady: boolean;
   ready: boolean;
   onToggleReady: () => void;
+  addPlaceholder?: string;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const silent = mode === "brainstorm" && !!config.silent;
@@ -264,7 +266,7 @@ export function IdeaModule({
           <div className="idea-add">
             <input
               className="inp"
-              placeholder="Add an idea — one per card…"
+              placeholder={addPlaceholder ?? "Add an idea — one per card…"}
               value={drafts["_"] ?? ""}
               onChange={(e) => setDrafts((d) => ({ ...d, _: e.target.value }))}
               onKeyDown={(e) => { if (e.key === "Enter") addIdea(null); }}

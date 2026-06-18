@@ -400,6 +400,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .stage-prompt .ptext{font-size:17px;line-height:1.55;color:rgba(255,255,255,.92);background:rgba(255,255,255,.07);border-radius:10px;padding:16px 18px;border-left:3px solid var(--green)}
 .stage-prompt .ready{margin-top:20px;background:var(--green);border:none;color:#fff;border-radius:7px;padding:11px 18px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer}
 .stage-prompt .ready.on{background:rgba(255,255,255,.16)}
+.stage-prompt .stage-hint{font-size:13px;color:rgba(255,255,255,.6);margin-top:14px;line-height:1.5}
 .runside{width:320px;background:var(--surface);border-left:1px solid var(--line);overflow:auto;flex:none}
 .rs{padding:15px 16px;border-bottom:1px solid var(--line)}
 .rs h5{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 11px;display:flex;justify-content:space-between;align-items:center}
