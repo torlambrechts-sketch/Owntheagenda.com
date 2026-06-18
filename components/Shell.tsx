@@ -131,6 +131,22 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/help", label: "Help & Science", icon: ICONS.help, group: "Help" },
 ];
 
+// Per-section contextual help: route segment → the guide's slug.
+const SECTION_HELP: Record<string, string> = {
+  dashboard: "your-dashboard",
+  health: "read-team-health",
+  members: "invite-your-company",
+  teams: "set-up-teams",
+  workshops: "run-first-workshop",
+  sessions: "facilitate-live-session",
+  canvas: "the-canvas",
+  actions: "turn-talk-into-action",
+  library: "the-template-library",
+  assessments: "run-an-assessment",
+  organization: "manage-organization-data",
+  integrations: "integrations-guide",
+};
+
 export function Shell({
   chrome,
   children,
@@ -151,6 +167,8 @@ export function Shell({
   const groups = ["Workspace", "People", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
+  const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
+  const helpHref = helpSlug ? `/help/${helpSlug}` : "/help";
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
@@ -214,6 +232,13 @@ export function Shell({
             )}
           </div>
           <div className="right">
+            <Link className="help-btn" href={helpHref} aria-label="Help for this page" title="Help for this page">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M9.3 9.4a2.7 2.7 0 0 1 5.2 1c0 1.8-2.6 2.2-2.6 3.9" />
+                <path d="M12 17.6v.01" />
+              </svg>
+            </Link>
             <div className="bell-wrap">
               <button
                 className="bell"
