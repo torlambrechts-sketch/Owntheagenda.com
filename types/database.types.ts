@@ -415,6 +415,20 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      leadership_response: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string
+          user_id: string
+          scores: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       help_article: {
         Row: {
           id: string
@@ -1118,6 +1132,10 @@ export type Database = {
       }
       leadership_inventory: {
         Args: Record<string, never>
+        Returns: Json
+      }
+      team_leadership_scores: {
+        Args: { p_team: string }
         Returns: Json
       }
       set_team_consent: {

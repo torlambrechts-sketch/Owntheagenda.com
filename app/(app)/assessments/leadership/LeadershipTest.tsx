@@ -1,23 +1,27 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { scoreLeadership } from "./actions";
+import { scoreLeadership, saveLeadershipResponse } from "./actions";
+import { ScoreReadout, type Readout } from "./ScoreReadout";
 
 export type Question = { key: string; ord: number; text: string; reverse: boolean };
 export type Facet = { code: string; name: string; questions: Question[] };
 export type Category = { code: string; name: string; facets: Facet[] };
 
-type ScoreResult = {
-  overall: number | string;
-  categories: { code: string; name: string; mean: number | string }[];
-  facets: { code: string; name: string; category: string; mean: number | string; answered: number }[];
-};
-
 const SCALE = [1, 2, 3, 4, 5, 6, 7];
 
-export function LeadershipTest({ inventory }: { inventory: Category[] }) {
+export function LeadershipTest({
+  inventory,
+  teamId,
+  priorResult,
+}: {
+  inventory: Category[];
+  teamId: string | null;
+  priorResult: Readout | null;
+}) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [results, setResults] = useState<ScoreResult | null>(null);
+  const [results, setResults] = useState<Readout | null>(priorResult);
+  const [taking, setTaking] = useState(!priorResult);
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
 
@@ -30,51 +34,31 @@ export function LeadershipTest({ inventory }: { inventory: Category[] }) {
   function submit() {
     setErr(null);
     start(async () => {
-      const res = await scoreLeadership(answers);
+      const res = teamId
+        ? await saveLeadershipResponse(teamId, answers)
+        : await scoreLeadership(answers);
       if (res.error) {
         setErr(res.error);
         return;
       }
-      setResults(res.result as ScoreResult);
+      setResults(res.result as Readout);
+      setTaking(false);
       window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
-  if (results) {
-    const facets = results.facets.map((f) => ({ ...f, mean: Number(f.mean) }));
-    const lowest = [...facets].sort((a, b) => a.mean - b.mean).slice(0, 3);
+  if (results && !taking) {
     return (
-      <div className="lead-results">
-        <div className="lead-overall">
-          <div className="lead-score">{Number(results.overall).toFixed(2)}<small>/7</small></div>
-          <div className="lead-overall-l">Overall leadership effectiveness</div>
-        </div>
-
-        <h3 className="lead-h">By category</h3>
-        <div className="lead-cats">
-          {results.categories.map((c) => (
-            <div className="lead-cat" key={c.code}>
-              <div className="lead-cat-h"><span>{c.name}</span><b>{Number(c.mean).toFixed(2)}</b></div>
-              <div className="lead-bar"><span style={{ width: `${(Number(c.mean) / 7) * 100}%` }} /></div>
-            </div>
-          ))}
-        </div>
-
-        <h3 className="lead-h">Lowest facets — start here</h3>
-        <ul className="lead-low">
-          {lowest.map((f) => <li key={f.code}><b>{f.name}</b><span>{f.mean.toFixed(2)}</span></li>)}
-        </ul>
-
-        <details className="lead-allfacets">
-          <summary>All 21 facets</summary>
-          <ul>{facets.map((f) => <li key={f.code}><span>{f.name}</span><b>{f.mean.toFixed(2)}</b></li>)}</ul>
-        </details>
-
+      <div>
+        <ScoreReadout data={results} />
         <div style={{ marginTop: 16 }}>
-          <button className="btn-sec" onClick={() => setResults(null)}>Retake</button>
+          <button className="btn-sec" onClick={() => { setAnswers({}); setTaking(true); }}>Retake</button>
         </div>
         <p className="org-note" style={{ marginTop: 10 }}>
-          Reverse-worded items are automatically inverted before scoring. Results are shown to you and not saved.
+          Reverse-worded items are inverted before scoring.
+          {teamId
+            ? " Your answers are saved privately — only the anonymized team aggregate is shared with team leads."
+            : " Results are shown to you and not saved."}
         </p>
       </div>
     );
@@ -118,9 +102,12 @@ export function LeadershipTest({ inventory }: { inventory: Category[] }) {
 
       <div className="lead-submit">
         <span className="lscale-legend">1 = Strongly disagree · 7 = Strongly agree</span>
-        <button className="btn-prim" disabled={pending || answered === 0} onClick={submit}>
-          {pending ? "Scoring…" : answered < total ? `See results (${answered}/${total})` : "See results"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {results ? <button className="btn-sec" onClick={() => setTaking(false)}>Cancel</button> : null}
+          <button className="btn-prim" disabled={pending || answered === 0} onClick={submit}>
+            {pending ? "Saving…" : answered < total ? `See results (${answered}/${total})` : "See results"}
+          </button>
+        </div>
       </div>
     </div>
   );
