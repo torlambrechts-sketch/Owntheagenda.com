@@ -358,6 +358,47 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .addmod-item:hover{background:var(--open-bg)}
 .addmod-item b{font-size:13px;color:var(--ink);font-weight:600}
 .addmod-item span{font-size:11px;color:var(--muted)}
+
+/* Outcome plan board (list + waterfall) */
+.planstage{display:flex;flex-direction:column;gap:14px;padding:18px 22px;overflow:auto}
+.plan-head .pact{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--forest)}
+.plan-head h2{font-family:var(--font-display);font-size:22px;margin:2px 0 4px}
+.plan-head .ptext{color:var(--muted);font-size:13.5px;max-width:680px}
+.planboard{display:flex;flex-direction:column;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.pl-bar{display:flex;align-items:center;justify-content:space-between}
+.pl-views{display:flex;gap:2px;background:var(--canvas-2);border:1px solid var(--line);border-radius:9px;padding:2px}
+.pl-views button{border:none;background:none;padding:5px 14px;border-radius:7px;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer}
+.pl-views button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.btn-prim.sm{padding:6px 12px;font-size:13px;flex:none}
+.pl-empty{color:var(--faint);font-size:13px;padding:18px;text-align:center}
+.pl-list{display:flex;flex-direction:column}
+.pl-row{display:grid;grid-template-columns:26px 1fr 130px 138px 138px 54px;gap:8px;align-items:center;padding:4px 0;border-bottom:1px solid var(--line)}
+.pl-row.head{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--faint);border-bottom:1.5px solid var(--line);padding-bottom:6px}
+.pl-row.sub .pl-title{margin-left:20px}
+.pl-stat{width:17px;height:17px;border-radius:5px;border:2px solid var(--line);background:var(--surface);cursor:pointer;justify-self:center}
+.pl-stat.doing{background:#d8a630;border-color:#d8a630}
+.pl-stat.done{background:var(--green);border-color:var(--green)}
+.pl-title,.pl-owner,.pl-date{border:1px solid transparent;background:none;font:inherit;font-size:13px;padding:5px 6px;border-radius:6px;color:var(--ink)}
+.pl-title:focus,.pl-owner:focus,.pl-date:focus{border-color:var(--line);background:var(--canvas-2);outline:none}
+.pl-date{color:var(--muted);font-size:12px}
+.pl-act{display:flex;gap:3px;justify-content:flex-end}
+.pl-mini{width:24px;height:24px;border:none;background:none;border-radius:6px;color:var(--muted);cursor:pointer;font-size:14px}
+.pl-mini:hover{background:var(--canvas-2)}
+.pl-mini.del:hover{color:var(--rust)}
+.pl-gantt{display:flex;flex-direction:column;gap:2px;overflow-x:auto}
+.pl-gantt-axis,.pl-gantt-row{display:grid;grid-template-columns:180px 1fr;gap:10px;align-items:center}
+.pl-gantt-axis{height:22px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.pl-gantt-track{position:relative;height:26px}
+.pl-gantt-axis .pl-gantt-track{height:18px}
+.pl-tick{position:absolute;top:0;font-size:10px;color:var(--faint);transform:translateX(-50%);white-space:nowrap}
+.pl-gantt-label{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-gantt-row.sub .pl-gantt-label{padding-left:18px;color:var(--muted)}
+.pl-gbar{position:absolute;top:4px;height:18px;border-radius:5px;background:var(--forest);display:flex;align-items:center;padding:0 7px;min-width:8px}
+.pl-gbar span{font-size:10.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-gbar.todo{background:var(--muted)}
+.pl-gbar.doing{background:#d8a630}
+.pl-gbar.done{background:var(--green)}
+.pl-nodate{font-size:11px;color:var(--faint)}
 .histctl{position:absolute;left:14px;bottom:14px;z-index:25;display:flex;align-items:center;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);padding:3px}
 .histctl button{border:none;background:none;width:30px;height:26px;border-radius:6px;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .histctl button:hover:not(:disabled){background:var(--canvas)}

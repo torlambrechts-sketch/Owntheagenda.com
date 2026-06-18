@@ -329,6 +329,27 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      plan_task: {
+        Row: {
+          id: string
+          session_id: string
+          workspace_id: string
+          block_ord: number
+          parent_id: string | null
+          title: string
+          owner_name: string | null
+          owner_id: string | null
+          start_date: string | null
+          end_date: string | null
+          status: string
+          ord: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       team: {
         Row: {
           created_at: string

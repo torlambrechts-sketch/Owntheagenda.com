@@ -10,6 +10,7 @@ import { ManualModule } from "./ManualModule";
 import { CharterModule } from "./CharterModule";
 import { AssessModule } from "./AssessModule";
 import { SurveyModule } from "./SurveyModule";
+import { PlanBoard } from "./PlanBoard";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { SurveyInstrument } from "@/lib/survey";
@@ -491,6 +492,15 @@ export function RunClient({
               ready={!!me?.ready}
               onToggleReady={toggleReady}
             />
+          </div>
+        ) : block?.activityType === "outcome" ? (
+          <div className="stage planstage">
+            <div className="plan-head">
+              <div className="pact">Outcome · Step {session.currentBlockOrd} of {N}</div>
+              <h2>{block?.title}</h2>
+              {block?.prompt ? <div className="ptext">{block.prompt}</div> : null}
+            </div>
+            <PlanBoard sessionId={sid} blockOrd={session.currentBlockOrd} canEdit={true} members={participants.map((p) => ({ name: p.name }))} />
           </div>
         ) : (
           <div className="stage">
