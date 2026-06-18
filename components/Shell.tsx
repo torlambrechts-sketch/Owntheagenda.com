@@ -6,7 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
 import { signout } from "@/app/auth/actions";
 import { setActiveWorkspace, markNotificationsRead } from "@/app/(app)/actions";
-import { initials } from "@/lib/util";
+import { initials, isAdmin } from "@/lib/util";
+import type { Enums } from "@/types/database.types";
 
 export type ShellNotification = {
   id: string;
@@ -19,6 +20,7 @@ export type ShellNotification = {
 export type ShellChrome = {
   workspaceName: string;
   workspaceId: string;
+  role: Enums<"workspace_role">;
   workspaces: { id: string; name: string }[];
   userName: string;
   userEmail: string | null;
@@ -92,9 +94,21 @@ const ICONS = {
       <path d="M3 9h18M8 18v2.5M16 18v2.5" />
     </svg>
   ),
+  org: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M3 21V7l6-3 6 3v14" />
+      <path d="M15 21V11l6 3v7M3 21h18" />
+    </svg>
+  ),
+  integrations: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M9 7V3M15 7V3M8 7h8v4a4 4 0 0 1-8 0z" />
+      <path d="M12 15v6" />
+    </svg>
+  ),
 };
 
-const NAV = [
+const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
   { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "People" },
@@ -105,6 +119,7 @@ const NAV = [
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
+  { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
 ];
 
 export function Shell({
@@ -121,7 +136,11 @@ export function Shell({
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
-  const groups = ["Workspace", "People", "Effectiveness"];
+  const admin = isAdmin(chrome.role);
+  const visibleNav = NAV.filter((n) => !n.adminOnly || admin);
+  const groups = ["Workspace", "People", "Effectiveness", "Organization"].filter((g) =>
+    visibleNav.some((n) => n.group === g),
+  );
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
@@ -131,7 +150,7 @@ export function Shell({
         <div className="logo-tile">
           <LogoMark size={40} />
         </div>
-        {NAV.map((n) => (
+        {visibleNav.map((n) => (
           <Link
             key={n.href}
             className={`ri${active(n.href) ? " active" : ""}`}
@@ -157,7 +176,7 @@ export function Shell({
         {groups.map((g) => (
           <div className="grp" key={g}>
             <h4>{g}</h4>
-            {NAV.filter((n) => n.group === g).map((n) => (
+            {visibleNav.filter((n) => n.group === g).map((n) => (
               <Link
                 key={n.href}
                 href={n.href}

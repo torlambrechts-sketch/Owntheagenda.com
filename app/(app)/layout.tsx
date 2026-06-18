@@ -34,6 +34,7 @@ export default async function AppLayout({
       chrome={{
         workspaceName: ctx.workspace.name,
         workspaceId: ctx.workspace.id,
+        role: ctx.role,
         workspaces: ctx.memberships.map((m) => ({
           id: m.workspace.id,
           name: m.workspace.name,

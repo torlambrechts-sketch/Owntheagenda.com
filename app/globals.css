@@ -55,6 +55,13 @@ button { font-family:inherit; }
 .joincode .jc-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
 .joincode .jc-v{font-family:ui-monospace,monospace;font-size:14px;font-weight:700;letter-spacing:1px;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:2px 9px}
 .joincode .jc-h{font-size:11.5px;color:var(--muted);flex:1;min-width:160px}
+.orgwrap{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;max-width:940px}
+.orgcard{display:flex;flex-direction:column;gap:12px;padding:18px;align-items:flex-start}
+.orgcard h3{margin:0;font-size:15px}
+.orgcard .field{gap:5px;width:100%}
+.orgcard .joincode{width:100%}
+.org-note{font-size:12.5px;color:var(--muted);margin:0}
+.org-plan{font-size:13px;font-weight:600;text-transform:capitalize;color:var(--ink)}
 .grounded{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);background:var(--open-bg);padding:3px 9px;border-radius:20px}
 
 /* ---------- avatars ---------- */

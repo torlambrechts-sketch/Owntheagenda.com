@@ -459,6 +459,7 @@ export type Database = {
           logo_url: string | null
           name: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          retention_months: number | null
           slug: string
           updated_at: string
         }
@@ -472,6 +473,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          retention_months?: number | null
           slug: string
           updated_at?: string
         }
@@ -485,6 +487,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          retention_months?: number | null
           slug?: string
           updated_at?: string
         }
@@ -974,6 +977,10 @@ export type Database = {
       my_pending_membership: {
         Args: Record<string, never>
         Returns: Json
+      }
+      regenerate_join_code: {
+        Args: { p_workspace: string }
+        Returns: string
       }
       set_team_consent: {
         Args: { p_consent: boolean; p_team_member: string }
