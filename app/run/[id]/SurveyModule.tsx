@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { ordinal } from "@/lib/util";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
 import {
   dimensionMeans,
@@ -15,7 +16,8 @@ import {
 // run live in the room or completed as a scheduled prerequisite; aggregates show
 // per-dimension means + the climate-strength read, behind the min-3 mask.
 
-type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null };
+type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
+type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
 
 export function SurveyModule({
   blockId,
@@ -188,6 +190,9 @@ export function SurveyModule({
                   <span className="svc-num">{results.composite}</span>
                   <span className="svc-den">/ 100</span>
                   <span className="svc-lab">overall index</span>
+                  {results.benchmark?.ready && results.benchmark.percentile != null ? (
+                    <span className="svc-bench" title={`vs ${results.benchmark.pool_n} teams who've run this`}>{ordinal(results.benchmark.percentile)} pct</span>
+                  ) : null}
                 </div>
               ) : null}
               {dims ? <QuadrantPlot inst={inst} dims={dims} /> : null}

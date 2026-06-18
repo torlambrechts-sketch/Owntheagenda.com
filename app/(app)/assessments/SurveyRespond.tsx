@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
+import { ordinal } from "@/lib/util";
 import {
   dimensionMeans,
   climateStrength,
@@ -17,7 +18,8 @@ import {
 // passed in as a kind → instrument map.
 
 type OpenSurvey = { id: string; name: string; kind: string };
-type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null };
+type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
+type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
 
 export function SurveyRespond({
   surveys,
@@ -119,6 +121,9 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
                 <span className="svc-num">{results.composite}</span>
                 <span className="svc-den">/ 100</span>
                 <span className="svc-lab">overall index</span>
+                {results.benchmark?.ready && results.benchmark.percentile != null ? (
+                  <span className="svc-bench" title={`vs ${results.benchmark.pool_n} teams who've run this`}>{ordinal(results.benchmark.percentile)} pct</span>
+                ) : null}
               </div>
             ) : null}
             {dims ? <QuadrantPlot inst={inst} dims={dims} /> : null}

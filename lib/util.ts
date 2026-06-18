@@ -47,3 +47,10 @@ export function clock(mins: number) {
   const m = mins % 60;
   return `${h}:${String(m).padStart(2, "0")}`;
 }
+
+// 1 → "1st", 2 → "2nd", 72 → "72nd". For benchmark percentile labels.
+export function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
+}
