@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { useTableControls } from "@/components/TableControls";
 import { initials, roleLabel, ROLE_OPTIONS } from "@/lib/util";
+import { MemberImport } from "./MemberImport";
 import type { Enums } from "@/types/database.types";
 import {
   inviteMember,
@@ -218,6 +219,7 @@ export function MembersClient({
         </div>
         {canManage ? (
           <div className="actions">
+            <MemberImport workspaceId={workspaceId} teams={teams} />
             <button
               className="btn-prim"
               onClick={() => {

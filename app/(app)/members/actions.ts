@@ -27,6 +27,30 @@ export async function inviteMember(input: {
   return { token: data as unknown as string };
 }
 
+// Bulk-create invitations from a parsed CSV. Each row goes through the same
+// create_invitation RPC (so the same privilege checks apply per row).
+export async function bulkInvite(
+  workspaceId: string,
+  rows: { email: string; role: Enums<"workspace_role">; teamId: string | null; roleTitle: string | null }[],
+): Promise<{ created: number; failed: { email: string; error: string }[] }> {
+  const supabase = createClient();
+  let created = 0;
+  const failed: { email: string; error: string }[] = [];
+  for (const r of rows) {
+    const { error } = await supabase.rpc("create_invitation", {
+      p_workspace: workspaceId,
+      p_email: r.email.trim(),
+      p_role: r.role,
+      ...(r.teamId ? { p_team: r.teamId } : {}),
+      ...(r.roleTitle ? { p_role_title: r.roleTitle } : {}),
+    });
+    if (error) failed.push({ email: r.email, error: error.message });
+    else created++;
+  }
+  revalidatePath("/members");
+  return { created, failed };
+}
+
 export async function updateMemberRole(
   membershipId: string,
   role: Enums<"workspace_role">,
