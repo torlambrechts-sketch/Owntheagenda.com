@@ -1,11 +1,6 @@
-import Link from "next/link";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
-
-function fmtDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
+import { SessionsClient, type SessionRow } from "./SessionsClient";
 
 export default async function SessionsPage() {
   const ctx = await requireSession();
@@ -44,6 +39,20 @@ export default async function SessionsPage() {
   const actCount = new Map<string, number>();
   for (const a of acts ?? []) if (a.session_id) actCount.set(a.session_id, (actCount.get(a.session_id) ?? 0) + 1);
 
+  const rows: SessionRow[] = list.map((s) => {
+    const wk = wkById.get(s.workshop_id);
+    return {
+      id: s.id,
+      workshopId: s.workshop_id,
+      title: wk?.title ?? "Workshop",
+      team: wk ? teamById.get(wk.team_id) ?? null : null,
+      startedAt: s.started_at,
+      people: partCount.get(s.id) ?? 0,
+      actions: actCount.get(s.id) ?? 0,
+      status: s.status,
+    };
+  });
+
   return (
     <div>
       <h1 className="page-title">Sessions</h1>
@@ -52,48 +61,7 @@ export default async function SessionsPage() {
       {list.length === 0 ? (
         <div className="card empty">No sessions yet. Start a workshop to run your first.</div>
       ) : (
-        <div className="tbl-card">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Workshop</th>
-                <th>Team</th>
-                <th>When</th>
-                <th style={{ width: 90 }}>People</th>
-                <th style={{ width: 90 }}>Actions</th>
-                <th style={{ width: 90 }}>Status</th>
-                <th style={{ width: 90 }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((s) => {
-                const wk = wkById.get(s.workshop_id);
-                const team = wk ? teamById.get(wk.team_id) : null;
-                return (
-                  <tr key={s.id}>
-                    <td>
-                      <Link href={`/sessions/${s.id}`} style={{ fontWeight: 600, textDecoration: "none" }}>
-                        {wk?.title ?? "Workshop"}
-                      </Link>
-                    </td>
-                    <td style={{ color: "var(--muted)" }}>{team ?? "—"}</td>
-                    <td style={{ color: "var(--muted)" }}>{fmtDate(s.started_at)}</td>
-                    <td>{partCount.get(s.id) ?? 0}</td>
-                    <td>{actCount.get(s.id) ?? 0}</td>
-                    <td>
-                      <span className={`pill sm ${s.status === "live" ? "open" : "draft"}`}>{s.status}</span>
-                    </td>
-                    <td className="r">
-                      <Link className="linkbtn" href={s.status === "live" ? `/run/${s.workshop_id}` : `/sessions/${s.id}`}>
-                        {s.status === "live" ? "Join" : "Readout"}
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <SessionsClient rows={rows} />
       )}
     </div>
   );
