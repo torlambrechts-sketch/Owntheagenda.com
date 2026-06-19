@@ -124,8 +124,10 @@ export function AssessmentLibrary({
   function flash(m: string) { setToast(m); setTimeout(() => setToast(null), 2600); }
   function go(v: View) { setView(v); if (typeof window !== "undefined") window.scrollTo(0, 0); }
   function openDetail(c: CatalogItem) {
-    if (c.external) { router.push(c.external); return; }
-    setActiveKey(c.key); setExp(new Set()); go("detail");
+    // External instruments (e.g. the 63-item leadership inventory) keep their
+    // purpose-built run/report, but still open a consistent in-library detail
+    // that hands off — rather than bouncing straight out of the library.
+    setActiveKey(c.key); setExp(new Set()); setAssignOpen(false); go("detail");
   }
   function startRun() { setRunIdx(0); setAnswers(active?.myScores ?? {}); go("run"); }
   function viewSample() { if (!active) return; setSample(true); setTeamMode(false); setScores(sampleScores(active)); setMode("admin"); setExp(new Set()); go("report"); }
@@ -288,13 +290,24 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             <div className="a-ps">{active.category}</div>
           </div>
           <div className="a-pr">
-            {isAdmin && active.scope === "individual" && !active.external ? (
-              <button className="btn-sec" onClick={() => openAssign(active)}>＋ Assign</button>
-            ) : null}
-            <button className="btn-sec" onClick={viewSample}>View sample report</button>
-            <button className="btn-prim" onClick={startRun}>▶ Run assessment</button>
+            {active.external ? (
+              <button className="btn-prim" onClick={() => router.push(active.external!)}>Open assessment →</button>
+            ) : (
+              <>
+                {isAdmin && active.scope === "individual" ? (
+                  <button className="btn-sec" onClick={() => openAssign(active)}>＋ Assign</button>
+                ) : null}
+                <button className="btn-sec" onClick={viewSample}>View sample report</button>
+                <button className="btn-prim" onClick={startRun}>▶ Run assessment</button>
+              </>
+            )}
           </div>
         </div>
+        {active.external ? (
+          <p className="a-note" style={{ marginTop: 14 }}>
+            This assessment has its own guided run and report — including the anonymised team rollup for leads. Open it to take it or review results.
+          </p>
+        ) : null}
         {active.assignedToMe && !active.completedByMe ? (
           <div className="a-assigned">
             <strong>Assigned to you.</strong>{" "}

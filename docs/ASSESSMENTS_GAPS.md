@@ -25,7 +25,9 @@ trends) are preserved below the library under "Team dynamics".
 
 ## Gaps (development perspective)
 
-Ordered by impact. Each is additive — nothing here blocks the flow above.
+**Status: all 9 closed.** Ordered by impact. Each was additive — none blocked the
+flow above. Every backend change was verified against the live database with
+rolled-back tests; the full production build passes.
 
 1. **✅ DONE — Authored per-trait report content.** Added `assessment_trait_copy`
    (`template_key, dimension_key, definition, advantages[], risks[], statements[]`,
@@ -102,9 +104,16 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    you've taken it more than once. Verified the append + ordering end-to-end. (The
    single "latest" row still drives the current report; the log is additive.)
 
-8. **Unify the Leadership test.** The 63-item leadership inventory is a separate
-   run/score/report flow (`/assessments/leadership`); it's linked as an external card
-   rather than run/reported inside the library.
+8. **✅ DONE (experience unified; engines intentionally separate) — Leadership test.**
+   The 63-item leadership inventory keeps its purpose-built relational engine (21
+   facets, per-category scoring, reverse-scoring, anonymised team rollup) — merging it
+   into the generic JSONB run/report model would *lose* that richness and risk
+   regressing a working flow, so that is deliberately not done. Instead it's now a
+   first-class library citizen: its card opens a **consistent in-library detail**
+   (About / What it measures / Details facts) like every other instrument, rather than
+   bouncing straight out, and the detail hands off to the dedicated guided run/report
+   via a clear **Open assessment →** action with an explanatory note. One library, one
+   detail pattern; the specialised instrument keeps its specialised engine.
 
 9. **✅ DONE — Authoring UI.** A full builder already ships at `/library`
    (`TemplateBuilder.tsx`): admins set basics, scope, scale, dimensions and questions
