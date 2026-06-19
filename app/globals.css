@@ -168,7 +168,7 @@ button { font-family:inherit; }
 .ohead-r{margin-left:auto;display:flex;gap:10px;flex-shrink:0}
 /* forest folder tab-band + connected white panel */
 .otabband{display:flex;align-items:stretch;background:var(--forest);border-radius:10px 10px 0 0;overflow-x:auto;margin-top:6px}
-.otabband-t{display:inline-flex;align-items:center;gap:8px;padding:13px 16px;color:rgba(255,255,255,.76);font-size:13px;font-weight:600;text-decoration:none;border-right:1px solid rgba(255,255,255,.08);white-space:nowrap}
+.otabband-t{display:inline-flex;align-items:center;gap:8px;padding:13px 16px;color:rgba(255,255,255,.76);font-size:13px;font-weight:600;font-family:inherit;text-decoration:none;background:transparent;border:none;border-right:1px solid rgba(255,255,255,.08);white-space:nowrap;cursor:pointer}
 .otabband-t svg{color:currentColor;flex-shrink:0}
 .otabband-t:hover{color:#fff;background:rgba(255,255,255,.05)}
 .otabband-t.on{background:var(--surface);color:var(--ink);font-weight:700;border-radius:7px 7px 0 0;margin:5px 0 0 5px;border-right:none}
