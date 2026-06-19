@@ -199,7 +199,7 @@ export function WorkshopsClient({
               <span className="wcard-nl">New workshop</span>
             </button>
           ) : null}
-          {templates.slice(0, 6).map((t) => (
+          {templates.slice(0, 5).map((t) => (
             <button className="wcard" key={t.id} onClick={() => setPreview(t)} title={t.name}>
               {tprev(t)}
               <span className="wcard-nm">{t.name}</span>
