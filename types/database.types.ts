@@ -1128,6 +1128,19 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      individual_response_history: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          template_key: string
+          scores: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

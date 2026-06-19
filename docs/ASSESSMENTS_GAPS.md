@@ -72,9 +72,13 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    not implemented (export shows a toast). Needs a shareable individual-report surface
    (respecting `individual_response.shared`) and a print/PDF route.
 
-7. **Longitudinal history for individuals.** `individual_response` keeps one row per
-   (user, template) — retaking overwrites. No personal trend over time (team pulses do
-   have `team_dynamics_history`).
+7. **✅ DONE — Longitudinal history for individuals.** Added an append-only
+   `individual_response_history` log (own-only RLS), written on every take inside the
+   security-definer `submit_individual_response`. `/assessments` loads each
+   instrument's take-history and the report shows a **Movement** strip — per-dimension
+   change in points since the first take ("▲/▼ N pts", green up / rust down) — whenever
+   you've taken it more than once. Verified the append + ordering end-to-end. (The
+   single "latest" row still drives the current report; the log is additive.)
 
 8. **Unify the Leadership test.** The 63-item leadership inventory is a separate
    run/score/report flow (`/assessments/leadership`); it's linked as an external card

@@ -35,6 +35,19 @@ export default async function AssessmentsPage({
     .eq("workspace_id", ctx.workspace.id)
     .eq("user_id", ctx.userId);
   const myByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, (r.scores ?? {}) as Record<string, number>]));
+  // Personal take-history (oldest first) per instrument, for the report's trend.
+  const { data: histRows } = await supabase
+    .from("individual_response_history")
+    .select("template_key, scores, created_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("user_id", ctx.userId)
+    .order("created_at", { ascending: true });
+  const histByKey = new Map<string, { at: string; scores: Record<string, number> }[]>();
+  for (const h of histRows ?? []) {
+    const arr = histByKey.get(h.template_key as string) ?? [];
+    arr.push({ at: h.created_at as string, scores: (h.scores ?? {}) as Record<string, number> });
+    histByKey.set(h.template_key as string, arr);
+  }
   const { data: traitCopy } = await supabase
     .from("assessment_trait_copy")
     .select("template_key, dimension_key, definition, advantages, risks, statements");
@@ -61,6 +74,7 @@ export default async function AssessmentsPage({
       external: "/assessments/leadership",
       openSurveyId: null,
       teamReport: null,
+      myHistory: [],
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -82,6 +96,7 @@ export default async function AssessmentsPage({
         external: null,
         openSurveyId: null,
         teamReport: null,
+        myHistory: histByKey.get(t.key) ?? [],
       };
     }),
   ];

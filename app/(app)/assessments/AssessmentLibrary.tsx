@@ -24,6 +24,7 @@ export type CatalogItem = {
   external: string | null; // route for instruments handled elsewhere (e.g. leadership)
   openSurveyId: string | null; // team scope: an open survey to contribute a response to
   teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
+  myHistory: { at: string; scores: Record<string, number> }[]; // individual scope: past takes, oldest first
 };
 
 type View = "library" | "detail" | "run" | "report";
@@ -63,6 +64,10 @@ function scoreFromAggregate(inst: CatalogItem): DimScore[] {
     const pct = ((mean - min) / (max - min)) * 100;
     return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: 0 };
   });
+}
+function fmtDate(iso: string) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 function bandSentence(label: string, band: number) {
   if (band === 2) return `${label} sits in the higher band — it shows up readily and is likely a defining strength.`;
@@ -285,6 +290,9 @@ export function AssessmentLibrary({
 
   // ---------- report ----------
   const cand = mode === "candidate";
+  // Personal trend: per-dimension movement since the first take (own report only).
+  const showTrend = !sample && !teamMode && active.myHistory.length > 1;
+  const firstScores = showTrend ? scoreFrom(active, active.myHistory[0].scores) : [];
   return (
     <>
       <div className="a-phead">
@@ -310,6 +318,24 @@ export function AssessmentLibrary({
         </div>
         {sample ? <div className="a-note">This is an illustrative sample so you can see the format. Run the assessment to generate a real report.</div> : null}
         {cand ? <div className="a-note">A personal read: these describe tendencies, not verdicts — a starting point for reflection and conversation.</div> : null}
+        {showTrend ? (
+          <>
+            <div className="a-repsec">↗ Movement</div>
+            <div className="a-note">Compared with your first take on {fmtDate(active.myHistory[0].at)} · {active.myHistory.length} takes.</div>
+            <div className="a-movewrap">
+              {scores.map((s) => {
+                const f = firstScores.find((x) => x.key === s.key);
+                const d = f ? Math.round(s.pct - f.pct) : 0;
+                return (
+                  <div className="a-move" key={s.key}>
+                    <span className="lbl">{s.label}</span>
+                    <span className={`delta${d > 0 ? " up" : d < 0 ? " down" : ""}`}>{d > 0 ? "▲" : d < 0 ? "▼" : "–"} {Math.abs(d)} pts</span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : null}
         <div className="a-repsec">▦ Profile</div>
         <div className="a-ttable">
           <div className="a-bandhead"><span>Dimension</span><span style={{ textAlign: "center" }}>{BANDS.join(" · ")}</span><span className="sc">{cand ? "" : "Score"}</span></div>
