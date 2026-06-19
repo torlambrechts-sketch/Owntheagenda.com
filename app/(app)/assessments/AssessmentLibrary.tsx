@@ -25,6 +25,7 @@ export type CatalogItem = {
   openSurveyId: string | null; // team scope: an open survey to contribute a response to
   teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
   myHistory: { at: string; scores: Record<string, number> }[]; // individual scope: past takes, oldest first
+  myShared: boolean; // individual scope: am I sharing this result with teammates?
 };
 
 type View = "library" | "detail" | "run" | "report";
@@ -97,6 +98,7 @@ export function AssessmentLibrary({
   const [exp, setExp] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [sharedKeys, setSharedKeys] = useState<Set<string>>(() => new Set(catalog.filter((c) => c.myShared).map((c) => c.key)));
 
   const active = catalog.find((c) => c.key === activeKey) ?? null;
   const personality = catalog.filter((c) => c.scope === "individual");
@@ -126,6 +128,46 @@ export function AssessmentLibrary({
     setSample(false); setTeamMode(false); setScores(scoreFrom(active, answers)); setMode("candidate"); setExp(new Set());
     go("report");
     flash(active.scope === "team" && active.openSurveyId ? "Your response is in — the team report builds as members complete it" : "Saved — your report is ready");
+  }
+
+  async function toggleShare(c: CatalogItem) {
+    const next = !sharedKeys.has(c.key);
+    setSharedKeys((p) => { const n = new Set(p); next ? n.add(c.key) : n.delete(c.key); return n; });
+    const { error } = await supabase.rpc("set_individual_shared", { p_workspace: workspaceId, p_template_key: c.key, p_shared: next });
+    if (error) {
+      setSharedKeys((p) => { const n = new Set(p); next ? n.delete(c.key) : n.add(c.key); return n; }); // revert
+      flash(error.message);
+      return;
+    }
+    flash(next ? "Shared — teammates can now see this result" : "Sharing turned off");
+  }
+
+  // Self-contained printable report → browser print dialog (Save as PDF).
+  function exportReport() {
+    if (!active) return;
+    const esc = (s: string) => s.replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m] as string));
+    const who = sample ? "Sample profile" : teamMode ? `${active.name} · team` : userName;
+    const rows = scores.map((s) => {
+      const lists = [
+        s.copy?.advantages?.length ? `<div class="lbl">Where it helps</div><ul>${s.copy.advantages.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "",
+        !cand && s.copy?.risks?.length ? `<div class="lbl">Watch-outs</div><ul>${s.copy.risks.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : "",
+      ].join("");
+      return `<div class="dim"><div class="dh"><span class="nm">${esc(s.label)}</span><span class="bd">${BANDS[s.band]}${cand ? "" : ` · ${s.mean.toFixed(1)}`}</span></div>
+        <p class="df">${esc(s.copy?.definition || s.blurb)}</p><p class="rd">${esc(bandSentence(s.label, s.band))}</p>${lists}</div>`;
+    }).join("");
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(active.name)} — report</title>
+<style>body{font-family:Georgia,'Times New Roman',serif;color:#1f2421;margin:48px;line-height:1.55}
+h1{font-size:24px;margin:0 0 2px}.meta{color:#6b726c;font-size:13px;margin-bottom:24px}
+.dim{padding:14px 0;border-top:1px solid #e3e6e2}.dh{display:flex;justify-content:space-between;align-items:baseline}
+.nm{font-size:16px;font-weight:600}.bd{color:#3f5b48;font-size:13px}.df{margin:6px 0 4px}.rd{color:#4b524c;margin:0 0 6px}
+.lbl{font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#7a817b;margin:8px 0 2px}
+ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:12px;margin-top:22px;border-top:1px solid #e3e6e2;padding-top:10px}</style>
+</head><body><h1>${esc(active.name)}</h1><div class="meta">${esc(who)} · ${fmtDate(new Date().toISOString())}</div>${rows}
+<div class="foot">${active.source ? `Based on ${esc(active.source)} · ` : ""}Scale ${active.scale.min}–${active.scale.max} · ${active.dimensions.length} dimensions${cand ? " · personal view" : ""}</div>
+<script>window.onload=function(){window.print();}</script></body></html>`;
+    const w = window.open("", "_blank", "width=820,height=1000");
+    if (!w) { flash("Allow pop-ups to export"); return; }
+    w.document.write(html); w.document.close();
   }
 
   // ---------- library ----------
@@ -302,7 +344,12 @@ export function AssessmentLibrary({
           <div className="a-ps">{active.name} · {sample ? "Sample profile" : userName}</div>
         </div>
         <div className="a-pr">
-          <button className="btn-sec" onClick={() => flash("Export coming soon")}>⤓ Export</button>
+          {active.scope === "individual" && !sample && !teamMode && active.completedByMe ? (
+            <button className={`btn-sec${sharedKeys.has(active.key) ? " on" : ""}`} onClick={() => toggleShare(active)}>
+              {sharedKeys.has(active.key) ? "✓ Shared with team" : "Share with team"}
+            </button>
+          ) : null}
+          <button className="btn-sec" onClick={exportReport}>⤓ Export</button>
         </div>
       </div>
       <div className="a-report">

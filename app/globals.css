@@ -287,6 +287,7 @@ button { font-family:inherit; }
 .a-move .delta{font-size:12px;font-weight:650;color:var(--muted);white-space:nowrap}
 .a-move .delta.up{color:var(--green)}
 .a-move .delta.down{color:var(--rust)}
+.a-pr .btn-sec.on{border-color:var(--green);color:var(--forest);background:var(--open-bg)}
 .a-done{text-align:center;padding:30px 20px;max-width:480px;margin:0 auto}
 .a-done .a-done-ic{width:64px;height:64px;border-radius:50%;background:var(--open-bg);color:var(--green);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:30px}
 .a-done h2{font-family:var(--font-display);font-size:22px;margin:0 0 8px;font-weight:600}

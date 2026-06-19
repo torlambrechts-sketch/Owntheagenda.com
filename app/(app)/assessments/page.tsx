@@ -31,10 +31,11 @@ export default async function AssessmentsPage({
   const catalogInstruments = instrumentsFrom(catalogTemplates);
   const { data: myResp } = await supabase
     .from("individual_response")
-    .select("template_key, scores")
+    .select("template_key, scores, shared")
     .eq("workspace_id", ctx.workspace.id)
     .eq("user_id", ctx.userId);
   const myByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, (r.scores ?? {}) as Record<string, number>]));
+  const mySharedByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, Boolean(r.shared)]));
   // Personal take-history (oldest first) per instrument, for the report's trend.
   const { data: histRows } = await supabase
     .from("individual_response_history")
@@ -75,6 +76,7 @@ export default async function AssessmentsPage({
       openSurveyId: null,
       teamReport: null,
       myHistory: [],
+      myShared: false,
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -97,6 +99,7 @@ export default async function AssessmentsPage({
         openSurveyId: null,
         teamReport: null,
         myHistory: histByKey.get(t.key) ?? [],
+        myShared: mySharedByKey.get(t.key) ?? false,
       };
     }),
   ];

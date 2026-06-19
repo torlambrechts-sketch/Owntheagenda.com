@@ -68,9 +68,16 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    re-grounded on concentration/depth (matching its authored copy and "Focus"
    label) with fresh item keys so prior responses drop cleanly.
 
-6. **Candidate sharing & export are stubs.** "Share with candidate" and PDF/export are
-   not implemented (export shows a toast). Needs a shareable individual-report surface
-   (respecting `individual_response.shared`) and a print/PDF route.
+6. **✅ DONE — Sharing & export are real.** The report's **Export** now builds a
+   self-contained printable document (definitions, your-read, advantages, and —
+   Full view only — watch-outs) and opens the browser print dialog → Save as PDF.
+   A **Share with team** toggle on your own individual report calls
+   `set_individual_shared`, flipping `individual_response.shared`; the existing
+   teammate-scoped RLS (`shared and private.shares_team`) then lets people who share a
+   live team read it. Verified the toggle + visibility both ways (off → teammate sees
+   0, on → sees 1). *Remaining extension:* a dedicated "Shared with me" gallery to
+   browse teammates' shared reports inside the library (the rows are already readable
+   via RLS; only the browse surface is absent).
 
 7. **✅ DONE — Longitudinal history for individuals.** Added an append-only
    `individual_response_history` log (own-only RLS), written on every take inside the
