@@ -25,6 +25,13 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   live: { label: "Running", cls: "w-run" },
   done: { label: "Finished", cls: "w-done" },
 };
+const STATUS_TABS: { key: string; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "live", label: "Running" },
+  { key: "scheduled", label: "Scheduled" },
+  { key: "draft", label: "Draft" },
+  { key: "done", label: "Finished" },
+];
 function barColor(ty: string) {
   return ty === "vote" ? "var(--internal-fg)"
     : ty === "outcome" ? "var(--rust)"
@@ -95,6 +102,7 @@ export function WorkshopsClient({
   const [quickTitle, setQuickTitle] = useState("");
   const [preview, setPreview] = useState<TemplateCard | null>(null);
   // list controls
+  const [statusTab, setStatusTab] = useState("all");
   const [page, setPage] = useState(1);
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
@@ -126,29 +134,26 @@ export function WorkshopsClient({
     });
   }
 
-  // Reusable tabbed-table controls (search + status tabs + sort), the same
-  // pattern used by the Organization tables. The status facet chips act as the
-  // tabs; no selection means "all".
+  // Search + sort live in the toolbar (shared table controls); the status
+  // switch is a dark tab row above the table — the Organization tabbed-table
+  // pattern. Counts come from the full list so the tabs stay stable.
+  const counts: Record<string, number> = { all: workshops.length };
+  for (const w of workshops) counts[w.status] = (counts[w.status] ?? 0) + 1;
+  const statusTabs = STATUS_TABS.filter((t) => t.key === "all" || counts[t.key]);
+
   const tc = useTableControls<WorkshopRow>(workshops, {
     search: { placeholder: "Search workshops…", text: (w) => `${w.title} ${w.creatorName ?? ""}` },
     sorts: [
       { key: "default", label: "Default order", cmp: () => 0 },
       { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.title.localeCompare(b.title) },
     ],
-    facets: [
-      { key: "status", label: "Status", options: [
-        { value: "live", label: "Running", test: (w) => w.status === "live" },
-        { value: "scheduled", label: "Scheduled", test: (w) => w.status === "scheduled" },
-        { value: "draft", label: "Draft", test: (w) => w.status === "draft" },
-        { value: "done", label: "Finished", test: (w) => w.status === "done" },
-      ] },
-    ],
   });
 
-  const pages = Math.max(1, Math.ceil(tc.view.length / PER_PAGE));
+  const rows = statusTab === "all" ? tc.view : tc.view.filter((w) => w.status === statusTab);
+  const pages = Math.max(1, Math.ceil(rows.length / PER_PAGE));
   const safePage = Math.min(page, pages);
-  const pageRows = tc.view.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
-  useEffect(() => { setPage(1); }, [tc.view]);
+  const pageRows = rows.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+  useEffect(() => { setPage(1); }, [tc.view, statusTab]);
 
   const tprev = (t: TemplateCard) => (
     <div className="wcard-prev">
@@ -222,6 +227,20 @@ export function WorkshopsClient({
         <div className="empty">No workshops yet — pick a template above to build your first one.</div>
       ) : (
         <>
+          <nav className="otabband wk-tabs" aria-label="Workshop status">
+            {statusTabs.map((t) => (
+              <button
+                key={t.key}
+                className={`otabband-t${statusTab === t.key ? " on" : ""}`}
+                onClick={() => setStatusTab(t.key)}
+              >
+                {t.label}
+                <span className="otabband-c">{counts[t.key] ?? 0}</span>
+              </button>
+            ))}
+          </nav>
+          <div className="opanel">
+            <div className="opanel-body">
           <div className="wk-listbar">
             {workshops.length >= 4 ? tc.controls : <span />}
             {canManage ? (
@@ -229,7 +248,7 @@ export function WorkshopsClient({
             ) : null}
           </div>
 
-          {tc.view.length === 0 ? (
+          {rows.length === 0 ? (
             <div className="empty">No workshops match your filters.</div>
           ) : (
             <div className="tbl-card">
@@ -288,10 +307,10 @@ export function WorkshopsClient({
             </div>
           )}
 
-          {tc.view.length > PER_PAGE ? (
+          {rows.length > PER_PAGE ? (
             <div className="wk-pager">
               <span className="wk-pn">
-                Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(tc.view.length, safePage * PER_PAGE)}</b> of <b>{tc.view.length}</b>
+                Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(rows.length, safePage * PER_PAGE)}</b> of <b>{rows.length}</b>
               </span>
               <div className="wk-pgs">
                 <button className="wk-pg" disabled={safePage === 1} onClick={() => setPage(safePage - 1)}>‹</button>
@@ -302,6 +321,8 @@ export function WorkshopsClient({
               </div>
             </div>
           ) : null}
+            </div>
+          </div>
         </>
       )}
 

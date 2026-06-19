@@ -547,6 +547,8 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .wk-listbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0}
 .wk-listbar .tctl{flex:1;margin:0}
 .wk-listbar .btn-prim{margin-left:auto}
+.wk-tabs{margin-top:14px}
+.opanel-body .wk-listbar{margin-top:0}
 .tbl a.wk-cell{text-decoration:none;color:var(--ink)}
 .tbl a.wk-cell:hover{color:var(--forest)}
 .wfold.sm{width:24px;height:24px;font-size:10px}
