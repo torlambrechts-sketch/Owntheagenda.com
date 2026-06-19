@@ -34,6 +34,15 @@ export default async function AssessmentsPage({
     .eq("workspace_id", ctx.workspace.id)
     .eq("user_id", ctx.userId);
   const myByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, (r.scores ?? {}) as Record<string, number>]));
+  const { data: traitCopy } = await supabase
+    .from("assessment_trait_copy")
+    .select("template_key, dimension_key, definition, advantages, risks, statements");
+  const copyMap = new Map(
+    (traitCopy ?? []).map((r) => [
+      `${r.template_key}:${r.dimension_key}`,
+      { definition: r.definition as string, advantages: (r.advantages ?? []) as string[], risks: (r.risks ?? []) as string[], statements: (r.statements ?? []) as string[] },
+    ]),
+  );
   const catalog: CatalogItem[] = [
     {
       key: "leadership_effectiveness",
@@ -61,7 +70,7 @@ export default async function AssessmentsPage({
         scope: t.scope === "team" ? "team" : "individual",
         source: t.source,
         description: t.description,
-        dimensions: inst?.dimensions ?? [],
+        dimensions: (inst?.dimensions ?? []).map((d) => ({ ...d, copy: copyMap.get(`${t.key}:${d.key}`) ?? null })),
         items,
         scale: inst?.scale ?? { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
         mins: Math.max(3, Math.round(items.length * 0.5)),

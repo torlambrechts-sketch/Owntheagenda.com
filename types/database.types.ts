@@ -1098,6 +1098,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      assessment_trait_copy: {
+        Row: {
+          id: string
+          template_key: string
+          dimension_key: string
+          definition: string
+          advantages: string[]
+          risks: string[]
+          statements: string[]
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       individual_response: {
         Row: {
           id: string

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-export type CatalogDim = { key: string; label: string; blurb: string };
+export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
+export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
 export type CatalogItemDef = { key: string; dimension: string; text: string };
 export type CatalogItem = {
   key: string;
@@ -24,7 +25,7 @@ export type CatalogItem = {
 };
 
 type View = "library" | "detail" | "run" | "report";
-type DimScore = { key: string; label: string; blurb: string; mean: number; pct: number; band: number; n: number };
+type DimScore = { key: string; label: string; blurb: string; copy: TraitCopy | null; mean: number; pct: number; band: number; n: number };
 
 const BANDS = ["Lower", "Moderate", "Higher"];
 function bandOf(pct: number) { return pct < 34 ? 0 : pct < 67 ? 1 : 2; }
@@ -36,7 +37,7 @@ function sampleScores(inst: CatalogItem): DimScore[] {
     const mean = min + ((i * 2 + 2) % (max - min + 1)) + (i % 2 ? 0.4 : 0.7);
     const m = Math.min(max, Math.max(min, mean));
     const pct = ((m - min) / (max - min)) * 100;
-    return { key: d.key, label: d.label, blurb: d.blurb, mean: m, pct, band: bandOf(pct), n: 0 };
+    return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean: m, pct, band: bandOf(pct), n: 0 };
   });
 }
 function scoreFrom(inst: CatalogItem, answers: Record<string, number>): DimScore[] {
@@ -46,7 +47,7 @@ function scoreFrom(inst: CatalogItem, answers: Record<string, number>): DimScore
     const vals = its.map((it) => answers[it.key]).filter((v): v is number => v != null);
     const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : min;
     const pct = ((mean - min) / (max - min)) * 100;
-    return { key: d.key, label: d.label, blurb: d.blurb, mean, pct, band: bandOf(pct), n: vals.length };
+    return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: vals.length };
   });
 }
 function bandSentence(label: string, band: number) {
@@ -290,9 +291,27 @@ export function AssessmentLibrary({
                 {open ? (
                   <div className="a-tdetail">
                     <div className="a-seclbl">What {s.label} means</div>
-                    <p>{s.blurb}</p>
+                    <p>{s.copy?.definition || s.blurb}</p>
                     <div className="a-seclbl">Your read</div>
                     <p>{bandSentence(s.label, s.band)}</p>
+                    {s.copy?.advantages?.length ? (
+                      <>
+                        <div className="a-seclbl">Where it helps</div>
+                        <ul>{s.copy.advantages.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </>
+                    ) : null}
+                    {!cand && s.copy?.risks?.length ? (
+                      <>
+                        <div className="a-seclbl">Watch-outs</div>
+                        <ul>{s.copy.risks.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </>
+                    ) : null}
+                    {s.copy?.statements?.length ? (
+                      <>
+                        <div className="a-seclbl">People with this result often recognise</div>
+                        <ul>{s.copy.statements.map((x, i) => <li key={i}>{x}</li>)}</ul>
+                      </>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
