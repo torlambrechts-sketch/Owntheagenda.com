@@ -3,14 +3,16 @@
 Full analysis in `WORKSHOP_IMPROVEMENTS.md`. Cadence per phase: (migration →
 rolled-back test) → types → UI → typecheck/lint/build → commit → ff-merge.
 
-- [ ] **P1 · U1 + U2** — per-participant "what to do now" status + everyone-ready advance cue;
+- [x] **P1 · U1 + U2** — per-participant "what to do now" status + everyone-ready advance cue;
       active timer (time-up state, cue, opt-in auto-advance).
-- [ ] **P2 · U3** — faster card capture: multiline paste → N cards, keep focus, "added" feedback.
-- [ ] **P3 · F2** — action follow-through: assign owner (member) + due date in the run; reminders.
-- [ ] **P4 · U5** — facilitator keyboard shortcuts + collapsible in-run guide.
-- [ ] **P5 · U4** — builder step preview + total-time budget + clearer reorder.
-- [ ] **P6 · F3** — prioritization: impact/effort 2×2 + weighted/$100 vote modes.
-- [ ] **P7 · F1** — auto-generated, shareable post-session readout (+ export / integration post).
+- [x] **P2 · U3** — faster card capture: multiline paste → N cards, keep focus, "added" feedback.
+- [x] **P3 · F2** — action follow-through: assign owner (member) + due date in the run; reminders.
+- [x] **P4 · U5** — facilitator keyboard shortcuts + collapsible in-run guide.
+- [x] **P5 · U4** — builder step preview + total-time budget + clearer reorder.
+- [x] **P6 · F3** — prioritization: impact/effort 2×2. (Weighted/$100 vote mode noted as a
+      fast-follow in P10 — needs a vote-weight column.)
+- [x] **P7 · F1** — public shareable readout link (opt-in token) + markdown export + print/PDF.
+      (Live post-to-Slack/webhook deferred to P10 notes — needs an egress delivery job.)
 - [ ] **P8 · F4** — pre-work / async collection before the live session.
 - [ ] **P9 · F5** — measurement loop: pre/post pulse on the session's linked dynamic.
 - [ ] **P10 · Review** — external senior-dev + design-agency review; close gaps.

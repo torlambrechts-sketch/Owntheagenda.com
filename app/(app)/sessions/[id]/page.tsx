@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ACTIVITY, initials, isAdmin } from "@/lib/util";
 import { SessionSynthesis } from "./Synthesis";
 import { PrintButton } from "./PrintButton";
+import { ShareLink } from "./ShareLink";
 import { CanvasReadout } from "./CanvasReadout";
 import { FollowUpPanel } from "./FollowUpPanel";
 import type { CanvasObj } from "@/components/CanvasStatic";
@@ -26,7 +27,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
 
   const { data: session } = await supabase
     .from("session")
-    .select("id, workshop_id, workspace_id, status, started_at, ended_at, facilitator_id")
+    .select("id, workshop_id, workspace_id, status, started_at, ended_at, facilitator_id, share_token")
     .eq("id", params.id)
     .maybeSingle();
   if (!session || session.workspace_id !== ctx.workspace.id) notFound();
@@ -156,6 +157,9 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
           </p>
         </div>
         <div style={{ display: "flex", gap: 10, flex: "none" }} className="no-print">
+          {isAdmin(ctx.role) || session.facilitator_id === ctx.userId ? (
+            <ShareLink sessionId={session.id} initialToken={session.share_token ?? null} />
+          ) : null}
           <PrintButton />
           {liveBanner ? (
             <Link className="btn-prim" href={`/run/${session.workshop_id}`}>Rejoin live ▸</Link>

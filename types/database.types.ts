@@ -777,6 +777,8 @@ export type Database = {
           timer_remaining: number
           started_at: string
           ended_at: string | null
+          share_token: string | null
+          shared_at: string | null
           created_at: string
           updated_at: string
         }
@@ -1410,6 +1412,14 @@ export type Database = {
       agreement_summary: {
         Args: { p_block_ord: number; p_session: string }
         Returns: { value: number; count: number }[]
+      }
+      session_share_set: {
+        Args: { p_session: string; p_on: boolean }
+        Returns: string | null
+      }
+      public_session_readout: {
+        Args: { p_token: string }
+        Returns: Json
       }
     }
     Enums: {
