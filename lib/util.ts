@@ -39,6 +39,23 @@ export function roleLabel(role: Enums<"workspace_role">) {
   return ROLE_LABEL[role] ?? role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+// Coarse relative time — compute server-side so it's stable across hydration.
+export function timeAgo(iso?: string | null): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return "Yesterday";
+  if (d < 7) return `${d} days ago`;
+  return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+}
+
 export const ACTIVITY: Record<string, { label: string; cls: string }> = {
   canvas: { label: "Canvas", cls: "t-canvas" },
   brainstorm: { label: "Brainstorm", cls: "t-brainstorm" },

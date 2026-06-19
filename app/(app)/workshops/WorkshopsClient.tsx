@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ACTIVITY, CATEGORY } from "@/lib/util";
-import { useTableControls } from "@/components/TableControls";
+import { ACTIVITY, CATEGORY, initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
 import { buildFromTemplate, deleteWorkshop, quickStart } from "./actions";
 
@@ -19,6 +18,28 @@ const QUICK_MODULES = [
   { kind: "manual", label: "Notes", blurb: "Facilitator notes / freeform" },
 ];
 
+const STATUS: Record<string, { label: string; cls: string }> = {
+  draft: { label: "Draft", cls: "w-draft" },
+  scheduled: { label: "Scheduled", cls: "w-sched" },
+  live: { label: "Running", cls: "w-run" },
+  done: { label: "Finished", cls: "w-done" },
+};
+const STATUS_ORDER = ["all", "live", "scheduled", "draft", "done"];
+const STATUS_FILTER_LABEL: Record<string, string> = {
+  all: "All", live: "Running", scheduled: "Scheduled", draft: "Draft", done: "Finished",
+};
+
+function barColor(ty: string) {
+  return ty === "vote" ? "var(--internal-fg)"
+    : ty === "outcome" ? "var(--rust)"
+      : ty === "discuss" ? "var(--draft-fg)"
+        : ty === "checkin" ? "var(--green)"
+          : ty === "feedback" ? "var(--purple, var(--role))"
+            : "var(--role)";
+}
+
+const PER_PAGE = 8;
+
 export type TemplateCard = {
   id: string;
   key: string | null;
@@ -31,7 +52,15 @@ export type TemplateCard = {
   types: string[];
   phases?: { title: string; type: string; minutes: number; prompt: string | null }[];
 };
-export type WorkshopRow = { id: string; title: string; status: string };
+export type WorkshopRow = {
+  id: string;
+  title: string;
+  status: string;
+  editedLabel: string;
+  scheduledAt: string | null;
+  creatorName: string | null;
+  category: string | null;
+};
 export type Recommendation = {
   templateId: string;
   templateName: string;
@@ -69,12 +98,16 @@ export function WorkshopsClient({
   const [quickInst, setQuickInst] = useState("");
   const [quickTitle, setQuickTitle] = useState("");
   const [preview, setPreview] = useState<TemplateCard | null>(null);
+  // list controls
+  const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [page, setPage] = useState(1);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
 
   function flash(m: string) {
     setToast(m);
     setTimeout(() => setToast(null), 2400);
   }
-
   function runQuick() {
     startTransition(async () => {
       const res = await quickStart(teamId, quickTitle, quickKind, quickKind === "survey" ? quickInst : undefined);
@@ -82,7 +115,6 @@ export function WorkshopsClient({
       else if (res.workshopId) router.push(`/run/${res.workshopId}`);
     });
   }
-
   function use(templateId: string, pulseId?: string | null) {
     startTransition(async () => {
       const res = await buildFromTemplate(teamId, templateId, pulseId ?? undefined);
@@ -91,101 +123,46 @@ export function WorkshopsClient({
     });
   }
   function remove(id: string) {
+    setMenuFor(null);
     if (!confirm("Delete this workshop?")) return;
     startTransition(async () => {
       const res = await deleteWorkshop(id);
       if (res.error) flash(res.error);
-      else {
-        flash("Workshop deleted");
-        router.refresh();
-      }
+      else { flash("Workshop deleted"); router.refresh(); }
     });
   }
 
-  const cats = Array.from(new Set(templates.map((t) => t.category)));
+  // status counts (from the full list, so the filter chips are stable)
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: workshops.length };
+    for (const w of workshops) c[w.status] = (c[w.status] ?? 0) + 1;
+    return c;
+  }, [workshops]);
 
-  const tpl = useTableControls<TemplateCard>(templates, {
-    search: { placeholder: "Search templates…", text: (t) => `${t.name} ${t.source ?? ""} ${t.description ?? ""}` },
-    sorts: [
-      { key: "cat", label: "Category", cmp: () => 0 },
-      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.name.localeCompare(b.name) },
-      { key: "short", label: "Shortest first", cmp: (a, b) => a.minutes - b.minutes },
-      { key: "long", label: "Longest first", cmp: (a, b) => b.minutes - a.minutes },
-      { key: "steps", label: "Most steps", cmp: (a, b) => b.steps - a.steps },
-    ],
-    facets: [
-      { key: "category", label: "Category", multi: true, options: cats.map((c) => ({ value: c, label: CATEGORY[c] ?? c, test: (t: TemplateCard) => t.category === c })) },
-    ],
-  });
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return workshops.filter(
+      (w) =>
+        (statusFilter === "all" || w.status === statusFilter) &&
+        (!needle || w.title.toLowerCase().includes(needle) || (w.creatorName ?? "").toLowerCase().includes(needle)),
+    );
+  }, [workshops, q, statusFilter]);
 
-  const wkStatuses = Array.from(new Set(workshops.map((w) => w.status)));
-  const wk = useTableControls<WorkshopRow>(workshops, {
-    search: { placeholder: "Search workshops…", text: (w) => w.title },
-    sorts: [
-      { key: "none", label: "Default", cmp: () => 0 },
-      { key: "title", label: "Title (A–Z)", cmp: (a, b) => a.title.localeCompare(b.title) },
-      { key: "status", label: "Status", cmp: (a, b) => a.status.localeCompare(b.status) },
-    ],
-    facets: [
-      { key: "status", label: "Status", multi: true, options: wkStatuses.map((s) => ({ value: s, label: s, test: (w: WorkshopRow) => w.status === s })) },
-    ],
-  });
+  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const safePage = Math.min(page, pages);
+  const pageRows = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+  useEffect(() => { setPage(1); }, [q, statusFilter]);
 
-  const renderTemplate = (t: TemplateCard) => (
-    <div className="tpl" key={t.id}>
-      <div className="thumb">
-        {t.types.slice(0, 7).map((ty, i) => (
-          <span
-            key={i}
-            className="bar"
-            style={{
-              height: `${30 + ((i * 13) % 60)}%`,
-              background:
-                ty === "vote" ? "var(--internal-fg)"
-                  : ty === "outcome" ? "var(--rust)"
-                    : ty === "discuss" ? "var(--draft-fg)"
-                      : ty === "checkin" ? "var(--green)"
-                        : "var(--role)",
-              opacity: 0.55,
-            }}
-          />
-        ))}
-      </div>
-      <div className="body">
-        <h3>{t.name}</h3>
-        <div className="src">{t.source}</div>
-        <p>{t.description}</p>
-        <div className="meta">
-          <span>⏱ {t.minutes} min</span>
-          <span>▥ {t.steps} steps</span>
-        </div>
-        <div className="foot">
-          <button className="btn-ghost sm" onClick={() => setPreview(t)}>View</button>
-          <button
-            className="btn-prim"
-            disabled={!canManage || pending}
-            onClick={() => use(t.id)}
-            title={canManage ? "" : "Only a team lead or admin can build"}
-          >
-            Use template
-          </button>
-        </div>
-      </div>
+  const tprev = (t: TemplateCard) => (
+    <div className="wcard-prev">
+      {(t.types.length ? t.types : ["canvas"]).slice(0, 6).map((ty, i) => (
+        <span key={i} className="wbar" style={{ height: `${34 + ((i * 17) % 56)}%`, background: barColor(ty), opacity: 0.6 }} />
+      ))}
     </div>
   );
 
   return (
     <>
-      {canManage ? (
-        <div className="quickbar">
-          <div className="quickbar-l">
-            <div className="quickbar-t">Run on-demand</div>
-            <div className="quickbar-s">Start a live session now and add modules as you go — no template needed.</div>
-          </div>
-          <button className="btn-prim" onClick={() => setQuickOpen(true)}>Quick start ▸</button>
-        </div>
-      ) : null}
-
       {recommendation ? (
         <div className="rec">
           <div className="rec-l">
@@ -200,99 +177,140 @@ export function WorkshopsClient({
             <div className="rec-why">
               Run <b>{recommendation.templateName}</b> to {recommendation.why}.
               {recommendation.scienceSlug ? (
-                <>
-                  {" "}
-                  <Link className="rec-sci" href={`/help/${recommendation.scienceSlug}`}>Learn the science →</Link>
-                </>
+                <> <Link className="rec-sci" href={`/help/${recommendation.scienceSlug}`}>Learn the science →</Link></>
               ) : null}
             </div>
           </div>
           {canManage ? (
-            <button className="btn-prim" disabled={pending} onClick={() => use(recommendation.templateId, recommendation.pulseId)}>
-              Build it ▸
-            </button>
+            <button className="btn-prim" disabled={pending} onClick={() => use(recommendation.templateId, recommendation.pulseId)}>Build it ▸</button>
           ) : null}
         </div>
       ) : null}
 
-      {workshops.length > 0 ? (
-        <>
-          <div className="cat-head">
-            Your workshops <span className="n">{workshops.length}</span>
-          </div>
-          {workshops.length >= 5 ? wk.controls : null}
-          <div className="tbl-card">
-            <table className="tbl">
-              <tbody>
-                {(workshops.length >= 5 ? wk.view : workshops).map((w) => (
-                  <tr key={w.id}>
-                    <td>
-                      <Link
-                        href={`/workshops/${w.id}`}
-                        style={{ fontWeight: 600, textDecoration: "none" }}
-                      >
-                        {w.title}
-                      </Link>
-                    </td>
-                    <td style={{ width: 110 }}>
-                      <span className="pill sm draft">{w.status}</span>
-                    </td>
-                    <td className="r" style={{ width: 120 }}>
-                      <Link className="linkbtn" href={`/workshops/${w.id}`}>
-                        Open
-                      </Link>
-                      {canManage ? (
-                        <button
-                          className="linkbtn"
-                          style={{ marginLeft: 12, color: "var(--rust)" }}
-                          disabled={pending}
-                          onClick={() => remove(w.id)}
-                        >
-                          Delete
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      ) : null}
-
-      <div className="cat-head" style={{ marginTop: 28 }}>
-        Library
+      {/* ---- create strip ---- */}
+      <div className="wk-create">
+        <div className="cat-head" style={{ margin: "0 0 12px" }}>
+          Create a workshop
+          <Link className="cat-sci" href="/library" style={{ marginLeft: "auto" }}>Browse the full library →</Link>
+        </div>
+        <div className="wk-strip">
+          {canManage ? (
+            <button className="wcard wcard-new" onClick={() => setQuickOpen(true)}>
+              <span className="wcard-ring">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+              </span>
+              <span className="wcard-nl">New workshop</span>
+            </button>
+          ) : null}
+          {templates.map((t) => (
+            <button className="wcard" key={t.id} onClick={() => setPreview(t)} title={t.name}>
+              {tprev(t)}
+              <span className="wcard-nm">{t.name}</span>
+              <span className="wcard-meta">{CATEGORY[t.category] ?? t.category} · {t.steps} steps</span>
+            </button>
+          ))}
+        </div>
       </div>
-      {tpl.controls}
 
-      {tpl.active ? (
-        tpl.view.length ? (
-          <div className="tpl-grid">{tpl.view.map(renderTemplate)}</div>
-        ) : (
-          <div className="empty">No templates match these filters.</div>
-        )
+      {/* ---- workshops list ---- */}
+      <div className="cat-head" style={{ marginTop: 30 }}>
+        Your workshops <span className="n">{workshops.length}</span>
+      </div>
+
+      {workshops.length === 0 ? (
+        <div className="empty">No workshops yet — pick a template above to build your first one.</div>
       ) : (
-        cats.map((cat) => {
-          const items = templates.filter((t) => t.category === cat);
-          return (
-            <div key={cat}>
-              <div className="cat-head" style={{ fontSize: 15, marginTop: 18 }}>
-                {CATEGORY[cat] ?? cat} <span className="n">{items.length}</span>
-                {scienceByCategory[cat] ? (
-                  <Link className="cat-sci" href={`/help/${scienceByCategory[cat]}`}>Learn the science →</Link>
-                ) : null}
-              </div>
-              <div className="tpl-grid">{items.map(renderTemplate)}</div>
+        <>
+          <div className="wk-controls">
+            <div className="wk-seg">
+              {STATUS_ORDER.filter((s) => s === "all" || counts[s]).map((s) => (
+                <button key={s} className={`wseg${statusFilter === s ? " on" : ""}`} onClick={() => setStatusFilter(s)}>
+                  {STATUS_FILTER_LABEL[s]}<span className="wseg-n">{counts[s] ?? 0}</span>
+                </button>
+              ))}
             </div>
-          );
-        })
+            <div className="wk-search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search workshops…" />
+            </div>
+            {canManage ? (
+              <button className="btn-prim" onClick={() => setQuickOpen(true)}>+ New workshop</button>
+            ) : null}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="empty">No workshops match your filters.</div>
+          ) : (
+            <div className="wk-tbl">
+              <div className="wk-th">
+                <span>Workshop</span>
+                <span>Last edit</span>
+                <span>Status</span>
+                <span />
+              </div>
+              {pageRows.map((w) => {
+                const st = STATUS[w.status] ?? { label: w.status, cls: "w-draft" };
+                return (
+                  <div className="wk-tr" key={w.id}>
+                    <Link className="wk-main" href={`/workshops/${w.id}`}>
+                      <span className={w.creatorName ? "wav" : "wfold"}>
+                        {w.creatorName ? initials(w.creatorName) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+                        )}
+                      </span>
+                      <span className="wk-tt">
+                        <span className="wk-title">{w.title}</span>
+                        <span className="wk-sub">
+                          {w.creatorName ? `By ${w.creatorName}` : "No facilitator yet"}
+                          {w.category ? ` · ${CATEGORY[w.category] ?? w.category}` : ""}
+                        </span>
+                      </span>
+                    </Link>
+                    <span className="wk-edit">{w.editedLabel}</span>
+                    <span><span className={`wpill ${st.cls}`}>{st.label}</span></span>
+                    <span className="wk-kebab-wrap">
+                      <button className="wk-kebab" onClick={() => setMenuFor(menuFor === w.id ? null : w.id)} aria-label="Workshop actions">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>
+                      </button>
+                      {menuFor === w.id ? (
+                        <>
+                          <div className="wk-menu-back" onClick={() => setMenuFor(null)} />
+                          <div className="wk-menu">
+                            <Link href={`/workshops/${w.id}`} onClick={() => setMenuFor(null)}>Open</Link>
+                            <Link href={`/run/${w.id}`} onClick={() => setMenuFor(null)}>Run ▸</Link>
+                            {canManage ? <button className="del" onClick={() => remove(w.id)}>Delete</button> : null}
+                          </div>
+                        </>
+                      ) : null}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {filtered.length > PER_PAGE ? (
+            <div className="wk-pager">
+              <span className="wk-pn">
+                Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(filtered.length, safePage * PER_PAGE)}</b> of <b>{filtered.length}</b>
+              </span>
+              <div className="wk-pgs">
+                <button className="wk-pg" disabled={safePage === 1} onClick={() => setPage(safePage - 1)}>‹</button>
+                {Array.from({ length: pages }, (_, i) => i + 1).map((n) => (
+                  <button key={n} className={`wk-pg${n === safePage ? " on" : ""}`} onClick={() => setPage(n)}>{n}</button>
+                ))}
+                <button className="wk-pg" disabled={safePage === pages} onClick={() => setPage(safePage + 1)}>›</button>
+              </div>
+            </div>
+          ) : null}
+        </>
       )}
 
       <SideWindow
         open={quickOpen}
         onClose={() => setQuickOpen(false)}
-        title="Quick start a session"
-        subtitle="Pick a starting module — you can add more live"
+        title="New workshop"
+        subtitle="Start a live session now — add steps as you go"
         size="compact"
         footer={
           <>
@@ -349,6 +367,9 @@ export function WorkshopsClient({
         >
           {preview.source ? <div className="src" style={{ marginTop: 0 }}>{preview.source}</div> : null}
           {preview.description ? <p style={{ color: "var(--muted)", fontSize: 13 }}>{preview.description}</p> : null}
+          {scienceByCategory[preview.category] ? (
+            <Link className="cat-sci" href={`/help/${scienceByCategory[preview.category]}`} style={{ display: "inline-block", marginBottom: 10 }}>Learn the science →</Link>
+          ) : null}
           <ol className="agenda">
             {(preview.phases ?? []).map((p, i) => (
               <li key={i} className="agenda-step">
@@ -364,9 +385,7 @@ export function WorkshopsClient({
       ) : null}
 
       <div className={`toast${toast ? " show" : ""}`}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6">
-          <path d="M20 6 9 17l-5-5" />
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
         <span>{toast}</span>
       </div>
     </>

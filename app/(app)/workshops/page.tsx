@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin } from "@/lib/util";
+import { isAdmin, timeAgo } from "@/lib/util";
 import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
 import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation } from "./WorkshopsClient";
 
@@ -48,13 +48,24 @@ export default async function WorkshopsPage() {
   if (team) {
     const { data: ws } = await supabase
       .from("workshop")
-      .select("id, title, status, created_at")
+      .select("id, title, status, updated_at, scheduled_at, created_by, template_id")
       .eq("team_id", team.id)
-      .order("created_at", { ascending: false });
-    workshops = (ws ?? []).map((w) => ({
+      .order("updated_at", { ascending: false });
+    const rows = ws ?? [];
+    const creatorIds = Array.from(new Set(rows.map((w) => w.created_by).filter(Boolean))) as string[];
+    const { data: profs } = creatorIds.length
+      ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", creatorIds)
+      : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+    const nameById = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Member"]));
+    const catById = new Map(tplCards.map((t) => [t.id, t.category]));
+    workshops = rows.map((w) => ({
       id: w.id,
       title: w.title,
       status: w.status,
+      editedLabel: timeAgo(w.updated_at),
+      scheduledAt: w.scheduled_at,
+      creatorName: w.created_by ? nameById.get(w.created_by) ?? null : null,
+      category: w.template_id ? catById.get(w.template_id) ?? null : null,
     }));
   }
 
@@ -120,7 +131,7 @@ export default async function WorkshopsPage() {
     <div>
       <h1 className="page-title">Workshops</h1>
       <p className="page-sub">
-        Proven frameworks, ready to run. Pick one — we build the agenda for you.
+        Start from a proven framework, then run it live — we build the agenda for you.
       </p>
       {team ? (
         <WorkshopsClient
