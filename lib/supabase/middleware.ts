@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/types/database.types";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "./config";
 
-const PUBLIC_PREFIXES = ["/login", "/signup", "/invite", "/auth", "/share", "/workflow"];
+const PUBLIC_PREFIXES = ["/login", "/signup", "/invite", "/auth", "/share"];
 
 // Refreshes the auth session on every request and gates private routes.
 export async function updateSession(request: NextRequest) {

@@ -378,6 +378,30 @@ button { font-family:inherit; }
 .content{flex:1;overflow:auto;padding:26px clamp(20px,3vw,40px)}
 .page-title{font-family:var(--font-display);font-size:30px;font-weight:600;letter-spacing:-.5px;margin:0 0 3px}
 .page-sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+.page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.page-head .page-sub{max-width:640px}
+.wfx-create{display:flex;gap:10px;margin:0 0 20px}
+.wfx-create .inp{flex:1}
+.wfx-prog{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.wfx-prog-h{display:flex;align-items:center;gap:12px;padding:15px 20px;border-bottom:1px solid var(--line)}
+.wfx-prog-h h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:0}
+.wfx-prog-meta{margin-left:auto;font-size:12px;color:var(--faint);font-weight:600}
+.wfx-steps{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:18px 20px}
+.wfx-step{border:1px solid var(--line);border-top:3px solid var(--line-2);border-radius:8px;padding:14px;background:var(--canvas-2);display:flex;flex-direction:column;gap:8px;min-height:172px}
+.wfx-step.active{border-top-color:var(--amber);background:var(--surface)}
+.wfx-step.done{border-top-color:var(--green)}
+.wfx-step.pending{opacity:.7}
+.wfx-step-top{display:flex;align-items:center;justify-content:space-between}
+.wfx-num{width:24px;height:24px;border-radius:50%;background:var(--open-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px}
+.wfx-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint)}
+.wfx-tag.active{color:var(--amber)}
+.wfx-tag.done{color:var(--green)}
+.wfx-step h4{font-size:13px;font-weight:700;margin:0}
+.wfx-gate{font-size:11.5px;color:var(--muted);margin:0;flex:1;min-height:30px}
+.wfx-acts{display:flex;gap:8px;flex-wrap:wrap}
+.wfx-manage{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:9px;margin-top:2px}
+@media (max-width:1180px){.wfx-steps{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:720px){.wfx-steps{grid-template-columns:1fr 1fr}.page-head{flex-direction:column}}
 
 /* ---------- summary strip ---------- */
 .summary{display:flex;align-items:center;gap:26px;flex-wrap:wrap;margin-bottom:20px}

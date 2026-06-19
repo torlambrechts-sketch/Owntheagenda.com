@@ -19,6 +19,43 @@ export type Database = {
   }
   public: {
     Tables: {
+      program: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string | null
+          title: string
+          status: string
+          current_ord: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      program_step: {
+        Row: {
+          id: string
+          program_id: string
+          workspace_id: string
+          ord: number
+          kind: string
+          title: string
+          status: string
+          ref_table: string | null
+          ref_id: string | null
+          gate: string | null
+          scheduled_at: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -1118,6 +1155,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_program: {
+        Args: { p_workspace: string; p_title: string; p_team?: string | null }
+        Returns: string
+      }
+      set_program_step: {
+        Args: {
+          p_step: string
+          p_status: string
+          p_ref_table?: string | null
+          p_ref_id?: string | null
+          p_scheduled_at?: string | null
+        }
+        Returns: undefined
+      }
       accept_invitation: {
         Args: { p_token: string }
         Returns: Database["public"]["Tables"]["workspace"]["Row"]

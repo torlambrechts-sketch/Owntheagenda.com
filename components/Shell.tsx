@@ -113,11 +113,20 @@ const ICONS = {
       <path d="M12 17.6v.01" />
     </svg>
   ),
+  workflow: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="5" cy="6" r="2" />
+      <circle cx="5" cy="18" r="2" />
+      <circle cx="19" cy="12" r="2" />
+      <path d="M7 6h6a4 4 0 0 1 4 4M7 18h6a4 4 0 0 0 4-4" />
+    </svg>
+  ),
 };
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
   { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace", facilitatorHidden: true },
+  { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/sessions", label: "Sessions", icon: ICONS.sessions, group: "Effectiveness" },
   { href: "/canvas", label: "Canvas", icon: ICONS.canvas, group: "Effectiveness" },
