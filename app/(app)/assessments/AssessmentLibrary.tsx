@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
 export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
-export type CatalogItemDef = { key: string; dimension: string; text: string };
+export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean };
 export type CatalogItem = {
   key: string;
   name: string;
@@ -46,7 +46,10 @@ function scoreFrom(inst: CatalogItem, answers: Record<string, number>): DimScore
   const { min, max } = inst.scale;
   return inst.dimensions.map((d) => {
     const its = inst.items.filter((it) => it.dimension === d.key);
-    const vals = its.map((it) => answers[it.key]).filter((v): v is number => v != null);
+    // Reverse-keyed items are flipped onto the dimension's pole before averaging.
+    const vals = its
+      .map((it) => (answers[it.key] == null ? null : it.reverse ? min + max - answers[it.key] : answers[it.key]))
+      .filter((v): v is number => v != null);
     const mean = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : min;
     const pct = ((mean - min) / (max - min)) * 100;
     return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: vals.length };

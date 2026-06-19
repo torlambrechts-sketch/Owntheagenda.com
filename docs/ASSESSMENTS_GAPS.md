@@ -54,10 +54,19 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    (`benchmark_sample`); individual instruments (working style, strengths) have none,
    so "in the top X%" isn't possible yet.
 
-5. **Item depth + reverse scoring for catalog instruments.** `working_style` /
-   `strengths_snapshot` carry ~2 items per dimension and no reverse-scored flags in
-   the JSONB definition (only the relational leadership schema has `reverse_scored`).
-   A defensible personality profile needs more items and reverse keys.
+5. **✅ DONE — Item depth + reverse scoring for catalog instruments.**
+   `working_style` and `strengths_snapshot` now carry **4 items per dimension** (16
+   total, up from 8), each dimension gaining one **reverse-keyed** item
+   (`"reverse": true` in the JSONB definition) to blunt acquiescence bias. Scoring
+   flips reverse items onto the dimension pole before averaging — in both the
+   client run (`AssessmentLibrary.scoreFrom`) and the shared item→dimension reducer
+   (`lib/survey.dimensionMeans`, which also feeds the team aggregate). Verified the
+   arithmetic (genuinely-high → max, yes-to-all acquiescence → mid, genuinely-low →
+   min). These instruments score entirely client-side, so the server composite /
+   benchmark path is untouched; reverse keys remain off team instruments until
+   `private.survey_composite` is made reverse-aware. `working_style.focus` was
+   re-grounded on concentration/depth (matching its authored copy and "Focus"
+   label) with fresh item keys so prior responses drop cleanly.
 
 6. **Candidate sharing & export are stubs.** "Share with candidate" and PDF/export are
    not implemented (export shows a toast). Needs a shareable individual-report surface
