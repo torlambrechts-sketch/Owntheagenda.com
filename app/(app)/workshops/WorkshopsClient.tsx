@@ -189,10 +189,7 @@ export function WorkshopsClient({
 
       {/* ---- create strip ---- */}
       <div className="wk-create">
-        <div className="cat-head" style={{ margin: "0 0 12px" }}>
-          Create a workshop
-          <Link className="cat-sci" href="/library" style={{ marginLeft: "auto" }}>Browse the full library →</Link>
-        </div>
+        <div className="cat-head" style={{ margin: "0 0 12px" }}>Create a workshop</div>
         <div className="wk-strip">
           {canManage ? (
             <button className="wcard wcard-new" onClick={() => setQuickOpen(true)}>
@@ -202,13 +199,20 @@ export function WorkshopsClient({
               <span className="wcard-nl">New workshop</span>
             </button>
           ) : null}
-          {templates.map((t) => (
+          {templates.slice(0, 6).map((t) => (
             <button className="wcard" key={t.id} onClick={() => setPreview(t)} title={t.name}>
               {tprev(t)}
               <span className="wcard-nm">{t.name}</span>
               <span className="wcard-meta">{CATEGORY[t.category] ?? t.category} · {t.steps} steps</span>
             </button>
           ))}
+          <Link className="wcard-more" href="/library">
+            <span className="wcard-ring">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+            <span className="wcard-nl">More templates</span>
+            <span className="wcard-more-sub">Browse the library</span>
+          </Link>
         </div>
       </div>
 

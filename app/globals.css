@@ -350,17 +350,24 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 
 /* ===== Workshops home ===== */
 .wk-create{margin-top:18px}
-.wk-strip{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:13px}
+.wk-strip{display:flex;gap:13px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.wk-strip>.wcard,.wk-strip>.wcard-more{flex:0 0 174px}
 .wcard{border:1px solid var(--line);border-radius:11px;background:var(--surface);box-shadow:var(--shadow);overflow:hidden;cursor:pointer;text-align:left;padding:0;font-family:inherit;display:flex;flex-direction:column;transition:box-shadow .15s,border-color .15s,transform .12s}
 .wcard:hover{border-color:var(--green);box-shadow:0 4px 16px rgba(58,77,63,.12);transform:translateY(-1px)}
 .wcard-prev{height:78px;background:var(--canvas);border-bottom:1px solid var(--line);display:flex;align-items:flex-end;gap:5px;padding:13px 14px}
 .wcard-prev .wbar{flex:1;border-radius:3px 3px 0 0;min-height:6px}
-.wcard-nm{padding:10px 13px 2px;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.3}
-.wcard-meta{padding:0 13px 11px;font-size:11px;color:var(--faint);font-weight:600}
+.wcard-nm{padding:10px 13px 2px;font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.wcard-meta{padding:0 13px 11px;font-size:11px;color:var(--faint);font-weight:600;margin-top:auto}
 .wcard-new{background:var(--forest);border-color:var(--forest);color:#fff;align-items:center;justify-content:center;gap:11px;min-height:135px}
 .wcard-new:hover{background:var(--forest-2,#33493c);border-color:var(--forest)}
-.wcard-ring{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center}
+.wcard-ring{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .wcard-nl{font-weight:700;font-size:13px}
+.wcard-more{border:1px dashed var(--line-2);border-radius:11px;background:var(--canvas);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--muted);text-align:center;transition:border-color .15s,color .15s,background .15s}
+.wcard-more:hover{border-color:var(--green);color:var(--green);background:var(--surface)}
+.wcard-more .wcard-ring{border-color:currentColor;width:42px;height:42px}
+.wcard-more .wcard-nl{color:var(--ink)}
+.wcard-more:hover .wcard-nl{color:var(--green)}
+.wcard-more-sub{font-size:11px;color:var(--faint)}
 
 .wk-controls{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
 .wk-seg{display:flex;gap:3px;background:var(--canvas-2);border-radius:9px;padding:3px}
