@@ -20,6 +20,11 @@ type Idea = {
   anon: boolean;
 };
 type Vote = { ideaId: string; voterId: string };
+type Reaction = { ideaId: string; userId: string; emoji: string };
+type Comment = { id: string; ideaId: string; userId: string | null; authorName: string | null; body: string; createdAt: string };
+
+// Fixed reaction palette — mirrors the server-side whitelist in idea_react_toggle.
+const REACTIONS = ["👍", "🙌", "🎯", "💡", "🔥", "❓"] as const;
 
 const IDEA_COLS = "id, lane, text, detail, impact, effort, author_id, author_name, is_anonymous";
 
@@ -82,6 +87,10 @@ export function IdeaModule({
   const silent = mode === "brainstorm" && (!!config.silent || !!config.prework);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
+  const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [reactBar, setReactBar] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [anon, setAnon] = useState(false);
   const [revealed, setRevealed] = useState(!silent);
@@ -100,15 +109,19 @@ export function IdeaModule({
   const lanes = mode === "feedback" ? (config.lanes && config.lanes.length ? config.lanes : ["Notes"]) : [];
 
   const load = useCallback(async () => {
-    const [{ data: ir }, { data: vr }, rev] = await Promise.all([
+    const [{ data: ir }, { data: vr }, { data: rr }, { data: cr }, rev] = await Promise.all([
       supabase.from("idea").select(IDEA_COLS).eq("session_id", sessionId).eq("block_ord", blockOrd).order("created_at", { ascending: true }),
       supabase.from("idea_vote").select("idea_id, voter_id").eq("session_id", sessionId).eq("block_ord", blockOrd),
+      supabase.from("idea_reaction").select("idea_id, user_id, emoji").eq("session_id", sessionId).eq("block_ord", blockOrd),
+      supabase.from("idea_comment").select("id, idea_id, user_id, author_name, body, created_at").eq("session_id", sessionId).eq("block_ord", blockOrd).order("created_at", { ascending: true }),
       silent
         ? supabase.from("session_reveal").select("block_ord").eq("session_id", sessionId).eq("block_ord", blockOrd).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
     setIdeas((ir ?? []).map(mapIdea));
     setVotes((vr ?? []).map((v: any) => ({ ideaId: v.idea_id, voterId: v.voter_id })));
+    setReactions((rr ?? []).map((r: any) => ({ ideaId: r.idea_id, userId: r.user_id, emoji: r.emoji })));
+    setComments((cr ?? []).map((c: any) => ({ id: c.id, ideaId: c.idea_id, userId: c.user_id, authorName: c.author_name, body: c.body, createdAt: c.created_at })));
     if (silent) setRevealed(!!(rev as any)?.data);
   }, [supabase, sessionId, blockOrd, silent]);
 
@@ -145,6 +158,32 @@ export function IdeaModule({
           setVotes((prev) => prev.filter((v) => !(v.ideaId === r.idea_id && v.voterId === r.voter_id)));
         }
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "idea_reaction", filter: `session_id=eq.${sessionId}` }, (p) => {
+        if (p.eventType === "INSERT") {
+          const r = p.new as any;
+          if (r.block_ord !== blockOrd) return;
+          setReactions((prev) =>
+            prev.some((x) => x.ideaId === r.idea_id && x.userId === r.user_id && x.emoji === r.emoji)
+              ? prev : [...prev, { ideaId: r.idea_id, userId: r.user_id, emoji: r.emoji }],
+          );
+        } else if (p.eventType === "DELETE") {
+          const r = p.old as any;
+          setReactions((prev) => prev.filter((x) => !(x.ideaId === r.idea_id && x.userId === r.user_id && x.emoji === r.emoji)));
+        }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "idea_comment", filter: `session_id=eq.${sessionId}` }, (p) => {
+        if (p.eventType === "INSERT") {
+          const r = p.new as any;
+          if (r.block_ord !== blockOrd) return;
+          setComments((prev) =>
+            prev.some((c) => c.id === r.id)
+              ? prev : [...prev, { id: r.id, ideaId: r.idea_id, userId: r.user_id, authorName: r.author_name, body: r.body, createdAt: r.created_at }],
+          );
+        } else if (p.eventType === "DELETE") {
+          const r = p.old as any;
+          setComments((prev) => prev.filter((c) => c.id !== r.id));
+        }
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "session_reveal", filter: `session_id=eq.${sessionId}` }, (p) => {
         if ((p.new as any)?.block_ord === blockOrd) {
           setRevealed(true);
@@ -172,6 +211,34 @@ export function IdeaModule({
   const remaining = Math.max(0, budget - myVotes);
   const countFor = (id: string) => votes.filter((v) => v.ideaId === id).length;
   const iVoted = (id: string) => votes.some((v) => v.ideaId === id && v.voterId === userId);
+
+  // Reactions + comments on a card.
+  const reactCount = (id: string, e: string) => reactions.filter((r) => r.ideaId === id && r.emoji === e).length;
+  const iReacted = (id: string, e: string) => reactions.some((r) => r.ideaId === id && r.emoji === e && r.userId === userId);
+  const usedEmojis = (id: string) => REACTIONS.filter((e) => reactCount(id, e) > 0);
+  const commentsFor = (id: string) => comments.filter((c) => c.ideaId === id);
+
+  async function toggleReaction(id: string, emoji: string) {
+    const had = iReacted(id, emoji);
+    setReactions((prev) =>
+      had ? prev.filter((r) => !(r.ideaId === id && r.emoji === emoji && r.userId === userId))
+          : [...prev, { ideaId: id, userId, emoji }],
+    );
+    const { error } = await supabase.rpc("idea_react_toggle", { p_idea: id, p_emoji: emoji });
+    if (error) { setErr(error.message); load(); }
+  }
+  async function addComment(id: string) {
+    const body = commentDraft.trim();
+    if (!body) return;
+    setCommentDraft("");
+    const { error } = await supabase.rpc("idea_comment_add", { p_idea: id, p_body: body });
+    if (error) { setErr(error.message); setCommentDraft(body); }
+  }
+  async function deleteComment(commentId: string) {
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    const { error } = await supabase.from("idea_comment").delete().eq("id", commentId);
+    if (error) { setErr(error.message); load(); }
+  }
 
   function flashAdded() {
     setAdded(true);
@@ -230,6 +297,7 @@ export function IdeaModule({
     setEditing(i);
     setEditText(i.text);
     setEditDetail(i.detail ?? "");
+    setCommentDraft("");
   }
   async function saveCard() {
     if (!editing) return;
@@ -298,6 +366,34 @@ export function IdeaModule({
 
   const sortedIdeas = [...ideas].sort((a, b) => countFor(b.id) - countFor(a.id));
 
+  // Reactions + comment affordance, shown on shared (revealed) cards.
+  function cardEngage(i: Idea) {
+    if (!revealed || collecting) return null;
+    const used = usedEmojis(i.id);
+    const cc = commentsFor(i.id).length;
+    const open = reactBar === i.id;
+    return (
+      <div className="cardengage">
+        {used.map((e) => (
+          <button key={e} className={`react${iReacted(i.id, e) ? " on" : ""}`} onClick={() => toggleReaction(i.id, e)} title="Toggle reaction">
+            <span className="e">{e}</span> {reactCount(i.id, e)}
+          </button>
+        ))}
+        <div className="react-add-wrap">
+          <button className="react-add" title="Add a reaction" onClick={() => setReactBar(open ? null : i.id)}>☺<sup>+</sup></button>
+          {open ? (
+            <div className="react-pop" onMouseLeave={() => setReactBar(null)}>
+              {REACTIONS.map((e) => (
+                <button key={e} className={iReacted(i.id, e) ? "on" : ""} onClick={() => { toggleReaction(i.id, e); setReactBar(null); }}>{e}</button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+        <button className="cmtbtn" title="Comments" onClick={() => openCard(i)}>💬{cc > 0 ? ` ${cc}` : ""}</button>
+      </div>
+    );
+  }
+
   // One card, shared by the list view and the impact/effort grid (F3).
   function renderCard(i: Idea) {
     const c = countFor(i.id);
@@ -321,6 +417,7 @@ export function IdeaModule({
             </button>
           ) : null}
         </div>
+        {cardEngage(i)}
       </div>
     );
   }
@@ -384,6 +481,7 @@ export function IdeaModule({
                           </button>
                         ) : null}
                       </div>
+                      {cardEngage(i)}
                     </div>
                   ))}
                 </div>
@@ -568,6 +666,41 @@ export function IdeaModule({
             <button className="btn-sec sm" disabled={promoted.has(editing.id)} onClick={() => promote(editing)} style={{ marginTop: 14 }}>
               {promoted.has(editing.id) ? "✓ Added as a task" : "Make this a task →"}
             </button>
+          ) : null}
+
+          {!collecting && revealed ? (
+            <div className="cmt-sec">
+              <div className="cmt-react">
+                {REACTIONS.map((e) => (
+                  <button key={e} className={`react${iReacted(editing.id, e) ? " on" : ""}`} onClick={() => toggleReaction(editing.id, e)} title="Toggle reaction">
+                    <span className="e">{e}</span>{reactCount(editing.id, e) > 0 ? ` ${reactCount(editing.id, e)}` : ""}
+                  </button>
+                ))}
+              </div>
+              <div className="cmt-h">Comments <span className="n">{commentsFor(editing.id).length}</span></div>
+              <div className="cmt-list">
+                {commentsFor(editing.id).map((c) => (
+                  <div className="cmt" key={c.id}>
+                    <div className="cmt-top">
+                      <span className="cmt-by">{c.authorName ? c.authorName.split(" ")[0] : "Member"}</span>
+                      {c.userId === userId || isFacilitator ? <button className="cmt-x" title="Delete comment" onClick={() => deleteComment(c.id)}>✕</button> : null}
+                    </div>
+                    <div className="cmt-body">{c.body}</div>
+                  </div>
+                ))}
+                {commentsFor(editing.id).length === 0 ? <div className="form-note">No comments yet — start the thread.</div> : null}
+              </div>
+              <div className="cmt-add">
+                <input
+                  className="inp"
+                  placeholder="Add a comment…"
+                  value={commentDraft}
+                  onChange={(e) => setCommentDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") addComment(editing.id); }}
+                />
+                <button className="btn-prim sm" disabled={!commentDraft.trim()} onClick={() => addComment(editing.id)}>Post</button>
+              </div>
+            </div>
           ) : null}
           </>
         ) : null}

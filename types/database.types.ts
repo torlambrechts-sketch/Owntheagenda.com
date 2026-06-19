@@ -927,6 +927,35 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      idea_reaction: {
+        Row: {
+          id: string
+          idea_id: string
+          session_id: string
+          block_ord: number
+          user_id: string
+          emoji: string
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      idea_comment: {
+        Row: {
+          id: string
+          idea_id: string
+          session_id: string
+          block_ord: number
+          user_id: string | null
+          author_name: string | null
+          body: string
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       notification: {
         Row: {
           id: string
@@ -1300,6 +1329,11 @@ export type Database = {
       }
       toggle_action: { Args: { p_action: string }; Returns: undefined }
       idea_vote_toggle: { Args: { p_idea: string }; Returns: undefined }
+      idea_react_toggle: { Args: { p_idea: string; p_emoji: string }; Returns: undefined }
+      idea_comment_add: {
+        Args: { p_idea: string; p_body: string }
+        Returns: Database["public"]["Tables"]["idea_comment"]["Row"]
+      }
       idea_seed: {
         Args: { p_session: string; p_block_ord: number; p_texts: string[] }
         Returns: undefined

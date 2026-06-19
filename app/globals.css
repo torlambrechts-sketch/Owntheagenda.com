@@ -922,6 +922,35 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .ideacard .t:hover{color:var(--green)}
 .ideacard .m .hasdetail{font-size:13px;color:var(--green);cursor:pointer;line-height:1}
 .card-ro{font-size:13.5px;line-height:1.55;color:var(--ink);white-space:pre-wrap}
+/* card reactions + comments */
+.cardengage{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:2px}
+.react{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line-2);background:var(--surface);border-radius:20px;padding:2px 8px;font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums;line-height:1.4}
+.react .e{font-size:12.5px}
+.react:hover{border-color:var(--green)}
+.react.on{background:var(--open-bg);border-color:var(--green);color:var(--green)}
+.react-add-wrap{position:relative;display:inline-flex}
+.react-add{border:1px dashed var(--line-2);background:none;border-radius:20px;padding:2px 7px;font-size:11px;color:var(--faint);cursor:pointer;line-height:1.4}
+.react-add sup{font-weight:700}
+.react-add:hover{border-color:var(--green);color:var(--green)}
+.react-pop{position:absolute;bottom:26px;left:0;z-index:20;display:flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:4px 6px}
+.react-pop button{border:none;background:none;font-size:17px;cursor:pointer;padding:2px 4px;border-radius:8px;line-height:1}
+.react-pop button:hover{background:var(--canvas-2)}
+.react-pop button.on{background:var(--open-bg)}
+.cmtbtn{border:none;background:none;color:var(--faint);font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 4px;line-height:1.4}
+.cmtbtn:hover{color:var(--green)}
+.cmt-sec{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+.cmt-react{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.cmt-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:10px}
+.cmt-h .n{background:var(--canvas-2);border-radius:20px;padding:1px 8px;color:var(--faint)}
+.cmt-list{display:flex;flex-direction:column;gap:9px;margin-bottom:12px}
+.cmt{background:var(--canvas);border:1px solid var(--line);border-radius:9px;padding:9px 11px}
+.cmt-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
+.cmt-by{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;color:var(--green)}
+.cmt-x{border:none;background:none;color:var(--faint);font-size:11px;cursor:pointer;padding:0 2px}
+.cmt-x:hover{color:var(--rust)}
+.cmt-body{font-size:13px;line-height:1.45;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.cmt-add{display:flex;gap:7px}
+.cmt-add .inp{flex:1;font-size:12.5px;padding:7px 9px}
 .votebtn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--surface);border-radius:20px;padding:4px 11px 4px 9px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;font-variant-numeric:tabular-nums}
 .votebtn .dot{width:9px;height:9px;border-radius:50%;background:var(--line-2)}
 .votebtn.on{background:var(--open-bg);color:var(--green);border-color:var(--green)}
