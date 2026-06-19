@@ -49,10 +49,16 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    — team members are implicitly eligible through an open survey. The detail's
    "Assign people" (in the design) needs an assignment record + reminder hooks.
 
-4. **Reference norms / percentiles for individual instruments.** Bands are raw
-   position on the scale, not population-relative. Team surveys have a benchmark pool
-   (`benchmark_sample`); individual instruments (working style, strengths) have none,
-   so "in the top X%" isn't possible yet.
+4. **✅ DONE — Reference norms / percentiles for individual instruments.** Added the
+   `individual_norms(template_key)` RPC (security definer): for the caller it computes a
+   per-dimension percentile against the **global pool** of everyone who's taken the same
+   instrument — reverse-scoring aware, entirely server-side so only the caller's own
+   standing is returned (never anyone else's scores). A min-N guard (≥5 others) keeps
+   tiny pools from producing noisy/identifying percentiles. The report's expanded
+   dimension detail now reads "Compared with N others … you're around the Pth
+   percentile" on your own report. Verified the math (top scorer → 100th, middle →
+   60th, sub-threshold → null). Pools are empty until people take assessments, so it
+   degrades to no-percentile gracefully.
 
 5. **✅ DONE — Item depth + reverse scoring for catalog instruments.**
    `working_style` and `strengths_snapshot` now carry **4 items per dimension** (16

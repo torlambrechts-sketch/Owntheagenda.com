@@ -26,6 +26,7 @@ export type CatalogItem = {
   teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
   myHistory: { at: string; scores: Record<string, number> }[]; // individual scope: past takes, oldest first
   myShared: boolean; // individual scope: am I sharing this result with teammates?
+  norms: { dimension: string; percentile: number | null; others_n: number }[]; // individual scope: my percentile per dimension vs the global pool
 };
 
 type View = "library" | "detail" | "run" | "report";
@@ -65,6 +66,11 @@ function scoreFromAggregate(inst: CatalogItem): DimScore[] {
     const pct = ((mean - min) / (max - min)) * 100;
     return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: 0 };
   });
+}
+function ordinal(n: number) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 }
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -388,6 +394,7 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
           <div className="a-bandhead"><span>Dimension</span><span style={{ textAlign: "center" }}>{BANDS.join(" · ")}</span><span className="sc">{cand ? "" : "Score"}</span></div>
           {scores.map((s) => {
             const open = exp.has(s.key);
+            const nm = !sample && !teamMode ? active.norms.find((x) => x.dimension === s.key) : undefined;
             return (
               <div key={s.key} className={`a-trow${open ? " open" : ""}`} onClick={() => setExp((p) => { const n = new Set(p); n.has(s.key) ? n.delete(s.key) : n.add(s.key); return n; })}>
                 <span className="a-tname"><span className="a-exp">›</span>{s.label}</span>
@@ -399,6 +406,9 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
                     <p>{s.copy?.definition || s.blurb}</p>
                     <div className="a-seclbl">Your read</div>
                     <p>{bandSentence(s.label, s.band)}</p>
+                    {nm && nm.percentile != null ? (
+                      <p className="a-pctl">Compared with {nm.others_n} {nm.others_n === 1 ? "other" : "others"} who’ve taken this, you’re around the <strong>{ordinal(nm.percentile)} percentile</strong>.</p>
+                    ) : null}
                     {s.copy?.advantages?.length ? (
                       <>
                         <div className="a-seclbl">Where it helps</div>

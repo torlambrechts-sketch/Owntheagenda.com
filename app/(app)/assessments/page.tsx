@@ -77,6 +77,7 @@ export default async function AssessmentsPage({
       teamReport: null,
       myHistory: [],
       myShared: false,
+      norms: [],
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -100,9 +101,19 @@ export default async function AssessmentsPage({
         teamReport: null,
         myHistory: histByKey.get(t.key) ?? [],
         myShared: mySharedByKey.get(t.key) ?? false,
+        norms: [],
       };
     }),
   ];
+
+  // ----- per-dimension percentile norms for the instruments I've completed -----
+  // Global pool, reverse-aware, min-N guarded server-side; only my own standing
+  // is returned, never anyone else's scores.
+  for (const item of catalog) {
+    if (item.scope !== "individual" || !item.completedByMe || item.external) continue;
+    const { data: norm } = await supabase.rpc("individual_norms", { p_template_key: item.key });
+    item.norms = (norm as unknown as { dims?: { dimension: string; percentile: number | null; others_n: number }[] } | null)?.dims ?? [];
+  }
 
   if (teamList.length === 0) {
     return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />;

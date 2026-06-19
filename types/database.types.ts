@@ -1442,6 +1442,10 @@ export type Database = {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }
         Returns: undefined
       }
+      individual_norms: {
+        Args: { p_template_key: string }
+        Returns: Json
+      }
       set_individual_shared: {
         Args: { p_workspace: string; p_template_key: string; p_shared: boolean }
         Returns: undefined
