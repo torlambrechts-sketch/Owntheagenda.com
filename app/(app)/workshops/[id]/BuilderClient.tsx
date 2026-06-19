@@ -31,7 +31,7 @@ export type AssessmentPanel = {
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
 
-export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; capture?: boolean; autoAdvance?: boolean };
+export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; capture?: boolean; autoAdvance?: boolean; prework?: boolean };
 
 export type BlockRow = {
   id: string;
@@ -144,6 +144,7 @@ export function BuilderClient({
   const [silent, setSilent] = useState(false);
   const [capture, setCapture] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(false);
+  const [prework, setPrework] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -210,6 +211,7 @@ export function BuilderClient({
     setSilent(false);
     setCapture(false);
     setAutoAdvance(false);
+    setPrework(false);
     setError(null);
     setOpen(true);
   }
@@ -226,6 +228,7 @@ export function BuilderClient({
     setSilent(!!b.config?.silent);
     setCapture(!!b.config?.capture);
     setAutoAdvance(!!b.config?.autoAdvance);
+    setPrework(!!b.config?.prework);
     setError(null);
     setOpen(true);
   }
@@ -236,14 +239,14 @@ export function BuilderClient({
     const base: Record<string, unknown> = autoAdvance ? { autoAdvance: true } : {};
     if (activity === "feedback") return { ...base, lanes };
     if (activity === "vote") return { ...base, options, budget: b };
-    if (activity === "brainstorm") return { ...base, budget: b, silent };
+    if (activity === "brainstorm") return { ...base, budget: b, silent, ...(prework ? { prework: true } : {}) };
     if (activity === "checkin") return { ...base, capture };
     return base;
   }
   function previewHint(): string {
     const b = Math.max(1, Number(budget) || 3);
     switch (activity) {
-      case "brainstorm": return silent ? "Participants add idea cards privately, then reveal and dot-vote together." : "Participants add idea cards and dot-vote.";
+      case "brainstorm": return prework ? "Members add cards as pre-work before the session, then reveal and dot-vote together live." : silent ? "Participants add idea cards privately, then reveal and dot-vote together." : "Participants add idea cards and dot-vote.";
       case "vote": return `Participants vote with ${b} dots across the options.`;
       case "feedback": return "Participants add cards to the columns.";
       case "checkin": return capture ? "Participants type a written response — cards you can edit, vote on and promote." : "Participants reflect, then tap “I’m ready” — no typing.";
@@ -410,7 +413,7 @@ export function BuilderClient({
               : b.activityType === "vote"
                 ? `${b.config?.options?.length ?? 0} options · ${b.config?.budget ?? 3} dots each`
                 : b.activityType === "brainstorm"
-                  ? `${b.config?.budget ?? 3} dots each${b.config?.silent ? " · silent" : ""}`
+                  ? `${b.config?.budget ?? 3} dots each${b.config?.silent ? " · silent" : ""}${b.config?.prework ? " · pre-work" : ""}`
                   : null;
           return (
             <div className="block" key={b.id}>
@@ -529,6 +532,13 @@ export function BuilderClient({
                 Silent ideation — write privately, reveal together
               </label>
               <div className="form-note">Cards stay hidden from others until the facilitator reveals them — prevents loud-voice anchoring.</div>
+            </div>
+            <div className="field">
+              <label className="checkrow">
+                <input type="checkbox" checked={prework} onChange={(e) => setPrework(e.target.checked)} />
+                Collect as pre-work — members contribute before the session
+              </label>
+              <div className="form-note">Open the session for pre-work and members add ideas independently ahead of time. Pre-work cards stay private until the live reveal, so the room opens with input already in.</div>
             </div>
           </>
         ) : null}

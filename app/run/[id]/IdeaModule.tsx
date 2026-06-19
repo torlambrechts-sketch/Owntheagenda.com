@@ -6,7 +6,7 @@ import { initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
 
 export type ModuleMode = "brainstorm" | "poll" | "feedback";
-export type ModuleConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean };
+export type ModuleConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; prework?: boolean };
 
 type Idea = {
   id: string;
@@ -57,6 +57,7 @@ export function IdeaModule({
   ready,
   onToggleReady,
   addPlaceholder,
+  collecting,
 }: {
   sessionId: string;
   blockOrd: number;
@@ -72,9 +73,13 @@ export function IdeaModule({
   ready: boolean;
   onToggleReady: () => void;
   addPlaceholder?: string;
+  collecting?: boolean;
 }) {
   const supabase = useMemo(() => createClient(), []);
-  const silent = mode === "brainstorm" && !!config.silent;
+  // Silent (private-until-reveal) covers both explicit silent ideation and
+  // pre-work blocks; `collecting` is the async pre-work surface, which hides
+  // the run-only controls (reveal / vote / promote).
+  const silent = mode === "brainstorm" && (!!config.silent || !!config.prework);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [votes, setVotes] = useState<Vote[]>([]);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -310,7 +315,7 @@ export function IdeaModule({
               <span className="dot" /> {c}
             </button>
           ) : null}
-          {isFacilitator ? (
+          {isFacilitator && !collecting ? (
             <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
               {promoted.has(i.id) ? "✓ Task" : "→ Task"}
             </button>
@@ -373,7 +378,7 @@ export function IdeaModule({
                         {canRemove(i) ? (
                           <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button>
                         ) : null}
-                        {isFacilitator ? (
+                        {isFacilitator && !collecting ? (
                           <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
                             {promoted.has(i.id) ? "✓ Task" : "→ Task"}
                           </button>
@@ -405,17 +410,17 @@ export function IdeaModule({
           </div>
           {silent && !revealed ? (
             <div className="silentbar">
-              <span>✍️ Writing privately — only you can see your cards until the facilitator reveals them.</span>
-              {isFacilitator ? <button className="btn-prim sm" onClick={reveal}>Reveal cards ▸</button> : null}
+              <span>✍️ Writing privately — only you can see your cards until the facilitator reveals them{collecting ? " in the live session" : ""}.</span>
+              {isFacilitator && !collecting ? <button className="btn-prim sm" onClick={reveal}>Reveal cards ▸</button> : null}
             </div>
           ) : null}
-          {isFacilitator && revealed && ideas.some((i) => countFor(i.id) > 0) ? (
+          {!collecting && isFacilitator && revealed && ideas.some((i) => countFor(i.id) > 0) ? (
             <div className="promotebar">
               <span>Take the top-voted cards forward as commitments.</span>
               <button className="btn-sec sm" onClick={promoteTop}>Promote top 3 →</button>
             </div>
           ) : null}
-          {revealed && ideas.length > 0 ? (
+          {!collecting && revealed && ideas.length > 0 ? (
             <div className="ideaviews">
               <div className="seg">
                 <button className={`segbtn${!priorView ? " on" : ""}`} onClick={() => setPriorView(false)}>List</button>
@@ -559,7 +564,7 @@ export function IdeaModule({
               )}
             </>
           )}
-          {isFacilitator ? (
+          {isFacilitator && !collecting ? (
             <button className="btn-sec sm" disabled={promoted.has(editing.id)} onClick={() => promote(editing)} style={{ marginTop: 14 }}>
               {promoted.has(editing.id) ? "✓ Added as a task" : "Make this a task →"}
             </button>

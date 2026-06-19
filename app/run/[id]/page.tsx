@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
 import { RunLobby } from "./RunLobby";
+import { PreworkLobby, type PreworkBlock } from "./PreworkLobby";
 import { RunClient, type RunBlock, type Participant, type Action } from "./RunClient";
 
 export default async function RunPage({
@@ -55,11 +56,34 @@ export default async function RunPage({
     .limit(1)
     .maybeSingle();
 
+  const preworkBlocks: PreworkBlock[] = runBlocks
+    .filter((b) => b.activityType === "brainstorm" && (b.config as { prework?: boolean })?.prework)
+    .map((b) => ({ ord: b.ord, title: b.title, prompt: b.prompt, config: b.config as PreworkBlock["config"] }));
+
+  const userName =
+    ctx.profile?.full_name || ctx.profile?.display_name || ctx.email || "You";
+
   if (!session) {
     return (
       <RunLobby
         workshopId={workshop.id}
         title={workshop.title}
+        canManage={canManage}
+        hasPrework={preworkBlocks.length > 0}
+      />
+    );
+  }
+
+  if (session.is_prep) {
+    return (
+      <PreworkLobby
+        workshopId={workshop.id}
+        sessionId={session.id}
+        title={workshop.title}
+        blocks={preworkBlocks}
+        userId={ctx.userId}
+        userName={userName}
+        isFacilitator={session.facilitator_id === ctx.userId}
         canManage={canManage}
       />
     );
@@ -95,9 +119,6 @@ export default async function RunPage({
     due: a.due_at,
     done: a.status === "done",
   }));
-
-  const userName =
-    ctx.profile?.full_name || ctx.profile?.display_name || ctx.email || "You";
 
   // Resolve the instrument catalog from the template library (data-driven).
   const instruments = await resolveInstruments();

@@ -10,13 +10,15 @@ export function RunLobby({
   workshopId,
   title,
   canManage,
+  hasPrework,
 }: {
   workshopId: string;
   title: string;
   canManage: boolean;
+  hasPrework?: boolean;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<null | "live" | "prework">(null);
   const [err, setErr] = useState<string | null>(null);
 
   // Auto-enter when a session is started for this workshop.
@@ -36,13 +38,26 @@ export function RunLobby({
   }, [workshopId, router]);
 
   async function start() {
-    setBusy(true);
+    setBusy("live");
     setErr(null);
     const supabase = createClient();
     const { error } = await supabase.rpc("start_session", { p_workshop: workshopId });
     if (error) {
       setErr(error.message);
-      setBusy(false);
+      setBusy(null);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function openPrework() {
+    setBusy("prework");
+    setErr(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("open_prework", { p_workshop: workshopId });
+    if (error) {
+      setErr(error.message);
+      setBusy(null);
       return;
     }
     router.refresh();
@@ -59,9 +74,17 @@ export function RunLobby({
         {canManage ? (
           <>
             <p className="lede">Ready to run this session live, step by step.</p>
-            <button className="btn-prim btn-full" disabled={busy} onClick={start}>
-              {busy ? "Starting…" : "Start session ▸"}
+            <button className="btn-prim btn-full" disabled={!!busy} onClick={start}>
+              {busy === "live" ? "Starting…" : "Start session ▸"}
             </button>
+            {hasPrework ? (
+              <>
+                <button className="btn-sec btn-full" style={{ marginTop: 10 }} disabled={!!busy} onClick={openPrework}>
+                  {busy === "prework" ? "Opening…" : "Open for pre-work first"}
+                </button>
+                <div className="form-note" style={{ marginTop: 8 }}>Let members add ideas independently before the live session, then start when everyone&apos;s contributed.</div>
+              </>
+            ) : null}
           </>
         ) : (
           <>

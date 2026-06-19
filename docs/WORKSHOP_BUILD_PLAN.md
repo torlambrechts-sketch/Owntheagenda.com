@@ -13,7 +13,8 @@ rolled-back test) → types → UI → typecheck/lint/build → commit → ff-me
       fast-follow in P10 — needs a vote-weight column.)
 - [x] **P7 · F1** — public shareable readout link (opt-in token) + markdown export + print/PDF.
       (Live post-to-Slack/webhook deferred to P10 notes — needs an egress delivery job.)
-- [ ] **P8 · F4** — pre-work / async collection before the live session.
+- [x] **P8 · F4** — pre-work / async collection before the live session (brainstorm blocks;
+      private-until-reveal). Check-in pre-work noted as a follow-up in P10.
 - [ ] **P9 · F5** — measurement loop: pre/post pulse on the session's linked dynamic.
 - [ ] **P10 · Review** — external senior-dev + design-agency review; close gaps.
 

@@ -779,6 +779,7 @@ export type Database = {
           ended_at: string | null
           share_token: string | null
           shared_at: string | null
+          is_prep: boolean
           created_at: string
           updated_at: string
         }
@@ -1270,6 +1271,10 @@ export type Database = {
         Returns: Database["public"]["Tables"]["workshop"]["Row"]
       }
       start_session: {
+        Args: { p_workshop: string }
+        Returns: Database["public"]["Tables"]["session"]["Row"]
+      }
+      open_prework: {
         Args: { p_workshop: string }
         Returns: Database["public"]["Tables"]["session"]["Row"]
       }
