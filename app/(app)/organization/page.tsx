@@ -10,7 +10,7 @@ export default async function OrganizationPage() {
   const w = ctx.workspace;
 
   return (
-    <OrgShell active="organization" isAdmin subtitle={`Settings, data residency and privacy for ${w.name}.`}>
+    <OrgShell active="organization" isAdmin>
       <OrganizationClient
         workspaceId={w.id}
         initial={{

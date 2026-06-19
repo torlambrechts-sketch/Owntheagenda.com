@@ -156,6 +156,37 @@ button { font-family:inherit; }
 .tabband a:hover{color:#fff}
 .tabband a.on{background:var(--surface);color:var(--forest);box-shadow:var(--shadow)}
 .org-subtitle{font-size:13px;color:var(--muted);margin:14px 0 18px}
+/* ===== Organization admin (header + underline tabs + settings cards) ===== */
+.ohead{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.ologo{width:54px;height:54px;border-radius:13px;background:var(--forest);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:600;font-size:21px;flex-shrink:0;letter-spacing:.5px}
+.ohead-main{min-width:0}
+.ohead-main h1{margin:0;font-family:var(--font-display);font-size:25px;font-weight:600;line-height:1.1}
+.osub{display:flex;align-items:center;gap:12px;margin-top:5px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.ohead-plan{display:inline-flex;align-items:center;background:var(--open-bg);color:var(--open-fg,var(--green));border-radius:20px;font-weight:600;font-size:11.5px;padding:3px 11px}
+.ohead-id{font-variant-numeric:tabular-nums;letter-spacing:.3px}
+.ohead-r{margin-left:auto;display:flex;gap:10px;flex-shrink:0}
+.otabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:22px;overflow-x:auto}
+.otab{display:inline-flex;align-items:center;gap:8px;padding:12px 15px;font-size:13.5px;font-weight:600;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.otab:hover{color:var(--ink)}
+.otab.on{color:var(--green);border-bottom-color:var(--green)}
+.otab-c{background:var(--canvas-2);color:var(--muted);font-size:11px;font-weight:700;border-radius:20px;padding:1px 8px}
+.otab.on .otab-c{background:var(--open-bg);color:var(--green)}
+.org-cards{max-width:820px}
+.ocard{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:18px}
+.ocard-h{padding:15px 20px;border-bottom:1px solid var(--line)}
+.ocard-h .oct{font-family:var(--font-display);font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+.ocard-h .oct svg{color:var(--green)}
+.ocard-h .ocd{font-size:12.5px;color:var(--muted);margin-top:4px}
+.oset{display:flex;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line)}
+.oset:last-child{border-bottom:none}
+.oset-l{min-width:0;flex:1}
+.oset-t{font-weight:600;font-size:13.5px}
+.oset-d{font-size:12.5px;color:var(--muted);margin-top:3px;max-width:520px}
+.oset-c{flex-shrink:0;display:flex;align-items:center;gap:9px}
+.oset-inp{width:260px;max-width:48vw}
+.oset-code{font-family:ui-monospace,Menlo,monospace;font-size:13px;background:var(--canvas-2);border:1px solid var(--line);border-radius:7px;padding:6px 11px;color:var(--ink);letter-spacing:.5px}
+.oset-foot{background:var(--canvas)}
+.oset-foot .oset-c{margin-left:auto}
 .tname{display:block;text-decoration:none;color:inherit}
 .tname b{display:block;font-size:13px;color:var(--ink)}
 .tname small{color:var(--muted)}

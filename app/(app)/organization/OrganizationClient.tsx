@@ -78,52 +78,79 @@ export function OrganizationClient({
   }
 
   return (
-    <div className="orgwrap">
-      <section className="card orgcard">
-        <h3>Company</h3>
-        <div className="field">
-          <label htmlFor="org-name">Company name</label>
-          <input className="inp" id="org-name" value={name} onChange={(e) => setName(e.target.value)} />
+    <div className="org-cards">
+      <section className="ocard">
+        <div className="ocard-h">
+          <div className="oct">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="3" width="16" height="18" rx="1" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" /></svg>
+            Organization profile
+          </div>
+          <div className="ocd">Your company’s identity across OwnTheAgenda.</div>
         </div>
-        <div className="field">
-          <label htmlFor="org-logo">Logo URL <span className="opt">(optional)</span></label>
-          <input className="inp" id="org-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" />
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Name</div></div>
+          <div className="oset-c"><input className="inp oset-inp" value={name} onChange={(e) => setName(e.target.value)} /></div>
         </div>
-        <div className="field">
-          <label>Plan</label>
-          <div className="org-plan">{initial.plan}</div>
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Logo URL</div><div className="oset-d">Shown in the app and on shared recaps.</div></div>
+          <div className="oset-c"><input className="inp oset-inp" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" /></div>
         </div>
-        <button className="btn-prim" disabled={pending} onClick={save}>Save changes</button>
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Plan</div><div className="oset-d">Your current subscription tier.</div></div>
+          <div className="oset-c"><span className="ohead-plan" style={{ textTransform: "capitalize" }}>{initial.plan}</span></div>
+        </div>
+        <div className="oset oset-foot">
+          <div className="oset-l" />
+          <div className="oset-c"><button className="btn-prim" disabled={pending} onClick={save}>Save changes</button></div>
+        </div>
       </section>
 
-      <section className="card orgcard">
-        <h3>Company ID</h3>
-        <p className="org-note">Colleagues use this to self-join your company at signup.</p>
-        <div className="joincode">
-          <span className="jc-l">Company ID</span>
-          <code className="jc-v">{code}</code>
-          <button className="linkbtn xs" onClick={() => { navigator.clipboard?.writeText(code); flash("Copied"); }}>Copy</button>
+      <section className="ocard">
+        <div className="ocard-h">
+          <div className="oct">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" /></svg>
+            Company ID
+          </div>
+          <div className="ocd">Colleagues use this to self-join your company at signup.</div>
         </div>
-        <button className="btn-sec sm" disabled={pending} onClick={rotate}>Regenerate</button>
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Company ID</div><div className="oset-d">Anyone with this ID can request to join your company.</div></div>
+          <div className="oset-c">
+            <code className="oset-code">{code}</code>
+            <button className="btn-sec sm" onClick={() => { navigator.clipboard?.writeText(code); flash("Copied"); }}>Copy</button>
+            <button className="btn-sec sm" disabled={pending} onClick={rotate}>Regenerate</button>
+          </div>
+        </div>
       </section>
 
-      <section className="card orgcard">
-        <h3>Data &amp; privacy</h3>
-        <div className="field">
-          <label htmlFor="org-region">Data residency</label>
-          <select className="inp" id="org-region" value={dataRegion} onChange={(e) => setDataRegion(e.target.value)}>
-            {REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          <div className="form-note">Where this company’s data is stored.</div>
+      <section className="ocard">
+        <div className="ocard-h">
+          <div className="oct">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+            Data &amp; privacy
+          </div>
+          <div className="ocd">Where this company’s data lives, and how long it is kept.</div>
         </div>
-        <div className="field">
-          <label htmlFor="org-retention">Data retention</label>
-          <select className="inp" id="org-retention" value={retention} onChange={(e) => setRetention(e.target.value)}>
-            {RETENTION.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-          </select>
-          <div className="form-note">Personal data and ended sessions older than this are purged.</div>
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Data residency</div><div className="oset-d">The region where workshop content and assessments are stored.</div></div>
+          <div className="oset-c">
+            <select className="inp oset-inp" value={dataRegion} onChange={(e) => setDataRegion(e.target.value)}>
+              {REGIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
         </div>
-        <button className="btn-prim" disabled={pending} onClick={save}>Save changes</button>
+        <div className="oset">
+          <div className="oset-l"><div className="oset-t">Data retention</div><div className="oset-d">Personal data and ended sessions older than this are purged.</div></div>
+          <div className="oset-c">
+            <select className="inp oset-inp" value={retention} onChange={(e) => setRetention(e.target.value)}>
+              {RETENTION.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="oset oset-foot">
+          <div className="oset-l" />
+          <div className="oset-c"><button className="btn-prim" disabled={pending} onClick={save}>Save changes</button></div>
+        </div>
       </section>
 
       <div className={`toast${toast ? " show" : ""}`}>
