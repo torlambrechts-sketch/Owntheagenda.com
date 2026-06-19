@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY, initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
+import { useTableControls } from "@/components/TableControls";
 import { buildFromTemplate, deleteWorkshop, quickStart } from "./actions";
 
 const QUICK_MODULES = [
@@ -24,11 +25,6 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   live: { label: "Running", cls: "w-run" },
   done: { label: "Finished", cls: "w-done" },
 };
-const STATUS_ORDER = ["all", "live", "scheduled", "draft", "done"];
-const STATUS_FILTER_LABEL: Record<string, string> = {
-  all: "All", live: "Running", scheduled: "Scheduled", draft: "Draft", done: "Finished",
-};
-
 function barColor(ty: string) {
   return ty === "vote" ? "var(--internal-fg)"
     : ty === "outcome" ? "var(--rust)"
@@ -99,8 +95,6 @@ export function WorkshopsClient({
   const [quickTitle, setQuickTitle] = useState("");
   const [preview, setPreview] = useState<TemplateCard | null>(null);
   // list controls
-  const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [menuFor, setMenuFor] = useState<string | null>(null);
 
@@ -132,26 +126,29 @@ export function WorkshopsClient({
     });
   }
 
-  // status counts (from the full list, so the filter chips are stable)
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { all: workshops.length };
-    for (const w of workshops) c[w.status] = (c[w.status] ?? 0) + 1;
-    return c;
-  }, [workshops]);
+  // Reusable tabbed-table controls (search + status tabs + sort), the same
+  // pattern used by the Organization tables. The status facet chips act as the
+  // tabs; no selection means "all".
+  const tc = useTableControls<WorkshopRow>(workshops, {
+    search: { placeholder: "Search workshops…", text: (w) => `${w.title} ${w.creatorName ?? ""}` },
+    sorts: [
+      { key: "default", label: "Default order", cmp: () => 0 },
+      { key: "name", label: "Name (A–Z)", cmp: (a, b) => a.title.localeCompare(b.title) },
+    ],
+    facets: [
+      { key: "status", label: "Status", options: [
+        { value: "live", label: "Running", test: (w) => w.status === "live" },
+        { value: "scheduled", label: "Scheduled", test: (w) => w.status === "scheduled" },
+        { value: "draft", label: "Draft", test: (w) => w.status === "draft" },
+        { value: "done", label: "Finished", test: (w) => w.status === "done" },
+      ] },
+    ],
+  });
 
-  const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return workshops.filter(
-      (w) =>
-        (statusFilter === "all" || w.status === statusFilter) &&
-        (!needle || w.title.toLowerCase().includes(needle) || (w.creatorName ?? "").toLowerCase().includes(needle)),
-    );
-  }, [workshops, q, statusFilter]);
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const pages = Math.max(1, Math.ceil(tc.view.length / PER_PAGE));
   const safePage = Math.min(page, pages);
-  const pageRows = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
-  useEffect(() => { setPage(1); }, [q, statusFilter]);
+  const pageRows = tc.view.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
+  useEffect(() => { setPage(1); }, [tc.view]);
 
   const tprev = (t: TemplateCard) => (
     <div className="wcard-prev">
@@ -225,78 +222,76 @@ export function WorkshopsClient({
         <div className="empty">No workshops yet — pick a template above to build your first one.</div>
       ) : (
         <>
-          <div className="wk-controls">
-            <div className="wk-seg">
-              {STATUS_ORDER.filter((s) => s === "all" || counts[s]).map((s) => (
-                <button key={s} className={`wseg${statusFilter === s ? " on" : ""}`} onClick={() => setStatusFilter(s)}>
-                  {STATUS_FILTER_LABEL[s]}<span className="wseg-n">{counts[s] ?? 0}</span>
-                </button>
-              ))}
-            </div>
-            <div className="wk-search">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search workshops…" />
-            </div>
+          <div className="wk-listbar">
+            {workshops.length >= 4 ? tc.controls : <span />}
             {canManage ? (
               <button className="btn-prim" onClick={() => setQuickOpen(true)}>+ New workshop</button>
             ) : null}
           </div>
 
-          {filtered.length === 0 ? (
+          {tc.view.length === 0 ? (
             <div className="empty">No workshops match your filters.</div>
           ) : (
-            <div className="wk-tbl">
-              <div className="wk-th">
-                <span>Workshop</span>
-                <span>Last edit</span>
-                <span>Status</span>
-                <span />
-              </div>
-              {pageRows.map((w) => {
-                const st = STATUS[w.status] ?? { label: w.status, cls: "w-draft" };
-                return (
-                  <div className="wk-tr" key={w.id}>
-                    <Link className="wk-main" href={`/workshops/${w.id}`}>
-                      <span className={w.creatorName ? "wav" : "wfold"}>
-                        {w.creatorName ? initials(w.creatorName) : (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
-                        )}
-                      </span>
-                      <span className="wk-tt">
-                        <span className="wk-title">{w.title}</span>
-                        <span className="wk-sub">
-                          {w.creatorName ? `By ${w.creatorName}` : "No facilitator yet"}
-                          {w.category ? ` · ${CATEGORY[w.category] ?? w.category}` : ""}
-                        </span>
-                      </span>
-                    </Link>
-                    <span className="wk-edit">{w.editedLabel}</span>
-                    <span><span className={`wpill ${st.cls}`}>{st.label}</span></span>
-                    <span className="wk-kebab-wrap">
-                      <button className="wk-kebab" onClick={() => setMenuFor(menuFor === w.id ? null : w.id)} aria-label="Workshop actions">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>
-                      </button>
-                      {menuFor === w.id ? (
-                        <>
-                          <div className="wk-menu-back" onClick={() => setMenuFor(null)} />
-                          <div className="wk-menu">
-                            <Link href={`/workshops/${w.id}`} onClick={() => setMenuFor(null)}>Open</Link>
-                            <Link href={`/run/${w.id}`} onClick={() => setMenuFor(null)}>Run ▸</Link>
-                            {canManage ? <button className="del" onClick={() => remove(w.id)}>Delete</button> : null}
-                          </div>
-                        </>
-                      ) : null}
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="tbl-card">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Workshop</th>
+                    <th style={{ width: 160 }}>Last edit</th>
+                    <th style={{ width: 130 }}>Status</th>
+                    <th style={{ width: 48 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageRows.map((w) => {
+                    const st = STATUS[w.status] ?? { label: w.status, cls: "w-draft" };
+                    return (
+                      <tr key={w.id}>
+                        <td>
+                          <Link className="person wk-cell" href={`/workshops/${w.id}`}>
+                            <span className={w.creatorName ? "av sm" : "wfold sm"}>
+                              {w.creatorName ? initials(w.creatorName) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></svg>
+                              )}
+                            </span>
+                            <span>
+                              {w.title}
+                              <small>
+                                {w.creatorName ? `By ${w.creatorName}` : "No facilitator yet"}
+                                {w.category ? ` · ${CATEGORY[w.category] ?? w.category}` : ""}
+                              </small>
+                            </span>
+                          </Link>
+                        </td>
+                        <td>{w.editedLabel}</td>
+                        <td><span className={`wpill ${st.cls}`}>{st.label}</span></td>
+                        <td className="r wk-kebab-wrap">
+                          <button className="wk-kebab" onClick={() => setMenuFor(menuFor === w.id ? null : w.id)} aria-label="Workshop actions">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>
+                          </button>
+                          {menuFor === w.id ? (
+                            <>
+                              <div className="wk-menu-back" onClick={() => setMenuFor(null)} />
+                              <div className="wk-menu">
+                                <Link href={`/workshops/${w.id}`} onClick={() => setMenuFor(null)}>Open</Link>
+                                <Link href={`/run/${w.id}`} onClick={() => setMenuFor(null)}>Run ▸</Link>
+                                {canManage ? <button className="del" onClick={() => remove(w.id)}>Delete</button> : null}
+                              </div>
+                            </>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {filtered.length > PER_PAGE ? (
+          {tc.view.length > PER_PAGE ? (
             <div className="wk-pager">
               <span className="wk-pn">
-                Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(filtered.length, safePage * PER_PAGE)}</b> of <b>{filtered.length}</b>
+                Showing <b>{(safePage - 1) * PER_PAGE + 1}–{Math.min(tc.view.length, safePage * PER_PAGE)}</b> of <b>{tc.view.length}</b>
               </span>
               <div className="wk-pgs">
                 <button className="wk-pg" disabled={safePage === 1} onClick={() => setPage(safePage - 1)}>‹</button>
