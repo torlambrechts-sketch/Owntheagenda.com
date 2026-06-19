@@ -10,12 +10,10 @@ export function RunLobby({
   workshopId,
   title,
   canManage,
-  hasPrework,
 }: {
   workshopId: string;
   title: string;
   canManage: boolean;
-  hasPrework?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<null | "live" | "prework">(null);
@@ -54,7 +52,7 @@ export function RunLobby({
     setBusy("prework");
     setErr(null);
     const supabase = createClient();
-    const { error } = await supabase.rpc("open_prework", { p_workshop: workshopId });
+    const { error } = await supabase.rpc("open_prework", { p_workshop: workshopId, p_all: true });
     if (error) {
       setErr(error.message);
       setBusy(null);
@@ -77,14 +75,12 @@ export function RunLobby({
             <button className="btn-prim btn-full" disabled={!!busy} onClick={start}>
               {busy === "live" ? "Starting…" : "Start session ▸"}
             </button>
-            {hasPrework ? (
-              <>
-                <button className="btn-sec btn-full" style={{ marginTop: 10 }} disabled={!!busy} onClick={openPrework}>
-                  {busy === "prework" ? "Opening…" : "Open for pre-work first"}
-                </button>
-                <div className="form-note" style={{ marginTop: 8 }}>Let members add ideas independently before the live session, then start when everyone&apos;s contributed.</div>
-              </>
-            ) : null}
+            <button className="btn-sec btn-full" style={{ marginTop: 10 }} disabled={!!busy} onClick={openPrework}>
+              {busy === "prework" ? "Opening…" : "Open for early input"}
+            </button>
+            <div className="form-note" style={{ marginTop: 8 }}>
+              Let members add thoughts &amp; ideas across the whole agenda before you start. You can begin the live session whenever you&apos;re ready.
+            </div>
           </>
         ) : (
           <>

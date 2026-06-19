@@ -462,7 +462,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .prework-blocks{display:flex;flex-direction:column;gap:16px}
 .prework-block{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:18px}
 .prework-block .canvaswrap{flex:none;min-height:0}
-.prework-block .ideagrid{flex:none;overflow:visible}
+.prework-block .ideagrid,.prework-block .ideacols,.prework-block .ideacol-list{flex:none;overflow:visible}
 .prework-empty{color:var(--faint);text-align:center;padding:30px;background:var(--surface);border:1px solid var(--line);border-radius:12px}
 .prework-foot{position:sticky;bottom:0;background:var(--canvas);border-top:1px solid var(--line);padding:14px 2px;margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .prework-foot .pf-note{font-size:12.5px;color:var(--muted);flex:1;min-width:220px}

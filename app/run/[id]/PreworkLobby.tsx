@@ -5,9 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
-import { IdeaModule, type ModuleConfig } from "./IdeaModule";
+import { IdeaModule, type ModuleConfig, type ModuleMode } from "./IdeaModule";
 
-export type PreworkBlock = { ord: number; title: string; prompt: string | null; config: ModuleConfig };
+export type PreworkBlock = { ord: number; title: string; prompt: string | null; activityType: string; config: ModuleConfig };
+
+// Feedback steps keep their lanes; brainstorm and check-in both collect free
+// idea cards.
+function preworkMode(activityType: string): ModuleMode {
+  return activityType === "feedback" ? "feedback" : "brainstorm";
+}
 
 // Asynchronous pre-work surface: members add idea cards privately before the
 // facilitator starts the live run. Cards land in the same `idea` rows and
@@ -61,17 +67,18 @@ export function PreworkLobby({
   return (
     <div className="prework">
       <div className="prework-head">
-        <div className="prework-brand"><LogoMark size={26} /><span className="pre-eyebrow">Pre-work</span></div>
+        <div className="prework-brand"><LogoMark size={26} /><span className="pre-eyebrow">Early input</span></div>
         <h1>{title}</h1>
         <p className="lede">
-          Add your ideas independently before the session. Your cards are private — only you can see them
-          until the group reveals them live. Strong individual input makes the live time shorter and sharper.
+          Add your thoughts and ideas across the agenda before the session starts. Getting input in early
+          makes the live time shorter and sharper. Steps marked private stay hidden until the group reveals
+          them live.
         </p>
         {err ? <div className="form-err">{err}</div> : null}
       </div>
 
       {blocks.length === 0 ? (
-        <div className="prework-empty">No pre-work steps were set up for this session.</div>
+        <div className="prework-empty">No input steps were set up for this workshop yet.</div>
       ) : (
         <div className="prework-blocks">
           {blocks.map((b) => (
@@ -79,10 +86,10 @@ export function PreworkLobby({
               <IdeaModule
                 sessionId={sessionId}
                 blockOrd={b.ord}
-                mode="brainstorm"
+                mode={preworkMode(b.activityType)}
                 title={b.title}
                 prompt={b.prompt}
-                stepLabel="Pre-work"
+                stepLabel="Early input"
                 config={b.config}
                 userId={userId}
                 userName={userName}

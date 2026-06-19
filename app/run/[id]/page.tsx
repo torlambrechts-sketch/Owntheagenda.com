@@ -56,9 +56,13 @@ export default async function RunPage({
     .limit(1)
     .maybeSingle();
 
-  const preworkBlocks: PreworkBlock[] = runBlocks
-    .filter((b) => b.activityType === "brainstorm" && (b.config as { prework?: boolean })?.prework)
-    .map((b) => ({ ord: b.ord, title: b.title, prompt: b.prompt, config: b.config as PreworkBlock["config"] }));
+  // Whole-workshop early input collects every input-capable step; the
+  // flagged mode collects just the brainstorm steps marked pre-work.
+  const INPUT_TYPES = ["brainstorm", "feedback", "checkin"];
+  const preworkBlocks: PreworkBlock[] = (session?.prework_all
+    ? runBlocks.filter((b) => INPUT_TYPES.includes(b.activityType))
+    : runBlocks.filter((b) => b.activityType === "brainstorm" && (b.config as { prework?: boolean })?.prework)
+  ).map((b) => ({ ord: b.ord, title: b.title, prompt: b.prompt, activityType: b.activityType, config: b.config as PreworkBlock["config"] }));
 
   const userName =
     ctx.profile?.full_name || ctx.profile?.display_name || ctx.email || "You";
@@ -69,7 +73,6 @@ export default async function RunPage({
         workshopId={workshop.id}
         title={workshop.title}
         canManage={canManage}
-        hasPrework={preworkBlocks.length > 0}
       />
     );
   }
