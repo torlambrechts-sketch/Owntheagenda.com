@@ -121,6 +121,7 @@ export function RunClient({
   const [actText, setActText] = useState("");
   const [actOwnerId, setActOwnerId] = useState("");
   const [actDue, setActDue] = useState("");
+  const [guideOpen, setGuideOpen] = useState(false);
   const [endErr, setEndErr] = useState<string | null>(null);
 
   const sid = session.id;
@@ -349,6 +350,22 @@ export function RunClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [acting, timeUp, session.currentBlockOrd, N]);
 
+  // U5: facilitator keyboard shortcuts (ignored while typing in a field).
+  useEffect(() => {
+    if (!acting) return;
+    function onKey(e: KeyboardEvent) {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "ArrowRight" && session.currentBlockOrd < N) phase(session.currentBlockOrd + 1);
+      else if (e.key === "ArrowLeft" && session.currentBlockOrd > 1) phase(session.currentBlockOrd - 1);
+      else if (e.key === " ") { e.preventDefault(); timer(session.timerRunning ? "pause" : "start"); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting, session.currentBlockOrd, session.timerRunning, N]);
+
   return (
     <div className="run">
       <div className="runbar">
@@ -411,6 +428,31 @@ export function RunClient({
           ))}
         </div>
         <div className={`runstatus${acting && everyoneReady ? " ready" : ""}`}>{statusText}</div>
+        {isFacilitator ? (
+          <div className="guide-wrap" onPointerDown={(e) => e.stopPropagation()}>
+            <button className="runbtn" title="Facilitator guide" onClick={() => setGuideOpen((o) => !o)}>?</button>
+            {guideOpen ? (
+              <div className="guide-pop">
+                <div className="guide-h">Facilitator guide</div>
+                <div className="guide-sec">
+                  <b>Shortcuts</b>
+                  <div className="guide-k"><kbd>←</kbd><kbd>→</kbd> previous / next step</div>
+                  <div className="guide-k"><kbd>Space</kbd> start / pause timer</div>
+                </div>
+                <div className="guide-sec">
+                  <b>Tips</b>
+                  <ul>
+                    <li>Advance when the room shows <b>Everyone&rsquo;s ready</b>.</li>
+                    <li>For silent ideation, <b>Reveal cards</b> before voting.</li>
+                    <li>After a vote, <b>Promote top 3 →</b> turns winners into commitments.</li>
+                    <li>Click a card to edit it or add a detail note.</li>
+                  </ul>
+                </div>
+                <a className="guide-link" href="/help/facilitate-live-session" target="_blank" rel="noreferrer">Full guide ↗</a>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {isFacilitator ? (
           <div className="roletag" style={{ cursor: "pointer" }}
             onClick={() => setView(view === "facilitator" ? "participant" : "facilitator")}>
