@@ -17,6 +17,8 @@ rolled-back test) → types → UI → typecheck/lint/build → commit → ff-me
       private-until-reveal). Check-in pre-work noted as a follow-up in P10.
 - [x] **P9 · F5** — measurement loop: pre/post pulse on the session's linked dynamic; delta (min-3
       masked) in the run + readout. Post pulse feeds the team's Health (latest reading).
-- [ ] **P10 · Review** — external senior-dev + design-agency review; close gaps.
+- [x] **P10 · Review** — external senior-dev + design-agency review in `WORKSHOP_REVIEW.md`.
+      Closed gaps: public readout now reveal-gated (no leaking unrevealed cards); ending a
+      session closes its before/after pulses so they don't linger as the team's open pulse.
 
 Project: fqeohcfkimoopwjxxcft · Branch: claude/nice-feynman-x7xgh4

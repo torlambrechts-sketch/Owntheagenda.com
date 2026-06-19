@@ -84,3 +84,43 @@ $$;
 
 grant execute on function public.session_pulse_open(uuid, text), public.session_pulse_delta(uuid) to authenticated;
 revoke execute on function public.session_pulse_open(uuid, text), public.session_pulse_delta(uuid) from public, anon;
+
+-- Closing the session also closes its before/after pulses, so they never
+-- linger as the team's "open pulse" on the Assessments page. (Extends the
+-- existing close-session gates from the decisions migration.)
+create or replace function public.end_session(p_session uuid)
+returns void language plpgsql security definer set search_path = '' as $$
+declare v_workshop uuid; v_obj text;
+begin
+  if not private.is_session_facilitator(p_session) then raise exception 'facilitator only' using errcode = '42501'; end if;
+  select workshop_id into v_workshop from public.session where id = p_session;
+  select objective into v_obj from public.workshop where id = v_workshop;
+
+  if exists (select 1 from public.decision where session_id = p_session and status = 'draft') then
+    raise exception 'Resolve or supersede draft decisions before closing.' using errcode = '42501';
+  end if;
+  if exists (
+    select 1 from public.decision d
+    where d.session_id = p_session and d.status = 'committed'
+      and not exists (
+        select 1 from public.action_item a
+        where a.decision_id = d.id and coalesce(btrim(a.owner_name),'') <> '' and a.due_at is not null
+      )
+  ) then
+    raise exception 'Every committed decision needs an action with an owner and a due date.' using errcode = '42501';
+  end if;
+  if exists (select 1 from public.decision where session_id = p_session)
+     and coalesce(btrim(v_obj),'') = '' then
+    raise exception 'Set the session objective before closing.' using errcode = '42501';
+  end if;
+
+  update public.session set status = 'ended', ended_at = now(), timer_running = false where id = p_session;
+  update public.workshop set status = 'done' where id = v_workshop;
+  update public.pulse set status = 'closed', closed_at = now()
+    where id in (
+      select pre_pulse_id from public.session where id = p_session
+      union
+      select post_pulse_id from public.session where id = p_session
+    ) and status = 'open';
+end;
+$$;

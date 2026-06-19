@@ -74,7 +74,9 @@ begin
               jsonb_build_object('avg', round(avg(value)::numeric, 1), 'total', count(*)) end
             from public.agreement a where a.session_id = v_s.id and a.block_ord = b.ord
           ),
-          'ideas', (
+          -- never expose silent / pre-work cards that haven't been revealed
+          -- yet (an ended session reveals everything, so readouts are intact)
+          'ideas', case when private.block_revealed(v_s.id, b.ord) then (
             select coalesce(jsonb_agg(jsonb_build_object('text', t, 'lane', lane, 'votes', votes, 'by', byname)
                                       order by votes desc, t), '[]'::jsonb)
             from (
@@ -84,7 +86,7 @@ begin
                           else nullif(split_part(coalesce(i.author_name, ''), ' ', 1), '') end as byname
               from public.idea i where i.session_id = v_s.id and i.block_ord = b.ord
             ) ii
-          )
+          ) else '[]'::jsonb end
         ) as blk
         from public.block b where b.workshop_id = v_s.workshop_id
       ) z
