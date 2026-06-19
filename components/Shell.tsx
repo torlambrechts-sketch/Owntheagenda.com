@@ -164,6 +164,10 @@ export function Shell({
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
+  // The Organization section collapses to a single rail icon (the text menu
+  // keeps the sub-links). Non-admins land on Teams — the first tab they can see.
+  const orgHref = admin ? "/organization" : "/teams";
+  const orgActive = ["/organization", "/teams", "/members", "/integrations"].some((h) => active(h));
   const groups = ["Workspace", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
@@ -178,16 +182,25 @@ export function Shell({
         <div className="logo-tile">
           <LogoMark size={40} />
         </div>
-        {visibleNav.map((n) => (
-          <Link
-            key={n.href}
-            className={`ri${active(n.href) ? " active" : ""}`}
-            href={n.href}
-            title={n.label}
-          >
-            {n.icon}
-          </Link>
-        ))}
+        {(() => {
+          let orgDone = false;
+          return visibleNav.map((n) => {
+            if (n.group === "Organization") {
+              if (orgDone) return null;
+              orgDone = true;
+              return (
+                <Link key="org-rail" className={`ri${orgActive ? " active" : ""}`} href={orgHref} title="Organization">
+                  {ICONS.org}
+                </Link>
+              );
+            }
+            return (
+              <Link key={n.href} className={`ri${active(n.href) ? " active" : ""}`} href={n.href} title={n.label}>
+                {n.icon}
+              </Link>
+            );
+          });
+        })()}
         <div className="spacer" />
         <div className="av sm" title={chrome.userName}>
           {initials(chrome.userName)}
@@ -223,10 +236,14 @@ export function Shell({
         <div className="appbar">
           <div className="crumb">
             {current ? (
-              <>
-                {current.group} <span style={{ color: "var(--faint)" }}>›</span>{" "}
+              current.group === current.label ? (
                 <b>{current.label}</b>
-              </>
+              ) : (
+                <>
+                  {current.group} <span style={{ color: "var(--faint)" }}>›</span>{" "}
+                  <b>{current.label}</b>
+                </>
+              )
             ) : (
               <b>OwnTheAgenda</b>
             )}
