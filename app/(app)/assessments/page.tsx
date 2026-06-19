@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { listTemplates, instrumentsFrom } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
 import { AssessmentLibrary, type CatalogItem } from "./AssessmentLibrary";
 import { SurveyRespond } from "./SurveyRespond";
@@ -58,6 +59,8 @@ export default async function AssessmentsPage({
       completedByMe: false,
       myScores: null,
       external: "/assessments/leadership",
+      openSurveyId: null,
+      teamReport: null,
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -77,6 +80,8 @@ export default async function AssessmentsPage({
         completedByMe: !!scores,
         myScores: scores,
         external: null,
+        openSurveyId: null,
+        teamReport: null,
       };
     }),
   ];
@@ -186,6 +191,44 @@ export default async function AssessmentsPage({
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
+
+  // ----- enrich the team catalog with this team's open survey + aggregate report -----
+  // openSurveyId lets a member contribute a response straight from the library;
+  // teamReport is the anonymised aggregate (min-3 masked, never attributed) from
+  // the team's latest survey of that kind — whether still open or already closed.
+  {
+    const { data: kindSurveys } = await supabase
+      .from("survey")
+      .select("id, kind, status")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false });
+    const latestByKind = new Map<string, string>();
+    const openByKind = new Map<string, string>();
+    for (const s of kindSurveys ?? []) {
+      if (!latestByKind.has(s.kind)) latestByKind.set(s.kind, s.id);
+      if (s.status === "open" && !openByKind.has(s.kind)) openByKind.set(s.kind, s.id);
+    }
+    for (const item of catalog) {
+      if (item.scope !== "team") continue;
+      const inst = catalogInstruments[item.key];
+      if (!inst) continue;
+      item.openSurveyId = openByKind.get(item.key) ?? null;
+      const latest = latestByKind.get(item.key);
+      if (!latest) continue;
+      const { data: res } = await supabase.rpc("survey_results", {
+        p_survey: latest,
+        p_strength_items: strengthItemKeys(inst),
+      });
+      const r = res as unknown as
+        | { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] }
+        | null;
+      if (!r) continue;
+      const dims = dimensionMeans(inst, r.items ?? [])
+        .filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null)
+        .map((d) => ({ key: d.key, mean: d.mean }));
+      item.teamReport = { dims, respondents: r.respondents, masked: r.masked };
+    }
+  }
 
   // Instrument catalog from the template library (data-driven).
   const teamTemplates = catalogTemplates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));

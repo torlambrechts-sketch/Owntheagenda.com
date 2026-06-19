@@ -27,19 +27,23 @@ trends) are preserved below the library under "Team dynamics".
 
 Ordered by impact. Each is additive — nothing here blocks the flow above.
 
-1. **Authored per-trait report content (biggest gap).** The design's report has rich
-   prose per trait — *definition, advantages, watch-outs, "others with this result
-   often say…"*. We have only a one-line dimension `blurb`, so the report currently
-   shows the blurb + a generated band sentence. Needs an authored content table:
-   `assessment_trait_copy(template_key, dimension, band, definition, advantages[],
-   risks[], statements[])`, plus an editor.
+1. **✅ DONE — Authored per-trait report content.** Added `assessment_trait_copy`
+   (`template_key, dimension_key, definition, advantages[], risks[], statements[]`,
+   global reference content, RLS `select using (true)`), seeded for the catalog
+   instruments, and wired into the report: each expandable dimension row now shows
+   the authored *definition*, *Where it helps*, *Watch-outs* (Full view only), and
+   *People with this result often recognise…* statements, falling back to the
+   dimension blurb when a row is absent.
 
-2. **Team-aggregate report not yet wired into the library.** A team instrument's run
-   stores the *individual's* response. The team-combined report (≥3 respondents,
-   anonymity-masked) already exists via `survey_results` / `team_dynamics`, but it is
-   not surfaced in the new report view — it lives in the "Team dynamics" tools below.
-   Next step: a "Team report" mode in `AssessmentLibrary` that calls `survey_results`
-   for the active survey and renders the same band table from the aggregate.
+2. **✅ DONE — Team-aggregate report wired into the library.** A team instrument's run
+   now contributes to the team's open survey (`submit_survey_response`) when one is
+   open, else stores a personal response. `/assessments` enriches each team catalog
+   item with `openSurveyId` (latest open survey of that kind) and `teamReport`
+   (the anonymised aggregate from `survey_results` on the latest survey — min-3
+   masked). The detail view shows a **View team report →** action (hidden while
+   masked) that renders the same band table from the aggregated dimension means,
+   and a contextual note (responses so far / report unlocks at 3 / open to
+   contribute). Verified `survey_results` shape end-to-end against live data.
 
 3. **Assignment / invitations.** No model for "assign this instrument to these people"
    — team members are implicitly eligible through an open survey. The detail's

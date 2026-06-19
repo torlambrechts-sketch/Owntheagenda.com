@@ -22,6 +22,8 @@ export type CatalogItem = {
   completedByMe: boolean;
   myScores: Record<string, number> | null;
   external: string | null; // route for instruments handled elsewhere (e.g. leadership)
+  openSurveyId: string | null; // team scope: an open survey to contribute a response to
+  teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
 };
 
 type View = "library" | "detail" | "run" | "report";
@@ -50,6 +52,15 @@ function scoreFrom(inst: CatalogItem, answers: Record<string, number>): DimScore
     return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: vals.length };
   });
 }
+function scoreFromAggregate(inst: CatalogItem): DimScore[] {
+  const { min, max } = inst.scale;
+  const dims = inst.teamReport?.dims ?? [];
+  return inst.dimensions.map((d) => {
+    const mean = dims.find((x) => x.key === d.key)?.mean ?? min;
+    const pct = ((mean - min) / (max - min)) * 100;
+    return { key: d.key, label: d.label, blurb: d.blurb, copy: d.copy ?? null, mean, pct, band: bandOf(pct), n: 0 };
+  });
+}
 function bandSentence(label: string, band: number) {
   if (band === 2) return `${label} sits in the higher band — it shows up readily and is likely a defining strength.`;
   if (band === 0) return `${label} sits in the lower band — it shows up less, which can be a deliberate choice or a growth edge.`;
@@ -73,6 +84,7 @@ export function AssessmentLibrary({
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [scores, setScores] = useState<DimScore[]>([]);
   const [sample, setSample] = useState(false);
+  const [teamMode, setTeamMode] = useState(false);
   const [mode, setMode] = useState<"admin" | "candidate">("admin");
   const [exp, setExp] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -89,17 +101,23 @@ export function AssessmentLibrary({
     setActiveKey(c.key); setExp(new Set()); go("detail");
   }
   function startRun() { setRunIdx(0); setAnswers(active?.myScores ?? {}); go("run"); }
-  function viewSample() { if (!active) return; setSample(true); setScores(sampleScores(active)); setMode("admin"); setExp(new Set()); go("report"); }
+  function viewSample() { if (!active) return; setSample(true); setTeamMode(false); setScores(sampleScores(active)); setMode("admin"); setExp(new Set()); go("report"); }
+  function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(c, c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
+  function viewTeam(c: CatalogItem) { setSample(false); setTeamMode(true); setScores(scoreFromAggregate(c)); setMode("admin"); setExp(new Set()); go("report"); }
 
   async function finishRun() {
     if (!active) return;
     setBusy(true);
-    const { error } = await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: answers });
+    // Team instruments contribute to the team's open survey; individual ones
+    // persist a personal response.
+    const { error } = active.scope === "team" && active.openSurveyId
+      ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: answers })
+      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: answers });
     setBusy(false);
     if (error) { flash(error.message); return; }
-    setSample(false); setScores(scoreFrom(active, answers)); setMode("candidate"); setExp(new Set());
+    setSample(false); setTeamMode(false); setScores(scoreFrom(active, answers)); setMode("candidate"); setExp(new Set());
     go("report");
-    flash("Saved — your report is ready");
+    flash(active.scope === "team" && active.openSurveyId ? "Your response is in — the team report builds as members complete it" : "Saved — your report is ready");
   }
 
   // ---------- library ----------
@@ -187,14 +205,25 @@ export function AssessmentLibrary({
             </div>
           </div>
         </div>
-        {active.completedByMe && active.myScores ? (
-          <button className="btn-sec" onClick={() => { setSample(false); setScores(scoreFrom(active, active.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }}>
-            View your report →
-          </button>
-        ) : null}
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {active.completedByMe && active.myScores ? (
+            <button className="btn-sec" onClick={() => viewMine(active)}>View your report →</button>
+          ) : null}
+          {active.scope === "team" && active.teamReport && !active.teamReport.masked ? (
+            <button className="btn-sec" onClick={() => viewTeam(active)}>View team report →</button>
+          ) : null}
+        </div>
         {active.scope === "team" ? (
           <p className="a-note" style={{ marginTop: 16 }}>
-            Team assessments combine every member’s response into one picture. Run it for yourself here, or open it for the whole team from the team’s Health &amp; pulse flow.
+            {active.teamReport && !active.teamReport.masked
+              ? `Team report combines ${active.teamReport.respondents} responses — anonymous, never attributed to a person.`
+              : active.openSurveyId
+                ? active.teamReport && active.teamReport.respondents > 0
+                  ? `Open for the team — ${active.teamReport.respondents} responded so far. The report unlocks once at least 3 people answer.`
+                  : "This assessment is open for the team — run it above to add your response."
+                : active.teamReport
+                  ? `Team report is hidden until at least 3 people respond (${active.teamReport.respondents} so far).`
+                  : "Team assessments combine every member’s response into one picture. Open it for the whole team from the Team dynamics tools below."}
           </p>
         ) : null}
         <Toast toast={toast} />
