@@ -189,7 +189,7 @@ export function WorkshopsClient({
 
       {/* ---- create strip ---- */}
       <div className="wk-create">
-        <div className="cat-head" style={{ margin: "0 0 12px" }}>Create a workshop</div>
+        <div className="cat-head wk-create-h">Create a workshop</div>
         <div className="wk-strip">
           {canManage ? (
             <button className="wcard wcard-new" onClick={() => setQuickOpen(true)}>
