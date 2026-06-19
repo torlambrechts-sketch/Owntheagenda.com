@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
@@ -71,6 +71,8 @@ export function IdeaModule({
   const [editText, setEditText] = useState("");
   const [editDetail, setEditDetail] = useState("");
   const [promoted, setPromoted] = useState<Set<string>>(new Set());
+  const [added, setAdded] = useState(false);
+  const ideaInputRef = useRef<HTMLInputElement>(null);
   const seededRef = useRef(false);
 
   const budget = Math.max(0, config.budget ?? (mode === "feedback" ? 0 : 3));
@@ -151,18 +153,33 @@ export function IdeaModule({
   const countFor = (id: string) => votes.filter((v) => v.ideaId === id).length;
   const iVoted = (id: string) => votes.some((v) => v.ideaId === id && v.voterId === userId);
 
-  async function addIdea(lane: string | null) {
-    const key = lane ?? "_";
-    const text = (drafts[key] ?? "").trim();
-    if (!text) return;
-    setDrafts((d) => ({ ...d, [key]: "" }));
+  function flashAdded() {
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1300);
+  }
+  async function insertIdea(lane: string | null, text: string) {
     const { error } = await supabase.from("idea").insert({
       session_id: sessionId, block_ord: blockOrd, lane, text,
       author_name: anon ? null : userName, is_anonymous: anon,
     });
-    if (error) {
-      setErr(error.message);
-      setDrafts((d) => ({ ...d, [key]: text }));
+    if (error) setErr(error.message);
+  }
+  // U3: a single line adds one card; multiple lines (typed or pasted) add many.
+  async function addIdea(lane: string | null) {
+    const key = lane ?? "_";
+    const lines = (drafts[key] ?? "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (!lines.length) return;
+    setDrafts((d) => ({ ...d, [key]: "" }));
+    for (const t of lines) await insertIdea(lane, t);
+    flashAdded();
+    if (lane === null) ideaInputRef.current?.focus();
+  }
+  function onPasteIdea(e: ClipboardEvent<HTMLInputElement>, lane: string | null) {
+    const lines = e.clipboardData.getData("text").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    if (lines.length > 1) {
+      e.preventDefault();
+      setDrafts((d) => ({ ...d, [lane ?? "_"]: "" }));
+      (async () => { for (const t of lines) await insertIdea(lane, t); flashAdded(); })();
     }
   }
 
@@ -288,6 +305,7 @@ export function IdeaModule({
                     value={drafts[lane] ?? ""}
                     onChange={(e) => setDrafts((d) => ({ ...d, [lane]: e.target.value }))}
                     onKeyDown={(e) => { if (e.key === "Enter") addIdea(lane); }}
+                    onPaste={(e) => onPasteIdea(e, lane)}
                   />
                 </div>
                 <div className="ideacol-list">
@@ -319,13 +337,16 @@ export function IdeaModule({
         <>
           <div className="idea-add">
             <input
+              ref={ideaInputRef}
               className="inp"
-              placeholder={addPlaceholder ?? "Add an idea — one per card…"}
+              placeholder={addPlaceholder ?? "Add an idea — one per card…  (paste a list to add many)"}
               value={drafts["_"] ?? ""}
               onChange={(e) => setDrafts((d) => ({ ...d, _: e.target.value }))}
               onKeyDown={(e) => { if (e.key === "Enter") addIdea(null); }}
+              onPaste={(e) => onPasteIdea(e, null)}
             />
             <button className="btn-prim" disabled={!(drafts["_"] ?? "").trim()} onClick={() => addIdea(null)}>Add</button>
+            {added ? <span className="addedflag">✓ Added</span> : null}
           </div>
           {silent && !revealed ? (
             <div className="silentbar">

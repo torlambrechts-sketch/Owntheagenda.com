@@ -850,8 +850,9 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 
 /* Run · idea modules (brainstorm / poll / feedback) ------------------ */
 .dotsleft{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--green);background:var(--open-bg);border-radius:20px;padding:7px 12px;white-space:nowrap}
-.idea-add{display:flex;gap:8px;margin-top:2px}
+.idea-add{display:flex;gap:8px;margin-top:2px;align-items:center}
 .idea-add .inp{flex:1}
+.idea-add .addedflag{font-size:11px;font-weight:700;color:var(--green);white-space:nowrap;text-transform:uppercase;letter-spacing:.4px}
 .idea-empty{color:var(--faint);font-size:13px;padding:26px;text-align:center;width:100%}
 .ideagrid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;align-content:start;padding-top:2px}
 .ideacard{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:11px 12px;display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow)}
