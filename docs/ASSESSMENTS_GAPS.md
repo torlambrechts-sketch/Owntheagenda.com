@@ -91,5 +91,9 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    run/score/report flow (`/assessments/leadership`); it's linked as an external card
    rather than run/reported inside the library.
 
-9. **Authoring UI.** Custom instruments can only be created by inserting
-   `assessment_template` rows directly — no admin UI to define dimensions/items.
+9. **✅ DONE — Authoring UI.** A full builder already ships at `/library`
+   (`TemplateBuilder.tsx`): admins set basics, scope, scale, dimensions and questions
+   and save via `save_assessment_template` (admin-gated RPC); custom instruments then
+   work everywhere a built-in does. Extended here with a per-question **⇄ reverse**
+   toggle so authored instruments can use the reverse scoring added in Gap 5 (the flag
+   rides through the definition JSONB → `instrumentFromRow` → `dimensionMeans`).
