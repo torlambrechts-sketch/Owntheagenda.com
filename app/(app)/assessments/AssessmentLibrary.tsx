@@ -27,6 +27,7 @@ export type CatalogItem = {
   myHistory: { at: string; scores: Record<string, number> }[]; // individual scope: past takes, oldest first
   myShared: boolean; // individual scope: am I sharing this result with teammates?
   norms: { dimension: string; percentile: number | null; others_n: number }[]; // individual scope: my percentile per dimension vs the global pool
+  assignedToMe: { note: string | null; dueAt: string | null } | null; // an admin asked me to take this
 };
 
 type View = "library" | "detail" | "run" | "report";
@@ -86,10 +87,14 @@ export function AssessmentLibrary({
   workspaceId,
   catalog,
   userName,
+  isAdmin = false,
+  members = [],
 }: {
   workspaceId: string;
   catalog: CatalogItem[];
   userName: string;
+  isAdmin?: boolean;
+  members?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -105,10 +110,16 @@ export function AssessmentLibrary({
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [sharedKeys, setSharedKeys] = useState<Set<string>>(() => new Set(catalog.filter((c) => c.myShared).map((c) => c.key)));
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignSel, setAssignSel] = useState<Set<string>>(new Set());
+  const [assignNote, setAssignNote] = useState("");
+  const [assignBusy, setAssignBusy] = useState(false);
+  const [assignStatus, setAssignStatus] = useState<{ assignee_user_id: string; completed: boolean }[]>([]);
 
   const active = catalog.find((c) => c.key === activeKey) ?? null;
   const personality = catalog.filter((c) => c.scope === "individual");
   const team = catalog.filter((c) => c.scope === "team");
+  const assignedToMe = catalog.filter((c) => c.assignedToMe && !c.completedByMe);
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(null), 2600); }
   function go(v: View) { setView(v); if (typeof window !== "undefined") window.scrollTo(0, 0); }
@@ -146,6 +157,34 @@ export function AssessmentLibrary({
       return;
     }
     flash(next ? "Shared — teammates can now see this result" : "Sharing turned off");
+  }
+
+  async function openAssign(c: CatalogItem) {
+    setAssignOpen(true); setAssignNote(""); setAssignStatus([]); setAssignSel(new Set());
+    const { data } = await supabase.rpc("assessment_assignment_status", { p_workspace: workspaceId, p_template_key: c.key });
+    const rows = (data ?? []) as { assignee_user_id: string; completed: boolean }[];
+    setAssignStatus(rows);
+    setAssignSel(new Set(rows.map((r) => r.assignee_user_id))); // preselect the already-assigned
+  }
+
+  async function submitAssign() {
+    if (!active) return;
+    setAssignBusy(true);
+    const sel = Array.from(assignSel);
+    const toRemove = assignStatus.map((r) => r.assignee_user_id).filter((id) => !assignSel.has(id));
+    let err: string | null = null;
+    if (sel.length) {
+      const { error } = await supabase.rpc("assign_assessment", { p_workspace: workspaceId, p_template_key: active.key, p_assignees: sel, p_note: assignNote.trim() || null, p_due: null });
+      if (error) err = error.message;
+    }
+    for (const id of toRemove) {
+      const { error } = await supabase.rpc("unassign_assessment", { p_workspace: workspaceId, p_template_key: active.key, p_assignee: id });
+      if (error) err = error.message;
+    }
+    setAssignBusy(false);
+    if (err) { flash(err); return; }
+    setAssignOpen(false);
+    flash(sel.length ? `Assigned to ${sel.length} ${sel.length === 1 ? "person" : "people"}` : "Assignments cleared");
   }
 
   // Self-contained printable report → browser print dialog (Save as PDF).
@@ -194,6 +233,7 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
         <span>◇ {c.dimensions.length} {c.dimensions.length === 1 ? "dimension" : "dimensions"}</span>
         {c.items.length ? <span>◷ ~{c.mins} min</span> : null}
         {c.completedByMe ? <span className="a-done-tag">✓ Completed</span> : null}
+        {c.assignedToMe && !c.completedByMe ? <span className="a-assign-tag">★ Assigned to you</span> : null}
       </div>
     </button>
   );
@@ -207,6 +247,17 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             <div className="a-ps">Personality and team assessments you can run inside a workshop or take on their own.</div>
           </div>
         </div>
+        {assignedToMe.length ? (
+          <div className="a-assigned">
+            <strong>{assignedToMe.length} assigned to you.</strong>{" "}
+            {assignedToMe.map((c, i) => (
+              <span key={c.key}>
+                {i > 0 ? ", " : ""}
+                <button className="a-linkbtn" onClick={() => openDetail(c)}>{c.name}</button>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {personality.length ? (
           <div className="a-group">
             <div className="a-gt">Personality</div>
@@ -237,10 +288,44 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             <div className="a-ps">{active.category}</div>
           </div>
           <div className="a-pr">
+            {isAdmin && active.scope === "individual" && !active.external ? (
+              <button className="btn-sec" onClick={() => openAssign(active)}>＋ Assign</button>
+            ) : null}
             <button className="btn-sec" onClick={viewSample}>View sample report</button>
             <button className="btn-prim" onClick={startRun}>▶ Run assessment</button>
           </div>
         </div>
+        {active.assignedToMe && !active.completedByMe ? (
+          <div className="a-assigned">
+            <strong>Assigned to you.</strong>{" "}
+            {active.assignedToMe.note ? `“${active.assignedToMe.note}” ` : ""}Run it when you’re ready.
+            {active.assignedToMe.dueAt ? ` · due ${fmtDate(active.assignedToMe.dueAt)}` : ""}
+          </div>
+        ) : null}
+        {assignOpen ? (
+          <div className="a-assignpanel">
+            <div className="a-ap-head"><span>Assign “{active.name}”</span><button className="a-back" onClick={() => setAssignOpen(false)} aria-label="Close">✕</button></div>
+            <p className="a-ps" style={{ margin: "0 0 10px" }}>Pick who should take this. Results stay private — you’ll only see who has completed it.</p>
+            <div className="a-ap-list">
+              {members.length ? members.map((m) => {
+                const st = assignStatus.find((r) => r.assignee_user_id === m.id);
+                const on = assignSel.has(m.id);
+                return (
+                  <label key={m.id} className={`a-ap-row${on ? " on" : ""}`}>
+                    <input type="checkbox" checked={on} onChange={() => setAssignSel((p) => { const n = new Set(p); n.has(m.id) ? n.delete(m.id) : n.add(m.id); return n; })} />
+                    <span className="nm">{m.name}</span>
+                    {st ? <span className={`a-ap-tag${st.completed ? " done" : ""}`}>{st.completed ? "✓ done" : "assigned"}</span> : null}
+                  </label>
+                );
+              }) : <p className="a-ps">No workspace members found.</p>}
+            </div>
+            <input className="inp" style={{ marginTop: 10 }} placeholder="Add a note (optional)" value={assignNote} onChange={(e) => setAssignNote(e.target.value)} />
+            <div className="a-ap-foot">
+              <button className="btn-sec" onClick={() => setAssignOpen(false)}>Cancel</button>
+              <button className="btn-prim" disabled={assignBusy} onClick={submitAssign}>{assignBusy ? "Saving…" : "Save assignments"}</button>
+            </div>
+          </div>
+        ) : null}
         <div className="a-ov">
           <div className="a-ovcard">
             <h3>About this assessment</h3>

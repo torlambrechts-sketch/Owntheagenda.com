@@ -1141,6 +1141,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      assessment_assignment: {
+        Row: {
+          id: string
+          workspace_id: string
+          template_key: string
+          assignee_user_id: string
+          assigned_by: string
+          note: string | null
+          due_at: string | null
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -1445,6 +1460,18 @@ export type Database = {
       individual_norms: {
         Args: { p_template_key: string }
         Returns: Json
+      }
+      assign_assessment: {
+        Args: { p_workspace: string; p_template_key: string; p_assignees: string[]; p_note?: string | null; p_due?: string | null }
+        Returns: number
+      }
+      unassign_assessment: {
+        Args: { p_workspace: string; p_template_key: string; p_assignee: string }
+        Returns: undefined
+      }
+      assessment_assignment_status: {
+        Args: { p_workspace: string; p_template_key: string }
+        Returns: { assignee_user_id: string; due_at: string | null; completed: boolean }[]
       }
       set_individual_shared: {
         Args: { p_workspace: string; p_template_key: string; p_shared: boolean }

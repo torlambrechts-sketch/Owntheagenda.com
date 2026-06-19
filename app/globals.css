@@ -290,6 +290,19 @@ button { font-family:inherit; }
 .a-pr .btn-sec.on{border-color:var(--green);color:var(--forest);background:var(--open-bg)}
 .a-tdetail .a-pctl{color:var(--forest)}
 .a-tdetail .a-pctl strong{font-weight:650}
+.a-assign-tag{color:var(--rust);font-weight:600}
+.a-assigned{background:var(--open-bg);border:1px solid var(--green);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--ink);margin:0 0 16px;line-height:1.5}
+.a-assigned strong{color:var(--forest)}
+.a-linkbtn{background:none;border:none;color:var(--forest);font:inherit;cursor:pointer;text-decoration:underline;padding:0}
+.a-assignpanel{border:1px solid var(--line);border-radius:12px;padding:16px;margin:0 0 16px;background:var(--surface)}
+.a-ap-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--font-display);font-size:15px;font-weight:600;margin-bottom:4px}
+.a-ap-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;margin-top:6px}
+.a-ap-row{display:flex;align-items:center;gap:9px;padding:8px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;font-size:13.5px}
+.a-ap-row.on{border-color:var(--green);background:var(--open-bg)}
+.a-ap-row .nm{flex:1}
+.a-ap-tag{font-size:11px;color:var(--muted);border:1px solid var(--line-2);border-radius:999px;padding:1px 8px}
+.a-ap-tag.done{color:var(--forest);border-color:var(--green)}
+.a-ap-foot{display:flex;justify-content:flex-end;gap:9px;margin-top:12px}
 .a-done{text-align:center;padding:30px 20px;max-width:480px;margin:0 auto}
 .a-done .a-done-ic{width:64px;height:64px;border-radius:50%;background:var(--open-bg);color:var(--green);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;font-size:30px}
 .a-done h2{font-family:var(--font-display);font-size:22px;margin:0 0 8px;font-weight:600}

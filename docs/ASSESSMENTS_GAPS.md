@@ -45,9 +45,18 @@ Ordered by impact. Each is additive — nothing here blocks the flow above.
    and a contextual note (responses so far / report unlocks at 3 / open to
    contribute). Verified `survey_results` shape end-to-end against live data.
 
-3. **Assignment / invitations.** No model for "assign this instrument to these people"
-   — team members are implicitly eligible through an open survey. The detail's
-   "Assign people" (in the design) needs an assignment record + reminder hooks.
+3. **✅ DONE — Assignment.** Added `assessment_assignment` (admin-managed via
+   `assign_assessment` / `unassign_assessment` RPCs, idempotent, members-only). The
+   assignee sees an **★ Assigned to you** tag on the card, a banner in the library, and
+   a prompt on the detail (with the assigner's note); completing it (an
+   `individual_response`) satisfies it — completion is *derived*, never written, so it
+   can't drift. Admins get a **＋ Assign** picker on individual instruments showing each
+   member's status via `assessment_assignment_status` — which returns **completion
+   booleans only, never scores**, preserving result privacy. Verified end-to-end: admin
+   assigns, derived completion flips on submit, non-admins are blocked (42501),
+   non-assignees see nothing. *Reminders* remain a later hook (no mail transport wired
+   yet). Scoped to individual instruments — team instruments already get whole-team
+   participation through open surveys.
 
 4. **✅ DONE — Reference norms / percentiles for individual instruments.** Added the
    `individual_norms(template_key)` RPC (security definer): for the caller it computes a

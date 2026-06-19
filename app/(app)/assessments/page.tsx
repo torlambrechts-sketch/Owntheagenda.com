@@ -49,6 +49,34 @@ export default async function AssessmentsPage({
     arr.push({ at: h.created_at as string, scores: (h.scores ?? {}) as Record<string, number> });
     histByKey.set(h.template_key as string, arr);
   }
+  // Instruments assigned to me (so the library can flag them).
+  const { data: myAssign } = await supabase
+    .from("assessment_assignment")
+    .select("template_key, note, due_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("assignee_user_id", ctx.userId);
+  const assignByKey = new Map(
+    (myAssign ?? []).map((a) => [a.template_key as string, { note: (a.note ?? null) as string | null, dueAt: (a.due_at ?? null) as string | null }]),
+  );
+  // Workspace members for the admin "assign" picker (admins only).
+  const admin = isAdmin(ctx.role);
+  let wsMembers: { id: string; name: string }[] = [];
+  if (admin) {
+    const { data: mem } = await supabase
+      .from("membership")
+      .select("user_id")
+      .eq("workspace_id", ctx.workspace.id)
+      .eq("status", "active");
+    const ids = (mem ?? []).map((m) => m.user_id as string);
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profile").select("id, full_name, display_name, email").in("id", ids);
+      const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+      wsMembers = ids.map((id) => {
+        const p = byId.get(id) as { full_name?: string | null; display_name?: string | null; email?: string | null } | undefined;
+        return { id, name: p?.full_name || p?.display_name || p?.email || "Member" };
+      });
+    }
+  }
   const { data: traitCopy } = await supabase
     .from("assessment_trait_copy")
     .select("template_key, dimension_key, definition, advantages, risks, statements");
@@ -78,6 +106,7 @@ export default async function AssessmentsPage({
       myHistory: [],
       myShared: false,
       norms: [],
+      assignedToMe: null,
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -102,6 +131,7 @@ export default async function AssessmentsPage({
         myHistory: histByKey.get(t.key) ?? [],
         myShared: mySharedByKey.get(t.key) ?? false,
         norms: [],
+        assignedToMe: assignByKey.get(t.key) ?? null,
       };
     }),
   ];
@@ -116,7 +146,7 @@ export default async function AssessmentsPage({
   }
 
   if (teamList.length === 0) {
-    return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />;
+    return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} isAdmin={admin} members={wsMembers} />;
   }
 
   const activeTeam =
@@ -320,7 +350,7 @@ export default async function AssessmentsPage({
 
   return (
     <div>
-      <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />
+      <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} isAdmin={admin} members={wsMembers} />
 
       <div className="cat-head" style={{ marginTop: 34 }}>
         Team dynamics <span className="n">{activeTeam.name}</span>
