@@ -231,8 +231,11 @@ export function IdeaModule({
     const body = commentDraft.trim();
     if (!body) return;
     setCommentDraft("");
-    const { error } = await supabase.rpc("idea_comment_add", { p_idea: id, p_body: body });
-    if (error) { setErr(error.message); setCommentDraft(body); }
+    const { data, error } = await supabase.rpc("idea_comment_add", { p_idea: id, p_body: body });
+    if (error) { setErr(error.message); setCommentDraft(body); return; }
+    // Show it straight away; the realtime INSERT dedupes by id.
+    const c = data as { id: string; idea_id: string; user_id: string | null; author_name: string | null; body: string; created_at: string } | null;
+    if (c) setComments((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, { id: c.id, ideaId: c.idea_id, userId: c.user_id, authorName: c.author_name, body: c.body, createdAt: c.created_at }]));
   }
   async function deleteComment(commentId: string) {
     setComments((prev) => prev.filter((c) => c.id !== commentId));
@@ -695,6 +698,7 @@ export function IdeaModule({
                   className="inp"
                   placeholder="Add a comment…"
                   value={commentDraft}
+                  maxLength={1000}
                   onChange={(e) => setCommentDraft(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") addComment(editing.id); }}
                 />
