@@ -240,6 +240,23 @@ export function BuilderClient({
     if (activity === "checkin") return { ...base, capture };
     return base;
   }
+  function previewHint(): string {
+    const b = Math.max(1, Number(budget) || 3);
+    switch (activity) {
+      case "brainstorm": return silent ? "Participants add idea cards privately, then reveal and dot-vote together." : "Participants add idea cards and dot-vote.";
+      case "vote": return `Participants vote with ${b} dots across the options.`;
+      case "feedback": return "Participants add cards to the columns.";
+      case "checkin": return capture ? "Participants type a written response — cards you can edit, vote on and promote." : "Participants reflect, then tap “I’m ready” — no typing.";
+      case "canvas": return "Participants collaborate on a shared visual board.";
+      case "manual": return "Participants fill in their personal user manual.";
+      case "charter": return "Participants co-write the team charter.";
+      case "assess":
+      case "survey": return "Participants complete an anonymous assessment.";
+      case "outcome": return "Capture decisions and owned commitments together.";
+      case "discuss": return "Discuss together; advance when everyone’s ready.";
+      default: return "Reflect and discuss; advance when everyone’s ready.";
+    }
+  }
   async function saveBlock() {
     setError(null);
     const payload = {
@@ -377,6 +394,11 @@ export function BuilderClient({
         </div>
       ) : null}
 
+      {blocks.length ? (
+        <div className="agenda-sum">
+          {blocks.length} step{blocks.length === 1 ? "" : "s"} · runs ~{blocks.reduce((s, b) => s + b.duration, 0)} min
+        </div>
+      ) : null}
       <div className="blocks">
         {blocks.map((b, i) => {
           const start = acc;
@@ -538,6 +560,15 @@ export function BuilderClient({
             ))}
           </select>
           <div className="form-note">Linking shows a “Grounded” chip tying the step to the pulse.</div>
+        </div>
+        <div className="field">
+          <label>Participant preview</label>
+          <div className="prevstage">
+            <div className="prev-act">{ACTIVITY[activity]?.label ?? activity} step</div>
+            <h3>{title || "Untitled step"}</h3>
+            {prompt ? <div className="prev-prompt">{prompt}</div> : null}
+            <div className="prev-hint">{previewHint()}</div>
+          </div>
         </div>
       </SideWindow>
 
