@@ -315,6 +315,33 @@ export function RunClient({
   const partCount = participants.filter((p) => !p.isFacilitator).length;
   const maxBar = Math.max(1, ...summary);
 
+  const everyoneReady = partCount > 0 && readyCount === partCount;
+  const timeUp = session.timerRunning && remaining === 0;
+  function participantHint(): string {
+    const t = block?.activityType;
+    if (t === "checkin") return (block?.config as Record<string, unknown>)?.capture ? "Share your response" : "Reflect, then tap I'm ready";
+    const map: Record<string, string> = {
+      brainstorm: "Add your ideas", vote: "Cast your votes", feedback: "Add your notes",
+      canvas: "Add to the board", manual: "Fill in your user manual", charter: "Contribute to the charter",
+      assess: "Complete the assessment", survey: "Complete the assessment", outcome: "Discuss the outcome",
+    };
+    return map[t ?? ""] ?? "Discuss, then tap I'm ready";
+  }
+  const statusText = acting
+    ? everyoneReady ? "Everyone’s ready" : `${readyCount}/${partCount} ready`
+    : me?.ready ? "Ready ✓ — waiting for the group" : participantHint();
+
+  // U2: opt-in auto-advance when the timer ends (facilitator only, once per block).
+  const autoAdvancedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!acting || !timeUp || session.currentBlockOrd >= N) return;
+    if (!(block?.config as Record<string, unknown>)?.autoAdvance) return;
+    if (autoAdvancedRef.current === session.currentBlockOrd) return;
+    autoAdvancedRef.current = session.currentBlockOrd;
+    phase(session.currentBlockOrd + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting, timeUp, session.currentBlockOrd, N]);
+
   return (
     <div className="run">
       <div className="runbar">
@@ -332,9 +359,9 @@ export function RunClient({
             ) : null}
           </div>
         </div>
-        <button className="runbtn" title="Next step" disabled={!acting || session.currentBlockOrd >= N}
+        <button className={`runbtn${everyoneReady && acting ? " glow" : ""}`} title="Next step" disabled={!acting || session.currentBlockOrd >= N}
           onClick={() => phase(session.currentBlockOrd + 1)}>›</button>
-        <div className={`timer${remaining <= 30 ? " low" : ""}`}>{mmss(remaining)}</div>
+        <div className={`timer${timeUp ? " up" : remaining <= 30 ? " low" : ""}`}>{mmss(remaining)}</div>
         {acting ? (
           <>
             <button className="runbtn" title={session.timerRunning ? "Pause" : "Start"}
@@ -376,6 +403,7 @@ export function RunClient({
             </span>
           ))}
         </div>
+        <div className={`runstatus${acting && everyoneReady ? " ready" : ""}`}>{statusText}</div>
         {isFacilitator ? (
           <div className="roletag" style={{ cursor: "pointer" }}
             onClick={() => setView(view === "facilitator" ? "participant" : "facilitator")}>

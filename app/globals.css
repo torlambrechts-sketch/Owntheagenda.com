@@ -385,10 +385,15 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .runbar .phase .name{font-family:var(--font-display);font-size:17px;font-weight:600}
 .runbar .timer{font-family:var(--font-display);font-size:23px;font-weight:600;font-variant-numeric:tabular-nums;min-width:78px;text-align:center}
 .runbar .timer.low{color:#f0b6ab}
+.runbar .timer.up{color:#ff9a8a;animation:timerup 1.1s ease-in-out infinite}
+@keyframes timerup{0%,100%{opacity:1}50%{opacity:.4}}
 .runbar .sp{flex:1}
+.runstatus{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:rgba(255,255,255,.82);background:rgba(255,255,255,.12);border-radius:20px;padding:5px 12px;white-space:nowrap}
+.runstatus.ready{background:var(--green);color:#fff}
 .runbtn{height:32px;min-width:32px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:13px}
 .runbtn:hover{background:rgba(255,255,255,.18)}
 .runbtn:disabled{opacity:.4;cursor:default}
+.runbtn.glow{background:var(--green);border-color:var(--green);box-shadow:0 0 0 3px rgba(63,125,90,.4)}
 .runbtn.go{background:var(--green);border-color:var(--green);padding:0 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .exitbtn{border:1px solid rgba(255,255,255,.2);background:none;color:#fff;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;text-decoration:none}
 .roletag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;background:rgba(255,255,255,.14);border-radius:20px;padding:4px 10px}

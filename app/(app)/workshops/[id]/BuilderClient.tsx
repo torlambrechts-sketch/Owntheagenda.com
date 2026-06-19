@@ -31,7 +31,7 @@ export type AssessmentPanel = {
 type Activity = Enums<"activity_type">;
 type Dyn = Enums<"team_dynamic"> | "";
 
-export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; capture?: boolean };
+export type BlockConfig = { budget?: number; lanes?: string[]; options?: string[]; silent?: boolean; capture?: boolean; autoAdvance?: boolean };
 
 export type BlockRow = {
   id: string;
@@ -143,6 +143,7 @@ export function BuilderClient({
   const [budget, setBudget] = useState(3);
   const [silent, setSilent] = useState(false);
   const [capture, setCapture] = useState(false);
+  const [autoAdvance, setAutoAdvance] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -208,6 +209,7 @@ export function BuilderClient({
     setBudget(3);
     setSilent(false);
     setCapture(false);
+    setAutoAdvance(false);
     setError(null);
     setOpen(true);
   }
@@ -223,6 +225,7 @@ export function BuilderClient({
     setBudget(b.config?.budget ?? 3);
     setSilent(!!b.config?.silent);
     setCapture(!!b.config?.capture);
+    setAutoAdvance(!!b.config?.autoAdvance);
     setError(null);
     setOpen(true);
   }
@@ -230,11 +233,12 @@ export function BuilderClient({
     const lanes = lanesText.split("\n").map((s) => s.trim()).filter(Boolean);
     const options = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
     const b = Math.max(1, Number(budget) || 3);
-    if (activity === "feedback") return { lanes };
-    if (activity === "vote") return { options, budget: b };
-    if (activity === "brainstorm") return { budget: b, silent };
-    if (activity === "checkin") return { capture };
-    return {};
+    const base: Record<string, unknown> = autoAdvance ? { autoAdvance: true } : {};
+    if (activity === "feedback") return { ...base, lanes };
+    if (activity === "vote") return { ...base, options, budget: b };
+    if (activity === "brainstorm") return { ...base, budget: b, silent };
+    if (activity === "checkin") return { ...base, capture };
+    return base;
   }
   async function saveBlock() {
     setError(null);
@@ -515,6 +519,13 @@ export function BuilderClient({
             <div className="form-note">On: participants type a response (shown as cards you can edit, vote on and turn into tasks). Off: a reflect-and-ready round with no typing.</div>
           </div>
         ) : null}
+        <div className="field">
+          <label className="checkrow">
+            <input type="checkbox" checked={autoAdvance} onChange={(e) => setAutoAdvance(e.target.checked)} />
+            Auto-advance when the timer ends
+          </label>
+          <div className="form-note">When the clock hits 0:00, the session moves to the next step automatically.</div>
+        </div>
         <div className="field">
           <label>Facilitator prompt <span className="opt">(optional)</span></label>
           <textarea className="inp" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="The question you'll read aloud…" />
