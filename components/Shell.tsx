@@ -217,16 +217,23 @@ export function Shell({
         {groups.map((g) => (
           <div className="grp" key={g}>
             <h4>{g}</h4>
-            {visibleNav.filter((n) => n.group === g).map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={active(n.href) ? "active" : ""}
-              >
+            {g === "Organization" ? (
+              <Link href={orgHref} className={orgActive ? "active" : ""}>
                 <span className="dot" />
-                {n.label}
+                Organization
               </Link>
-            ))}
+            ) : (
+              visibleNav.filter((n) => n.group === g).map((n) => (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  className={active(n.href) ? "active" : ""}
+                >
+                  <span className="dot" />
+                  {n.label}
+                </Link>
+              ))
+            )}
           </div>
         ))}
       </aside>
