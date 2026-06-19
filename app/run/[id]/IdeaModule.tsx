@@ -13,19 +13,33 @@ type Idea = {
   lane: string | null;
   text: string;
   detail: string | null;
+  impact: number | null;
+  effort: number | null;
   authorId: string | null;
   authorName: string | null;
   anon: boolean;
 };
 type Vote = { ideaId: string; voterId: string };
 
-const IDEA_COLS = "id, lane, text, detail, author_id, author_name, is_anonymous";
+const IDEA_COLS = "id, lane, text, detail, impact, effort, author_id, author_name, is_anonymous";
 
 function mapIdea(r: any): Idea {
   return {
     id: r.id, lane: r.lane ?? null, text: r.text ?? "", detail: r.detail ?? null,
+    impact: r.impact ?? null, effort: r.effort ?? null,
     authorId: r.author_id ?? null, authorName: r.author_name ?? null, anon: !!r.is_anonymous,
   };
+}
+
+const QUADS = [
+  { key: "quickwin", label: "Quick wins", sub: "High impact · low effort", i: 2, e: 1 },
+  { key: "bigbet", label: "Big bets", sub: "High impact · high effort", i: 2, e: 2 },
+  { key: "fillin", label: "Fill-ins", sub: "Low impact · low effort", i: 1, e: 1 },
+  { key: "thankless", label: "Thankless", sub: "Low impact · high effort", i: 1, e: 2 },
+] as const;
+function quadKey(i: Idea): string | null {
+  if (i.impact == null || i.effort == null) return null;
+  return i.impact === 2 ? (i.effort === 1 ? "quickwin" : "bigbet") : i.effort === 1 ? "fillin" : "thankless";
 }
 
 export function IdeaModule({
@@ -72,6 +86,7 @@ export function IdeaModule({
   const [editDetail, setEditDetail] = useState("");
   const [promoted, setPromoted] = useState<Set<string>>(new Set());
   const [added, setAdded] = useState(false);
+  const [priorView, setPriorView] = useState(false);
   const ideaInputRef = useRef<HTMLInputElement>(null);
   const seededRef = useRef(false);
 
@@ -198,6 +213,14 @@ export function IdeaModule({
     }
   }
 
+  // F3: place a card in the impact/effort grid. Optimistic; the realtime idea
+  // subscription keeps everyone in sync. Same RLS as edit (author or facilitator).
+  async function setQuad(id: string, impact: number | null, effort: number | null) {
+    setIdeas((prev) => prev.map((x) => (x.id === id ? { ...x, impact, effort } : x)));
+    const { error } = await supabase.from("idea").update({ impact, effort }).eq("id", id);
+    if (error) { setErr(error.message); load(); }
+  }
+
   function openCard(i: Idea) {
     setEditing(i);
     setEditText(i.text);
@@ -267,6 +290,35 @@ export function IdeaModule({
       {remaining} {remaining === 1 ? "dot" : "dots"} left
     </span>
   ) : null;
+
+  const sortedIdeas = [...ideas].sort((a, b) => countFor(b.id) - countFor(a.id));
+
+  // One card, shared by the list view and the impact/effort grid (F3).
+  function renderCard(i: Idea) {
+    const c = countFor(i.id);
+    const mine = iVoted(i.id);
+    return (
+      <div className={`ideacard big${mine ? " voted" : ""}`} key={i.id}>
+        <div className="t" onClick={() => openCard(i)} style={{ cursor: "pointer" }} title="Open card">{i.text}</div>
+        <div className="m">
+          <span className="by">{authorLabel(i)}</span>
+          {i.detail ? <span className="hasdetail" title="Has a detail note" onClick={() => openCard(i)}>≡</span> : null}
+          <span className="sp" />
+          {canRemove(i) ? <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button> : null}
+          {revealed ? (
+            <button className={`votebtn${mine ? " on" : ""}`} onClick={() => toggleVote(i.id)} title={mine ? "Remove your dot" : "Add a dot"}>
+              <span className="dot" /> {c}
+            </button>
+          ) : null}
+          {isFacilitator ? (
+            <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
+              {promoted.has(i.id) ? "✓ Task" : "→ Task"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="canvaswrap">
@@ -363,38 +415,75 @@ export function IdeaModule({
               <button className="btn-sec sm" onClick={promoteTop}>Promote top 3 →</button>
             </div>
           ) : null}
-          <div className="ideagrid">
-            {[...ideas]
-              .sort((a, b) => countFor(b.id) - countFor(a.id))
-              .map((i) => {
-                const c = countFor(i.id);
-                const mine = iVoted(i.id);
-                return (
-                  <div className={`ideacard big${mine ? " voted" : ""}`} key={i.id}>
-                    <div className="t" onClick={() => openCard(i)} style={{ cursor: "pointer" }} title="Open card">{i.text}</div>
-                    <div className="m">
-                      <span className="by">{authorLabel(i)}</span>
-                      {i.detail ? <span className="hasdetail" title="Has a detail note" onClick={() => openCard(i)}>≡</span> : null}
-                      <span className="sp" />
-                      {canRemove(i) ? <button className="x" title="Remove" onClick={() => removeIdea(i.id)}>✕</button> : null}
-                      {revealed ? (
-                        <button className={`votebtn${mine ? " on" : ""}`} onClick={() => toggleVote(i.id)} title={mine ? "Remove your dot" : "Add a dot"}>
-                          <span className="dot" /> {c}
-                        </button>
-                      ) : null}
-                      {isFacilitator ? (
-                        <button className={`taskbtn${promoted.has(i.id) ? " on" : ""}`} disabled={promoted.has(i.id)} onClick={() => promote(i)} title="Make this a task">
-                          {promoted.has(i.id) ? "✓ Task" : "→ Task"}
-                        </button>
-                      ) : null}
-                    </div>
+          {revealed && ideas.length > 0 ? (
+            <div className="ideaviews">
+              <div className="seg">
+                <button className={`segbtn${!priorView ? " on" : ""}`} onClick={() => setPriorView(false)}>List</button>
+                <button className={`segbtn${priorView ? " on" : ""}`} onClick={() => setPriorView(true)}>Prioritize ▦</button>
+              </div>
+              {priorView ? <span className="viewhint">Place each card by impact &amp; effort to see what to do first.</span> : null}
+            </div>
+          ) : null}
+          {priorView && revealed ? (
+            (() => {
+              const unsorted = sortedIdeas.filter((i) => quadKey(i) === null);
+              return (
+                <div className="prior">
+                  <div className="prior-grid">
+                    {QUADS.map((q) => {
+                      const items = sortedIdeas.filter((i) => quadKey(i) === q.key);
+                      return (
+                        <div className={`pq pq-${q.key}`} key={q.key}>
+                          <div className="pq-h"><b>{q.label}</b><span>{q.sub}</span></div>
+                          <div className="pq-list">
+                            {items.map((i) => (
+                              <div className="pq-card" key={i.id}>
+                                {renderCard(i)}
+                                {canRemove(i) ? (
+                                  <button className="unplace" title="Send back to unsorted" onClick={() => setQuad(i.id, null, null)}>↩</button>
+                                ) : null}
+                              </div>
+                            ))}
+                            {items.length === 0 ? <div className="pq-empty">—</div> : null}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            {ideas.length === 0 ? (
-              <div className="idea-empty">{silent && !revealed ? "Add your ideas privately above." : "No ideas yet — add the first one above."}</div>
-            ) : null}
-          </div>
+                  <div className="prior-un">
+                    <div className="prior-un-h">Unsorted <span className="n">{unsorted.length}</span></div>
+                    {unsorted.length === 0 ? (
+                      <div className="idea-empty sm">Everything&apos;s placed — nice work. 🎉</div>
+                    ) : (
+                      <div className="un-list">
+                        {unsorted.map((i) => (
+                          <div className="ucard" key={i.id}>
+                            <div className="t" onClick={() => openCard(i)} style={{ cursor: "pointer" }} title="Open card">{i.text}</div>
+                            {canRemove(i) ? (
+                              <div className="placebtns">
+                                {QUADS.map((q) => (
+                                  <button key={q.key} className="placebtn" title={q.sub} onClick={() => setQuad(i.id, q.i, q.e)}>{q.label}</button>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="waiting">waiting to be placed…</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="ideagrid">
+              {sortedIdeas.map((i) => renderCard(i))}
+              {ideas.length === 0 ? (
+                <div className="idea-empty">{silent && !revealed ? "Add your ideas privately above." : "No ideas yet — add the first one above."}</div>
+              ) : null}
+            </div>
+          )}
         </>
       ) : null}
 

@@ -872,6 +872,8 @@ export type Database = {
           lane: string | null
           text: string
           detail: string | null
+          impact: number | null
+          effort: number | null
           author_id: string | null
           author_name: string | null
           is_anonymous: boolean
