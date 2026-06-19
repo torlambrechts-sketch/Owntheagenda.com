@@ -33,7 +33,7 @@ export type Participant = {
   isFacilitator: boolean;
   ready: boolean;
 };
-export type Action = { id: string; text: string; owner: string | null; done: boolean };
+export type Action = { id: string; text: string; owner: string | null; due: string | null; done: boolean };
 
 type SessionState = {
   id: string;
@@ -119,7 +119,8 @@ export function RunClient({
     isFacilitator ? "facilitator" : "participant",
   );
   const [actText, setActText] = useState("");
-  const [actOwner, setActOwner] = useState("");
+  const [actOwnerId, setActOwnerId] = useState("");
+  const [actDue, setActDue] = useState("");
   const [endErr, setEndErr] = useState<string | null>(null);
 
   const sid = session.id;
@@ -158,11 +159,11 @@ export function RunClient({
   const reloadActions = useCallback(async () => {
     const { data } = await supabase
       .from("action_item")
-      .select("id, text, owner_name, status")
+      .select("id, text, owner_name, due_at, status")
       .eq("session_id", sid)
       .order("created_at", { ascending: true });
     setActions(
-      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, done: a.status === "done" })),
+      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done" })),
     );
   }, [supabase, sid]);
 
@@ -300,9 +301,15 @@ export function RunClient({
   }
   async function addAction() {
     if (!actText.trim()) return;
-    await supabase.rpc("add_action", { p_session: sid, p_text: actText.trim(), p_owner: actOwner.trim() || undefined });
+    await supabase.rpc("add_action", {
+      p_session: sid,
+      p_text: actText.trim(),
+      ...(actOwnerId ? { p_owner_id: actOwnerId } : {}),
+      ...(actDue ? { p_due: actDue } : {}),
+    });
     setActText("");
-    setActOwner("");
+    setActOwnerId("");
+    setActDue("");
   }
   async function vote(v: number) {
     setMyValue(v);
@@ -607,17 +614,27 @@ export function RunClient({
                 <div className={`chk${a.done ? " on" : ""}`} onClick={() => toggleAction(a.id)} />
                 <div className="txt">
                   {a.text}
-                  {a.owner ? <span className="who">Owner · {a.owner}</span> : null}
+                  {a.owner || a.due ? (
+                    <span className="who">
+                      {a.owner ? `Owner · ${a.owner}` : ""}
+                      {a.owner && a.due ? " · " : ""}
+                      {a.due ? `Due ${new Date(a.due).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             ))}
             <div style={{ marginTop: 10 }}>
               <input className="inp" placeholder="Quick commitment…" value={actText}
                 onChange={(e) => setActText(e.target.value)} style={{ marginBottom: 6 }} />
-              <div style={{ display: "flex", gap: 6 }}>
-                <input className="inp" placeholder="Owner" value={actOwner} onChange={(e) => setActOwner(e.target.value)} />
-                <button className="btn-prim" onClick={addAction} disabled={!actText.trim()}>Add</button>
+              <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                <select className="inp" value={actOwnerId} onChange={(e) => setActOwnerId(e.target.value)} title="Owner">
+                  <option value="">Owner — none</option>
+                  {participants.map((p) => <option key={p.userId} value={p.userId}>{p.name}</option>)}
+                </select>
+                <input className="inp" type="date" value={actDue} onChange={(e) => setActDue(e.target.value)} title="Due date" style={{ maxWidth: 134 }} />
               </div>
+              <button className="btn-prim btn-full" onClick={addAction} disabled={!actText.trim()}>Add commitment</button>
             </div>
           </div>
 

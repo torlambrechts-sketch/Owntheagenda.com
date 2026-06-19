@@ -85,13 +85,14 @@ export default async function RunPage({
 
   const { data: actions } = await supabase
     .from("action_item")
-    .select("id, text, owner_name, status")
+    .select("id, text, owner_name, due_at, status")
     .eq("session_id", session.id)
     .order("created_at", { ascending: true });
   const initialActions: Action[] = (actions ?? []).map((a) => ({
     id: a.id,
     text: a.text,
     owner: a.owner_name,
+    due: a.due_at,
     done: a.status === "done",
   }));
 

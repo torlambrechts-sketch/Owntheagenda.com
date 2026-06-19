@@ -219,11 +219,14 @@ export function IdeaModule({
   // rail via its action_item subscription. Facilitator-curated from the votes.
   async function promote(i: Idea) {
     setPromoted((s) => new Set(s).add(i.id));
-    const owner = i.anon ? null : i.authorName; // carry the card's author onto the task
+    // Carry the card's author onto the task — prefer the real member id (gives
+    // them reminders), fall back to the display name for older/anon-named cards.
+    const ownerId = i.anon ? null : i.authorId;
+    const ownerName = i.anon ? null : i.authorName;
     const { error } = await supabase.rpc("add_action", {
       p_session: sessionId,
       p_text: i.text,
-      ...(owner ? { p_owner: owner } : {}),
+      ...(ownerId ? { p_owner_id: ownerId } : ownerName ? { p_owner: ownerName } : {}),
     });
     if (error) {
       setErr(error.message);

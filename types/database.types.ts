@@ -1284,7 +1284,7 @@ export type Database = {
       }
       end_session: { Args: { p_session: string }; Returns: undefined }
       add_action: {
-        Args: { p_owner?: string; p_session: string; p_text: string }
+        Args: { p_owner?: string; p_session: string; p_text: string; p_owner_id?: string; p_due?: string }
         Returns: Database["public"]["Tables"]["action_item"]["Row"]
       }
       toggle_action: { Args: { p_action: string }; Returns: undefined }
