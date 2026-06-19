@@ -140,6 +140,14 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
   const planDone = (planRows ?? []).filter((p) => p.status === "done").length;
   const planTotal = (planRows ?? []).length;
 
+  // F5 · before/after movement on the session's linked dynamic(s).
+  const { data: pulseDelta } = await supabase.rpc("session_pulse_delta", { p_session: session.id });
+  const deltaRows = (pulseDelta ?? []) as {
+    dynamic: string; label: string; question: string;
+    pre_pct: number | null; pre_n: number; post_pct: number | null; post_n: number; delta: number | null;
+  }[];
+  const hasPulse = deltaRows.some((r) => r.pre_n > 0 || r.post_n > 0);
+
   const totalVotes = (votes ?? []).length;
   const liveBanner = session.status === "live";
 
@@ -187,6 +195,30 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
               {p.name.split(" ")[0]}{p.facilitator ? " · host" : ""}
             </span>
           ))}
+        </div>
+      ) : null}
+
+      {hasPulse ? (
+        <div className="ro-block">
+          <div className="ro-block-h"><h3>Did it move the needle?</h3><span className="pill sm t-vote">before → after</span></div>
+          <div className="pulse-delta" style={{ background: "var(--canvas)" }}>
+            {deltaRows.map((r) => (
+              <div className="pd-row" key={r.dynamic}>
+                <div className="pd-label">{r.label}</div>
+                <div className="pd-vals">
+                  <span className="pd-pre">{r.pre_pct != null ? `${r.pre_pct}%` : r.pre_n > 0 ? "· · ·" : "—"}</span>
+                  <span className="pd-arrow">→</span>
+                  <span className="pd-post">{r.post_pct != null ? `${r.post_pct}%` : r.post_n > 0 ? "· · ·" : "—"}</span>
+                  {r.delta != null ? (
+                    <span className={`pd-delta${r.delta > 0 ? " up" : r.delta < 0 ? " down" : ""}`}>
+                      {r.delta > 0 ? "▲" : r.delta < 0 ? "▼" : "■"} {Math.abs(r.delta)}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+            <div className="pd-note">Anonymous team average — hidden until at least 3 people respond.</div>
+          </div>
         </div>
       ) : null}
 

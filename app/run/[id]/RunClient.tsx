@@ -10,6 +10,7 @@ import { ManualModule } from "./ManualModule";
 import { CharterModule } from "./CharterModule";
 import { AssessModule } from "./AssessModule";
 import { SurveyModule } from "./SurveyModule";
+import { SessionPulse } from "./SessionPulse";
 import { PlanBoard } from "./PlanBoard";
 import { DecisionsPanel } from "./DecisionsPanel";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
@@ -122,10 +123,16 @@ export function RunClient({
   const [actOwnerId, setActOwnerId] = useState("");
   const [actDue, setActDue] = useState("");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [pulseOpen, setPulseOpen] = useState(false);
   const [endErr, setEndErr] = useState<string | null>(null);
 
   const sid = session.id;
   const N = blocks.length;
+  // Session measures a dynamic if any block links one — enables the pre/post pulse (F5).
+  const measuresDynamic = useMemo(
+    () => blocks.some((b) => !!b.linkedDynamic),
+    [blocks],
+  );
   const block = blocks.find((b) => b.ord === session.currentBlockOrd) ?? blocks[0];
   const acting = isFacilitator && view === "facilitator";
   const moduleMode =
@@ -428,6 +435,9 @@ export function RunClient({
           ))}
         </div>
         <div className={`runstatus${acting && everyoneReady ? " ready" : ""}`}>{statusText}</div>
+        {measuresDynamic ? (
+          <button className={`runbtn${pulseOpen ? " glow" : ""}`} title="Pulse check — did this session move the dynamic?" onClick={() => setPulseOpen((o) => !o)}>♥</button>
+        ) : null}
         {isFacilitator ? (
           <div className="guide-wrap" onPointerDown={(e) => e.stopPropagation()}>
             <button className="runbtn" title="Facilitator guide" onClick={() => setGuideOpen((o) => !o)}>?</button>
@@ -472,6 +482,10 @@ export function RunClient({
           <span>Can’t close yet — {endErr}</span>
           <button className="cg-x" onClick={() => setEndErr(null)}>Dismiss</button>
         </div>
+      ) : null}
+
+      {pulseOpen && measuresDynamic ? (
+        <SessionPulse sessionId={sid} isFacilitator={isFacilitator} userId={userId} onClose={() => setPulseOpen(false)} />
       ) : null}
 
       <div className="runbody">

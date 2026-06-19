@@ -702,6 +702,28 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .asmark{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--green);border:2px solid var(--surface);transform:translate(-50%,-50%)}
 .asval{width:42px;flex:none;text-align:right;font-size:12.5px;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
 
+/* Run · pre/post pulse (F5) ----------------------------------------- */
+.pulse-over{position:fixed;inset:0;z-index:60;display:flex;justify-content:flex-end;background:rgba(31,41,33,.28)}
+.pulse-panel{width:440px;max-width:94vw;height:100%;background:var(--surface);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.12);padding:20px 22px;overflow:auto;display:flex;flex-direction:column;gap:16px;color:var(--ink)}
+.pulse-h{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pulse-h h2{font-family:var(--font-display);font-size:19px;margin:2px 0 0}
+.pulse-ctl{display:flex;gap:8px;flex-wrap:wrap}
+.pulse-form{display:flex;flex-direction:column;gap:12px}
+.pulse-form .btn-prim{align-self:flex-start;margin-top:4px}
+.pulse-wait{font-size:13px;color:var(--muted);background:var(--canvas);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.pulse-delta{background:var(--canvas);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.pd-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.pd-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pd-label{font-size:13px;color:var(--ink)}
+.pd-vals{display:flex;align-items:center;gap:8px;font-variant-numeric:tabular-nums}
+.pd-pre,.pd-post{font-size:13px;font-weight:700;color:var(--muted);min-width:34px;text-align:right}
+.pd-post{color:var(--ink)}
+.pd-arrow{color:var(--faint)}
+.pd-delta{font-size:12px;font-weight:700;border-radius:20px;padding:2px 9px;background:var(--canvas-2);color:var(--muted)}
+.pd-delta.up{background:var(--open-bg);color:var(--green)}
+.pd-delta.down{background:rgba(176,90,70,.12);color:var(--rust)}
+.pd-note{font-size:11px;color:var(--faint);font-style:italic}
+
 /* Run · multi-item survey (Bang psychological safety) ---------------- */
 .svgroup{border-top:1px solid var(--line);padding-top:10px;margin-top:4px}
 .svgroup:first-of-type{border-top:none;padding-top:0;margin-top:0}

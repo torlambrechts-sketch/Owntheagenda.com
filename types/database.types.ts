@@ -780,6 +780,8 @@ export type Database = {
           share_token: string | null
           shared_at: string | null
           is_prep: boolean
+          pre_pulse_id: string | null
+          post_pulse_id: string | null
           created_at: string
           updated_at: string
         }
@@ -1425,6 +1427,23 @@ export type Database = {
       public_session_readout: {
         Args: { p_token: string }
         Returns: Json
+      }
+      session_pulse_open: {
+        Args: { p_session: string; p_phase: string }
+        Returns: string
+      }
+      session_pulse_delta: {
+        Args: { p_session: string }
+        Returns: {
+          dynamic: string
+          label: string
+          question: string
+          pre_pct: number | null
+          pre_n: number
+          post_pct: number | null
+          post_n: number
+          delta: number | null
+        }[]
       }
     }
     Enums: {

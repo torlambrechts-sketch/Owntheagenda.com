@@ -15,7 +15,8 @@ rolled-back test) → types → UI → typecheck/lint/build → commit → ff-me
       (Live post-to-Slack/webhook deferred to P10 notes — needs an egress delivery job.)
 - [x] **P8 · F4** — pre-work / async collection before the live session (brainstorm blocks;
       private-until-reveal). Check-in pre-work noted as a follow-up in P10.
-- [ ] **P9 · F5** — measurement loop: pre/post pulse on the session's linked dynamic.
+- [x] **P9 · F5** — measurement loop: pre/post pulse on the session's linked dynamic; delta (min-3
+      masked) in the run + readout. Post pulse feeds the team's Health (latest reading).
 - [ ] **P10 · Review** — external senior-dev + design-agency review; close gaps.
 
 Project: fqeohcfkimoopwjxxcft · Branch: claude/nice-feynman-x7xgh4
