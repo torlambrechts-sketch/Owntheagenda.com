@@ -35,11 +35,19 @@ export async function OrgShell({
       : Promise.resolve({ count: 0 }),
   ]);
 
-  const tabs: { key: TabKey; label: string; href: string; count?: number | null }[] = [
-    ...(isAdmin ? [{ key: "organization" as TabKey, label: "Organization", href: "/organization" }] : []),
-    { key: "teams" as TabKey, label: "Teams", href: "/teams", count: teamCount ?? 0 },
-    { key: "members" as TabKey, label: "Members", href: "/members", count: memberCount ?? 0 },
-    ...(isAdmin ? [{ key: "integrations" as TabKey, label: "Integrations", href: "/integrations", count: (integ as { count: number | null }).count ?? 0 }] : []),
+  const tabs: { key: TabKey; label: string; href: string; count?: number | null; icon: ReactNode }[] = [
+    ...(isAdmin ? [{ key: "organization" as TabKey, label: "Organization", href: "/organization", icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="4" y="3" width="16" height="18" rx="1" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h2M13 16h2" /></svg>
+    ) }] : []),
+    { key: "teams" as TabKey, label: "Teams", href: "/teams", count: teamCount ?? 0, icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="9" y="3" width="6" height="5" rx="1" /><rect x="3" y="16" width="6" height="5" rx="1" /><rect x="15" y="16" width="6" height="5" rx="1" /><path d="M12 8v3M6 16v-2h12v2" /></svg>
+    ) },
+    { key: "members" as TabKey, label: "Members", href: "/members", count: memberCount ?? 0, icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 19v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" /></svg>
+    ) },
+    ...(isAdmin ? [{ key: "integrations" as TabKey, label: "Integrations", href: "/integrations", count: (integ as { count: number | null }).count ?? 0, icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v6" /></svg>
+    ) }] : []),
   ];
 
   return (
@@ -56,27 +64,32 @@ export async function OrgShell({
         </div>
         {isAdmin ? (
           <div className="ohead-r">
-            <Link className="btn-sec sm" href="/members">Invite people</Link>
+            <Link className="btn-prim" href="/members">Invite people</Link>
           </div>
         ) : null}
       </div>
 
-      <nav className="otabs" aria-label="Organization sections">
+      <nav className="otabband" aria-label="Organization sections">
         {tabs.map((t) => (
           <Link
             key={t.key}
             href={t.href}
-            className={`otab${active === t.key ? " on" : ""}`}
+            className={`otabband-t${active === t.key ? " on" : ""}`}
             aria-current={active === t.key ? "page" : undefined}
           >
+            {t.icon}
             {t.label}
-            {t.count != null ? <span className="otab-c">{t.count}</span> : null}
+            {t.count != null ? <span className="otabband-c">{t.count}</span> : null}
           </Link>
         ))}
       </nav>
 
-      {subtitle ? <p className="org-subtitle">{subtitle}</p> : null}
-      {children}
+      <div className="opanel">
+        <div className="opanel-body">
+          {subtitle ? <p className="opanel-sub">{subtitle}</p> : null}
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
