@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogoMark } from "@/components/Logo";
@@ -158,6 +158,17 @@ export function Shell({
   const router = useRouter();
   const [wsOpen, setWsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("nav-collapsed") === "1"); } catch { /* no storage */ }
+  }, []);
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      const next = !c;
+      try { localStorage.setItem("nav-collapsed", next ? "1" : "0"); } catch { /* no storage */ }
+      return next;
+    });
+  }
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
   const current = NAV.find((n) => active(n.href));
@@ -176,12 +187,12 @@ export function Shell({
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
-    <div className="app">
+    <div className={`app${collapsed ? " collapsed" : ""}`}>
       {/* icon rail */}
       <nav className="rail" aria-label="Sections">
-        <div className="logo-tile">
+        <button className="logo-tile" onClick={toggleCollapsed} title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"}>
           <LogoMark size={40} />
-        </div>
+        </button>
         {(() => {
           let orgDone = false;
           return visibleNav.map((n) => {
@@ -213,6 +224,7 @@ export function Shell({
           <span className="wm">
             Own<span className="t">the</span>Agenda
           </span>
+          <button className="nav-collapse" onClick={toggleCollapsed} title="Collapse menu" aria-label="Collapse menu">‹</button>
         </div>
         {groups.map((g) => (
           <div className="grp" key={g}>

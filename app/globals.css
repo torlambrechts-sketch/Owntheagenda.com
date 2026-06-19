@@ -336,8 +336,13 @@ button { font-family:inherit; }
 
 /* ---------- app shell ---------- */
 .app{display:grid;grid-template-columns:60px 220px 1fr;height:100vh;overflow:hidden}
+.app.collapsed{grid-template-columns:60px 1fr}
+.app.collapsed .nav{display:none}
 .rail{background:var(--rail);display:flex;flex-direction:column;align-items:center;padding:10px 0;gap:6px}
-.rail .logo-tile{margin-bottom:8px}
+.rail .logo-tile{margin-bottom:8px;border:none;background:none;padding:0;cursor:pointer;border-radius:9px;display:flex;align-items:center;justify-content:center}
+.rail .logo-tile:hover{background:rgba(255,255,255,.08)}
+.nav .word .nav-collapse{border:none;background:none;color:var(--faint);cursor:pointer;font-size:18px;line-height:1;width:26px;height:26px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav .word .nav-collapse:hover{background:var(--canvas-2);color:var(--ink)}
 .rail .ri{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.62);cursor:pointer;position:relative;text-decoration:none}
 .rail .ri:hover{color:#fff;background:rgba(255,255,255,.07)}
 .rail .ri.active{background:#fff;color:var(--forest)}
