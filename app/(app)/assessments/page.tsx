@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { listTemplates, instrumentsFrom } from "@/lib/assessments";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
+import { AssessmentLibrary, type CatalogItem } from "./AssessmentLibrary";
 import { SurveyRespond } from "./SurveyRespond";
 import { SendSurvey } from "./SendSurvey";
 
@@ -22,24 +23,57 @@ export default async function AssessmentsPage({
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
   const teamList = teams ?? [];
+  const userName = ctx.profile?.full_name || ctx.profile?.display_name || ctx.email || "You";
+
+  // ----- instrument library catalog (drives the new Assessments library) -----
+  const catalogTemplates = await listTemplates();
+  const catalogInstruments = instrumentsFrom(catalogTemplates);
+  const { data: myResp } = await supabase
+    .from("individual_response")
+    .select("template_key, scores")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("user_id", ctx.userId);
+  const myByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, (r.scores ?? {}) as Record<string, number>]));
+  const catalog: CatalogItem[] = [
+    {
+      key: "leadership_effectiveness",
+      name: "Leadership Effectiveness",
+      category: "How your leadership team performs across input, process, emergent states and output.",
+      scope: "individual",
+      source: "Bang & Midelfart leadership-team research",
+      description: "A 63-item self-assessment of your leadership team across 21 facets — scored by category, with reverse-scoring handled for you.",
+      dimensions: ["Input", "Process", "Emergent states", "Output"].map((l, i) => ({ key: `c${i}`, label: l, blurb: "" })),
+      items: Array.from({ length: 63 }, (_, i) => ({ key: `q${i}`, dimension: "c0", text: "" })),
+      scale: { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
+      mins: 15,
+      completedByMe: false,
+      myScores: null,
+      external: "/assessments/leadership",
+    },
+    ...catalogTemplates.map((t): CatalogItem => {
+      const inst = catalogInstruments[t.key];
+      const items = inst?.items ?? [];
+      const scores = myByKey.get(t.key) ?? null;
+      return {
+        key: t.key,
+        name: t.name,
+        category: t.description ?? "",
+        scope: t.scope === "team" ? "team" : "individual",
+        source: t.source,
+        description: t.description,
+        dimensions: inst?.dimensions ?? [],
+        items,
+        scale: inst?.scale ?? { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
+        mins: Math.max(3, Math.round(items.length * 0.5)),
+        completedByMe: !!scores,
+        myScores: scores,
+        external: null,
+      };
+    }),
+  ];
 
   if (teamList.length === 0) {
-    return (
-      <div>
-        <h1 className="page-title">Assessments</h1>
-        <p className="page-sub">Team-dynamics pulses and individual fingerprints.</p>
-        <Link className="rm-cta lead-cta" href="/assessments/leadership">
-          <div>
-            <b>Leadership effectiveness test</b>
-            <span>A 63-item self-assessment across 21 facets — scored by category, reverse-scoring handled for you.</span>
-          </div>
-          <span className="rm-cta-go">→</span>
-        </Link>
-        <div className="card empty">
-          No teams yet. Create a team first, then run a pulse.
-        </div>
-      </div>
-    );
+    return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />;
   }
 
   const activeTeam =
@@ -145,9 +179,8 @@ export default async function AssessmentsPage({
     .order("created_at", { ascending: false });
 
   // Instrument catalog from the template library (data-driven).
-  const templates = await listTemplates();
-  const teamTemplates = templates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
-  const instruments = instrumentsFrom(templates);
+  const teamTemplates = catalogTemplates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
+  const instruments = catalogInstruments;
 
   // Per-open-survey response status (lead/admin only): count + who's answered.
   type SurveyStatus = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
@@ -206,18 +239,14 @@ export default async function AssessmentsPage({
 
   return (
     <div>
-      <h1 className="page-title">Assessments</h1>
-      <p className="page-sub">
-        Team-dynamics pulses and individual fingerprints for {activeTeam.name}.
-      </p>
+      <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />
 
-      <Link className="rm-cta lead-cta" href="/assessments/leadership">
-        <div>
-          <b>Leadership effectiveness test</b>
-          <span>A 63-item self-assessment across 21 facets — scored by category, reverse-scoring handled for you.</span>
-        </div>
-        <span className="rm-cta-go">→</span>
-      </Link>
+      <div className="cat-head" style={{ marginTop: 34 }}>
+        Team dynamics <span className="n">{activeTeam.name}</span>
+      </div>
+      <p className="page-sub" style={{ marginTop: -6 }}>
+        Run a quick pulse or a multi-item survey, then track how the team moves over time.
+      </p>
 
       {teamList.length > 1 ? (
         <div className="chips" style={{ display: "flex", gap: 7, marginBottom: 18 }}>
