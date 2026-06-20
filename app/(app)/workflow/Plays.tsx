@@ -15,7 +15,14 @@ export function Plays({
 }: {
   teams: Named[];
   pending: boolean;
-  onLaunch: (playKey: string, name: string, templateKey: string, minResponses: number, teamId: string) => void;
+  onLaunch: (
+    playKey: string,
+    name: string,
+    templateKey: string,
+    minResponses: number,
+    assessmentKind: string,
+    teamId: string,
+  ) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [teamFor, setTeamFor] = useState<Record<string, string>>({});
@@ -55,7 +62,7 @@ export function Plays({
                   <button
                     className="btn-prim sm"
                     disabled={pending || !team}
-                    onClick={() => onLaunch(p.key, p.name, p.workshopTemplateKey, p.minResponses, team)}
+                    onClick={() => onLaunch(p.key, p.name, p.workshopTemplateKey, p.minResponses, p.assessmentKind, team)}
                   >
                     Launch
                   </button>

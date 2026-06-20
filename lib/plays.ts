@@ -6,7 +6,9 @@
 //
 // `workshopTemplateKey` must match a seeded template key (see
 // supabase/migrations/*_seed_templates.sql). `focusDynamic` seeds a sensible
-// default for branch conditions in the Flow Builder.
+// default for branch conditions in the Flow Builder. `assessmentKind` is the
+// team instrument the Play opens (a survey) — see the team-scope rows in
+// public.assessment_template.
 
 export type Play = {
   key: string;
@@ -14,6 +16,7 @@ export type Play = {
   blurb: string;
   workshopTemplateKey: string;
   workshopName: string;
+  assessmentKind: string;
   focusDynamic: "psych_safety" | "trust" | "conflict_norms" | "role_clarity" | "decision_rights";
   minResponses: number;
 };
@@ -26,6 +29,7 @@ export const PLAYS: Play[] = [
       "Pulse the team on safety and behavioural integration, then run a health workshop on what the responses surface.",
     workshopTemplateKey: "health",
     workshopName: "Team Health Monitor",
+    assessmentKind: "psych_safety_bang",
     focusDynamic: "psych_safety",
     minResponses: 4,
   },
@@ -36,6 +40,7 @@ export const PLAYS: Play[] = [
       "Measure how the team performs and decides, then run a Start / Stop / Continue retro to commit to changes.",
     workshopTemplateKey: "ssc",
     workshopName: "Start / Stop / Continue",
+    assessmentKind: "team_effectiveness_bang",
     focusDynamic: "decision_rights",
     minResponses: 4,
   },
@@ -46,6 +51,7 @@ export const PLAYS: Play[] = [
       "Surface trust and conflict norms with a quick pulse, then sail the Sailboat retro to name what holds the team back.",
     workshopTemplateKey: "sailboat",
     workshopName: "Sailboat retrospective",
+    assessmentKind: "team_learning_edmondson",
     focusDynamic: "trust",
     minResponses: 4,
   },
@@ -56,6 +62,7 @@ export const PLAYS: Play[] = [
       "Check role clarity and decision rights, then prioritise the fixes on an Impact / Effort matrix.",
     workshopTemplateKey: "impact",
     workshopName: "Impact / Effort matrix",
+    assessmentKind: "team_performance",
     focusDynamic: "role_clarity",
     minResponses: 4,
   },
