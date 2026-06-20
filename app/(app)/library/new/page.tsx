@@ -12,7 +12,7 @@ export default async function TemplateBuilderPage({
   searchParams: { id?: string };
 }) {
   const ctx = await requireSession();
-  if (!isAdmin(ctx.role)) redirect("/library");
+  if (!isAdmin(ctx.role)) redirect("/assessments");
 
   let existing: ExistingTemplate | null = null;
   if (searchParams.id) {
@@ -33,7 +33,7 @@ export default async function TemplateBuilderPage({
         definition: data.definition as ExistingTemplate["definition"],
       };
     } else {
-      redirect("/library");
+      redirect("/assessments");
     }
   }
 
