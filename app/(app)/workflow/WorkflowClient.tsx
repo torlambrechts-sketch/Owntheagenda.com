@@ -17,6 +17,8 @@ import {
   moveStep,
   setBranch,
   setFlowTask,
+  toggleActionItem,
+  assignFlowTask,
 } from "./actions";
 import { ReadinessGate } from "./ReadinessGate";
 import { Plays } from "./Plays";
@@ -56,10 +58,13 @@ export type TaskView = {
   id: string;
   kind: string;
   title: string;
+  ownerId: string | null;
   ownerName: string | null;
   dueAt: string | null;
   status: string;
+  source: "flow" | "action";
 };
+export type Member = { id: string; name: string };
 export type Template = { id: string; name: string; key: string | null; category: string };
 export type Instrument = { key: string; name: string };
 type Named = { id: string; name: string };
@@ -86,6 +91,7 @@ export function WorkflowClient({
   teams,
   templates,
   assessments,
+  members,
 }: {
   workspaceId: string;
   canManage: boolean;
@@ -93,6 +99,7 @@ export function WorkflowClient({
   teams: Named[];
   templates: Template[];
   assessments: Instrument[];
+  members: Member[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -344,9 +351,13 @@ export function WorkflowClient({
         <FlowsTable
           programs={programs}
           teams={teams}
+          members={members}
           canManage={canManage}
           pending={pending}
-          onToggleTask={(taskId, status) => run(() => setFlowTask(taskId, status))}
+          onToggleTask={(t, status) =>
+            run(() => (t.source === "action" ? toggleActionItem(t.id) : setFlowTask(t.id, status)))
+          }
+          onAssignTask={(taskId, ownerId, ownerName) => run(() => assignFlowTask(taskId, ownerId, ownerName))}
           renderExpanded={renderStages}
         />
       )}

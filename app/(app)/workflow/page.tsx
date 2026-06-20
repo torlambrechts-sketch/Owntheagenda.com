@@ -10,7 +10,7 @@ export default async function WorkflowPage() {
   const supabase = createClient();
   const wsId = ctx.workspace.id;
 
-  const [{ data: programs }, { data: teams }, { data: templates }, { data: instruments }] = await Promise.all([
+  const [{ data: programs }, { data: teams }, { data: templates }, { data: instruments }, { data: memberRows }] = await Promise.all([
     supabase
       .from("program")
       .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, assessment_kind, created_at")
@@ -28,7 +28,18 @@ export default async function WorkflowPage() {
       .eq("scope", "team")
       .or(`workspace_id.is.null,workspace_id.eq.${wsId}`)
       .order("name"),
+    supabase.from("membership").select("user_id").eq("workspace_id", wsId).eq("status", "active"),
   ]);
+
+  // Workspace members (id + display name) for task owner reassignment.
+  const memberIds = [...new Set((memberRows ?? []).map((m) => m.user_id))];
+  const { data: memberProfiles } = memberIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", memberIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const members = (memberProfiles ?? []).map((p) => ({
+    id: p.id,
+    name: p.full_name || p.display_name || p.email || "Member",
+  }));
 
   const ids = (programs ?? []).map((p) => p.id);
   const [{ data: steps }, { data: tasks }] = ids.length
@@ -40,20 +51,60 @@ export default async function WorkflowPage() {
           .order("ord", { ascending: true }),
         supabase
           .from("program_task")
-          .select("id, program_id, kind, title, owner_name, due_at, status")
+          .select("id, program_id, kind, title, owner_id, owner_name, due_at, status")
           .in("program_id", ids)
           .order("due_at", { ascending: true }),
       ])
     : [
         { data: [] as { id: string; program_id: string; ord: number; kind: string; title: string; status: string; gate: string | null; config: unknown; scheduled_at: string | null; completed_at: string | null }[] },
-        { data: [] as { id: string; program_id: string; kind: string; title: string; owner_name: string | null; due_at: string | null; status: string }[] },
+        { data: [] as { id: string; program_id: string; kind: string; title: string; owner_id: string | null; owner_name: string | null; due_at: string | null; status: string }[] },
       ];
 
-  const tasksByProgram = new Map<string, { id: string; kind: string; title: string; ownerName: string | null; dueAt: string | null; status: string }[]>();
+  type TaskRow = { id: string; kind: string; title: string; ownerId: string | null; ownerName: string | null; dueAt: string | null; status: string; source: "flow" | "action" };
+  const tasksByProgram = new Map<string, TaskRow[]>();
   for (const t of tasks ?? []) {
     const arr = tasksByProgram.get(t.program_id) ?? [];
-    arr.push({ id: t.id, kind: t.kind, title: t.title, ownerName: t.owner_name, dueAt: t.due_at, status: t.status });
+    arr.push({ id: t.id, kind: t.kind, title: t.title, ownerId: t.owner_id, ownerName: t.owner_name, dueAt: t.due_at, status: t.status, source: "flow" });
     tasksByProgram.set(t.program_id, arr);
+  }
+
+  // Roll up the committed action items from each flow's built workshop as
+  // sub-rows: map workshop step ref_id → program, then fetch action_items.
+  const workshopToProgram = new Map<string, string>();
+  const { data: wkRefs } = ids.length
+    ? await supabase
+        .from("program_step")
+        .select("program_id, ref_id")
+        .in("program_id", ids)
+        .eq("kind", "workshop")
+        .eq("ref_table", "workshop")
+        .not("ref_id", "is", null)
+    : { data: [] as { program_id: string; ref_id: string | null }[] };
+  for (const r of wkRefs ?? []) if (r.ref_id) workshopToProgram.set(r.ref_id, r.program_id);
+
+  const workshopIds = [...workshopToProgram.keys()];
+  if (workshopIds.length) {
+    const { data: actions } = await supabase
+      .from("action_item")
+      .select("id, workshop_id, text, owner_id, owner_name, due_at, status")
+      .in("workshop_id", workshopIds)
+      .order("created_at", { ascending: true });
+    for (const a of actions ?? []) {
+      const pid = a.workshop_id ? workshopToProgram.get(a.workshop_id) : undefined;
+      if (!pid) continue;
+      const arr = tasksByProgram.get(pid) ?? [];
+      arr.push({
+        id: a.id,
+        kind: "action",
+        title: a.text,
+        ownerId: a.owner_id,
+        ownerName: a.owner_name,
+        dueAt: a.due_at,
+        status: a.status === "done" ? "done" : "open",
+        source: "action",
+      });
+      tasksByProgram.set(pid, arr);
+    }
   }
 
   // Live state (pulse responses, workshop status, re-pulse date) per linked step.
@@ -110,6 +161,7 @@ export default async function WorkflowPage() {
       teams={(teams ?? []).map((t) => ({ id: t.id, name: t.name }))}
       templates={(templates ?? []).map((t) => ({ id: t.id, name: t.name, key: t.key, category: t.category }))}
       assessments={(instruments ?? []).map((a) => ({ key: a.key as string, name: a.name as string }))}
+      members={members}
     />
   );
 }
