@@ -2,14 +2,14 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTableControls } from "@/components/TableControls";
-import type { ProgramView, TaskView } from "./WorkflowClient";
+import type { ProgramView, TaskView, Member } from "./WorkflowClient";
 
 const TASK_LABEL: Record<string, string> = {
   push_assessment: "Assessment",
   collect: "Collect",
   workshop: "Workshop",
   repulse: "Re-pulse",
-  action: "Action",
+  action: "Commitment",
 };
 function fmtDue(d: string | null) {
   if (!d) return "—";
@@ -35,16 +35,20 @@ const statusLabel = (s: string) => (s === "completed" ? "Completed" : s === "arc
 export function FlowsTable({
   programs,
   teams,
+  members,
   canManage,
   pending,
   onToggleTask,
+  onAssignTask,
   renderExpanded,
 }: {
   programs: ProgramView[];
   teams: Named[];
+  members: Member[];
   canManage: boolean;
   pending: boolean;
-  onToggleTask: (taskId: string, status: string) => void;
+  onToggleTask: (task: TaskView, status: string) => void;
+  onAssignTask: (taskId: string, ownerId: string | null, ownerName: string | null) => void;
   renderExpanded: (p: ProgramView) => ReactNode;
 }) {
   const [statusTab, setStatusTab] = useState("all");
@@ -124,9 +128,11 @@ export function FlowsTable({
                         statusPill={STATUS_PILL[p.status] ?? "draft"}
                         statusText={statusLabel(p.status)}
                         tasks={p.tasks}
+                        members={members}
                         canManage={canManage}
                         pending={pending}
                         onToggleTask={onToggleTask}
+                        onAssignTask={onAssignTask}
                         expanded={open ? renderExpanded(p) : null}
                       />
                     );
@@ -152,9 +158,11 @@ function FlowRows({
   statusPill,
   statusText,
   tasks,
+  members,
   canManage,
   pending,
   onToggleTask,
+  onAssignTask,
   expanded,
 }: {
   open: boolean;
@@ -167,9 +175,11 @@ function FlowRows({
   statusPill: string;
   statusText: string;
   tasks: TaskView[];
+  members: Member[];
   canManage: boolean;
   pending: boolean;
-  onToggleTask: (taskId: string, status: string) => void;
+  onToggleTask: (task: TaskView, status: string) => void;
+  onAssignTask: (taskId: string, ownerId: string | null, ownerName: string | null) => void;
   expanded: ReactNode;
 }) {
   const openTasks = tasks.filter((t) => t.status !== "skipped");
@@ -206,6 +216,7 @@ function FlowRows({
       </tr>
       {openTasks.map((t) => {
         const done = t.status === "done";
+        const isAction = t.source === "action";
         return (
           <tr className="flow-subrow" key={t.id}>
             <td>
@@ -214,16 +225,38 @@ function FlowRows({
                   type="button"
                   className={`flow-check${done ? " on" : ""}`}
                   disabled={!canManage || pending}
-                  aria-label={done ? "Mark task open" : "Mark task done"}
-                  onClick={() => onToggleTask(t.id, done ? "open" : "done")}
+                  aria-label={done ? "Mark open" : "Mark done"}
+                  onClick={() => onToggleTask(t, done ? "open" : "done")}
                 >
                   {done ? "✓" : ""}
                 </button>
-                <span className={`pill sm ${done ? "open" : "draft"}`}>{TASK_LABEL[t.kind] ?? t.kind}</span>
+                <span className={`pill sm ${isAction ? "internal" : done ? "open" : "draft"}`}>
+                  {TASK_LABEL[t.kind] ?? t.kind}
+                </span>
                 <span className={`flow-sub-title${done ? " done" : ""}`}>{t.title}</span>
               </span>
             </td>
-            <td className="flow-sub-meta">{t.ownerName ?? "Unassigned"}</td>
+            <td className="flow-sub-meta">
+              {canManage && !isAction ? (
+                <select
+                  className="inp sm flow-owner"
+                  value={t.ownerId ?? ""}
+                  disabled={pending}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    const m = members.find((x) => x.id === e.target.value);
+                    onAssignTask(t.id, m?.id ?? null, m?.name ?? null);
+                  }}
+                >
+                  <option value="">{t.ownerName ?? "Unassigned"}</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              ) : (
+                t.ownerName ?? "Unassigned"
+              )}
+            </td>
             <td className="flow-sub-meta">{fmtDue(t.dueAt)}</td>
             <td colSpan={2} className="flow-sub-meta">{done ? "Done" : "To do"}</td>
           </tr>

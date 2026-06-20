@@ -69,6 +69,28 @@ export async function setFlowTask(taskId: string, status: string) {
   return {};
 }
 
+// Toggle a committed action item (the workshop's commitments) open/done.
+export async function toggleActionItem(actionId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("toggle_action", { p_action: actionId });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
+}
+
+// Reassign the owner of a flow driver task.
+export async function assignFlowTask(taskId: string, ownerId: string | null, ownerName: string | null) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("update_flow_task", {
+    p_task: taskId,
+    p_owner: ownerId,
+    p_owner_name: ownerName,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
+}
+
 // Start the flow's assessment — an instrument survey if one was chosen,
 // otherwise the generic team pulse.
 export async function startAssessment(programId: string) {
