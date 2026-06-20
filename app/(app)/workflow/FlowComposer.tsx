@@ -51,11 +51,13 @@ export function FlowComposer({
     minResponses: number,
     steps: ComposerStep[],
     assessmentKind: string | null,
+    collectDays: number,
   ) => void;
 }) {
   const [title, setTitle] = useState("");
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [minResp, setMinResp] = useState(4);
+  const [collectDays, setCollectDays] = useState(7);
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
   const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
 
@@ -121,6 +123,18 @@ export function FlowComposer({
           />
           responses
         </label>
+        <label className="fc-thr">
+          Collect within
+          <input
+            className="inp sm"
+            type="number"
+            min={1}
+            max={90}
+            value={collectDays}
+            onChange={(e) => setCollectDays(Math.max(1, Number(e.target.value) || 7))}
+          />
+          days
+        </label>
       </div>
 
       <div className="fc-strip">
@@ -178,7 +192,7 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null)}
+          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays)}
         >
           Create flow
         </button>

@@ -2,7 +2,19 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useTableControls } from "@/components/TableControls";
-import type { ProgramView } from "./WorkflowClient";
+import type { ProgramView, TaskView } from "./WorkflowClient";
+
+const TASK_LABEL: Record<string, string> = {
+  push_assessment: "Assessment",
+  collect: "Collect",
+  workshop: "Workshop",
+  repulse: "Re-pulse",
+  action: "Action",
+};
+function fmtDue(d: string | null) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 // Tabbed green table of flows — the Organization/Workshops tabbed-table
 // pattern: a forest folder tab-band for status, the shared search/sort
@@ -23,10 +35,16 @@ const statusLabel = (s: string) => (s === "completed" ? "Completed" : s === "arc
 export function FlowsTable({
   programs,
   teams,
+  canManage,
+  pending,
+  onToggleTask,
   renderExpanded,
 }: {
   programs: ProgramView[];
   teams: Named[];
+  canManage: boolean;
+  pending: boolean;
+  onToggleTask: (taskId: string, status: string) => void;
   renderExpanded: (p: ProgramView) => ReactNode;
 }) {
   const [statusTab, setStatusTab] = useState("all");
@@ -105,6 +123,10 @@ export function FlowsTable({
                         pct={pct}
                         statusPill={STATUS_PILL[p.status] ?? "draft"}
                         statusText={statusLabel(p.status)}
+                        tasks={p.tasks}
+                        canManage={canManage}
+                        pending={pending}
+                        onToggleTask={onToggleTask}
                         expanded={open ? renderExpanded(p) : null}
                       />
                     );
@@ -129,6 +151,10 @@ function FlowRows({
   pct,
   statusPill,
   statusText,
+  tasks,
+  canManage,
+  pending,
+  onToggleTask,
   expanded,
 }: {
   open: boolean;
@@ -140,8 +166,13 @@ function FlowRows({
   pct: number;
   statusPill: string;
   statusText: string;
+  tasks: TaskView[];
+  canManage: boolean;
+  pending: boolean;
+  onToggleTask: (taskId: string, status: string) => void;
   expanded: ReactNode;
 }) {
+  const openTasks = tasks.filter((t) => t.status !== "skipped");
   return (
     <>
       <tr
@@ -173,6 +204,31 @@ function FlowRows({
         <td><span className={`pill sm ${statusPill}`}>{statusText}</span></td>
         <td className="r"><span className={`flow-chev${open ? " open" : ""}`}>▾</span></td>
       </tr>
+      {openTasks.map((t) => {
+        const done = t.status === "done";
+        return (
+          <tr className="flow-subrow" key={t.id}>
+            <td>
+              <span className="flow-sub">
+                <button
+                  type="button"
+                  className={`flow-check${done ? " on" : ""}`}
+                  disabled={!canManage || pending}
+                  aria-label={done ? "Mark task open" : "Mark task done"}
+                  onClick={() => onToggleTask(t.id, done ? "open" : "done")}
+                >
+                  {done ? "✓" : ""}
+                </button>
+                <span className={`pill sm ${done ? "open" : "draft"}`}>{TASK_LABEL[t.kind] ?? t.kind}</span>
+                <span className={`flow-sub-title${done ? " done" : ""}`}>{t.title}</span>
+              </span>
+            </td>
+            <td className="flow-sub-meta">{t.ownerName ?? "Unassigned"}</td>
+            <td className="flow-sub-meta">{fmtDue(t.dueAt)}</td>
+            <td colSpan={2} className="flow-sub-meta">{done ? "Done" : "To do"}</td>
+          </tr>
+        );
+      })}
       {open ? (
         <tr className="flow-exp-row">
           <td colSpan={5}>

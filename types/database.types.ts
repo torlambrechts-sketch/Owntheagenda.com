@@ -32,7 +32,27 @@ export type Database = {
           play_key: string | null
           auto_workshop_template: string | null
           assessment_kind: string | null
+          collect_days: number
           created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      program_task: {
+        Row: {
+          id: string
+          program_id: string
+          workspace_id: string
+          step_id: string | null
+          kind: string
+          title: string
+          owner_id: string | null
+          owner_name: string | null
+          due_at: string | null
+          status: string
           created_at: string
           updated_at: string
         }
@@ -1231,8 +1251,16 @@ export type Database = {
         Returns: string
       }
       create_flow_steps: {
-        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null }
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number }
         Returns: string
+      }
+      set_flow_task: {
+        Args: { p_task: string; p_status: string }
+        Returns: undefined
+      }
+      update_flow_task: {
+        Args: { p_task: string; p_owner?: string | null; p_owner_name?: string | null; p_due?: string | null; p_title?: string | null }
+        Returns: undefined
       }
       program_start_assessment: {
         Args: { p_program: string }
