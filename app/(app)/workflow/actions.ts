@@ -43,6 +43,7 @@ export async function createFlowSteps(
   minResponses: number,
   steps: { kind: string; title: string }[],
   assessmentKind: string | null,
+  collectDays: number,
 ) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("create_flow_steps", {
@@ -52,10 +53,20 @@ export async function createFlowSteps(
     p_min_responses: minResponses,
     p_steps: steps,
     p_assessment_kind: assessmentKind,
+    p_collect_days: collectDays,
   });
   if (error) return { error: error.message };
   revalidatePath("/workflow");
   return { id: data as string };
+}
+
+// Toggle a flow task between open and done.
+export async function setFlowTask(taskId: string, status: string) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_flow_task", { p_task: taskId, p_status: status });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
 }
 
 // Start the flow's assessment — an instrument survey if one was chosen,

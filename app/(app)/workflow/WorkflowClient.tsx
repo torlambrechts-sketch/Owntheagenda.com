@@ -16,6 +16,7 @@ import {
   removeStep,
   moveStep,
   setBranch,
+  setFlowTask,
 } from "./actions";
 import { ReadinessGate } from "./ReadinessGate";
 import { Plays } from "./Plays";
@@ -49,6 +50,15 @@ export type ProgramView = {
   minResponses: number;
   assessmentKind: string | null;
   steps: StepView[];
+  tasks: TaskView[];
+};
+export type TaskView = {
+  id: string;
+  kind: string;
+  title: string;
+  ownerName: string | null;
+  dueAt: string | null;
+  status: string;
 };
 export type Template = { id: string; name: string; key: string | null; category: string };
 export type Instrument = { key: string; name: string };
@@ -113,9 +123,10 @@ export function WorkflowClient({
     minResponses: number,
     steps: ComposerStep[],
     assessmentKind: string | null,
+    collectDays: number,
   ) {
     run(
-      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind),
+      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays),
       () => flash("Flow created"),
     );
   }
@@ -330,7 +341,14 @@ export function WorkflowClient({
           {canManage ? "Build one above — or launch a Play — to tie an assessment and workshop together." : "An admin can start one."}
         </div>
       ) : (
-        <FlowsTable programs={programs} teams={teams} renderExpanded={renderStages} />
+        <FlowsTable
+          programs={programs}
+          teams={teams}
+          canManage={canManage}
+          pending={pending}
+          onToggleTask={(taskId, status) => run(() => setFlowTask(taskId, status))}
+          renderExpanded={renderStages}
+        />
       )}
 
       {toast ? <div className="toast">{toast}</div> : null}
