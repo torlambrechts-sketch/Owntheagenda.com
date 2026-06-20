@@ -19,7 +19,7 @@ import {
 // Instrument definitions are resolved from the template library server-side and
 // passed in as a kind → instrument map.
 
-type OpenSurvey = { id: string; name: string; kind: string };
+type OpenSurvey = { id: string; name: string; kind: string; anonymity?: string };
 type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
 
@@ -105,6 +105,11 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   return (
     <div className="svcard">
       <div className="svcard-h"><b>{survey.name}</b><span className="src">{inst.name}</span></div>
+      <p className="src" style={{ marginTop: -4 }}>
+        {survey.anonymity === "attributed"
+          ? "Attributed — your response is linked to your name."
+          : "Anonymous — your response is never tied to you."}
+      </p>
       {!submitted ? (
         <AssessmentRunner
           instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}

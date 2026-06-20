@@ -159,7 +159,7 @@ export default async function LeadershipTeamsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-    .select("id, name, kind, due_at, subject_user_id, definition")
+    .select("id, name, kind, due_at, subject_user_id, definition, anonymity")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
@@ -260,7 +260,7 @@ export default async function LeadershipTeamsPage({
 
       {isTeamMember ? (
         <SurveyRespond
-          surveys={(openSurveys ?? []) as { id: string; name: string; kind: string }[]}
+          surveys={(openSurveys ?? []) as { id: string; name: string; kind: string; anonymity?: string }[]}
           userId={ctx.userId}
           instruments={respondInstruments}
         />
