@@ -1126,6 +1126,8 @@ export type Database = {
           subject_user_id: string | null
           definition: Json | null
           anonymity: string
+          share_token: string | null
+          shared_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1629,6 +1631,18 @@ export type Database = {
       survey_comments: {
         Args: { p_survey: string }
         Returns: Json
+      }
+      survey_share_set: {
+        Args: { p_survey: string; p_on: boolean }
+        Returns: string | null
+      }
+      public_survey_meta: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      submit_public_survey_response: {
+        Args: { p_token: string; p_scores: Json; p_comments?: Json }
+        Returns: undefined
       }
       save_survey_draft: {
         Args: { p_survey: string; p_scores: Json }

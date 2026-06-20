@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
-import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject } from "./actions";
+import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject, setSurveyShare } from "./actions";
 
-type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null };
+type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null; anonymity?: string; share_token?: string | null };
 type Pick = { key: string; name: string };
 type Status = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
 type Member = { id: string; name: string };
@@ -35,7 +35,30 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
   const [openRoster, setOpenRoster] = useState<string | null>(null);
   const [openComments, setOpenComments] = useState<string | null>(null);
   const [commentData, setCommentData] = useState<Record<string, CommentResult>>({});
+  const [tokens, setTokens] = useState<Record<string, string | null>>({});
+  const [origin, setOrigin] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => setOrigin(window.location.origin), []);
+
+  // Per-survey share token: seeded from the server row, then updated locally
+  // as the lead mints / revokes the public link.
+  function tokenFor(s: OpenSurvey): string | null {
+    return s.id in tokens ? tokens[s.id] : s.share_token ?? null;
+  }
+  function toggleShare(s: OpenSurvey) {
+    const on = !tokenFor(s);
+    startTransition(async () => {
+      const res = await setSurveyShare(s.id, on);
+      if (res.error) { flash(res.error); return; }
+      setTokens((m) => ({ ...m, [s.id]: res.token ?? null }));
+      flash(on ? "Public link is live" : "Public link revoked");
+    });
+  }
+  function copyLink(token: string) {
+    const url = `${window.location.origin}/survey/${token}`;
+    void navigator.clipboard?.writeText(url);
+    flash("Link copied");
+  }
 
   function toggleComments(id: string) {
     if (openComments === id) { setOpenComments(null); return; }
@@ -175,6 +198,20 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
                         <span className={`pill sm ${m.completed ? "open" : "internal"}`}>{m.completed ? "Responded" : "Pending"}</span>
                       </div>
                     ))}
+                  </div>
+                ) : null}
+                {s.anonymity !== "attributed" ? (
+                  <div className="sharerow">
+                    {tokenFor(s) ? (
+                      <>
+                        <span className="pill sm open">Public link live</span>
+                        <input className="inp sm sharelink" readOnly value={`${origin}/survey/${tokenFor(s)}`} onFocus={(e) => e.currentTarget.select()} />
+                        <button className="linkbtn" onClick={() => copyLink(tokenFor(s)!)}>Copy</button>
+                        <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => toggleShare(s)}>Revoke</button>
+                      </>
+                    ) : (
+                      <button className="linkbtn" disabled={pending} onClick={() => toggleShare(s)} title="Anyone with the link can respond anonymously">+ Public link</button>
+                    )}
                   </div>
                 ) : null}
                 {gaps[s.id] ? (

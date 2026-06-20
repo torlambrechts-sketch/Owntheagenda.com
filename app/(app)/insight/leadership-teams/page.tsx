@@ -159,7 +159,7 @@ export default async function LeadershipTeamsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-    .select("id, name, kind, due_at, subject_user_id, definition, anonymity")
+    .select("id, name, kind, due_at, subject_user_id, definition, anonymity, share_token")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
@@ -250,7 +250,7 @@ export default async function LeadershipTeamsPage({
       {canManage ? (
         <SendSurvey
           teamId={teamId}
-          openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null }[]}
+          openSurveys={(openSurveys ?? []) as { id: string; name: string; kind: string; due_at: string | null; anonymity?: string; share_token?: string | null }[]}
           templates={teamTemplates}
           status={surveyStatus}
           members={subjectMembers}
