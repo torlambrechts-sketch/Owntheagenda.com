@@ -18,7 +18,7 @@ export async function setHealthStatus(
     p_note: note,
   });
   if (error) return { error: error.message };
-  revalidatePath("/health");
+  revalidatePath("/insight/leadership-teams");
   return {};
 }
 
@@ -36,6 +36,6 @@ export async function setTeamKind(teamId: string, kind: string): Promise<{ error
   const supabase = createClient();
   const { error } = await supabase.rpc("set_team_kind", { p_team: teamId, p_kind: kind });
   if (error) return { error: error.message };
-  revalidatePath("/health");
+  revalidatePath("/insight/leadership-teams");
   return {};
 }

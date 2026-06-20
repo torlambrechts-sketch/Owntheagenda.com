@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SideWindow } from "@/components/SideWindow";
 import { useTableControls } from "@/components/TableControls";
-import { setHealthStatus, setTeamKind, healthDetail } from "./actions";
+import { setHealthStatus, setTeamKind, healthDetail } from "./health-actions";
 
 type Composite = { composite: number; survey_id: string; percentile: number | null; trend: string | null; history: number[] | null } | null;
 export type Entity = {
@@ -254,7 +254,7 @@ export function HealthClient({
     return (
       <div className="htile-wrap">
         {hasData ? (
-          <Link href={`/assessments?team=${e.team_id}`} className={`${cls} linkish`} title="View latest results">{body}</Link>
+          <Link href={`/insight/leadership-teams?team=${e.team_id}`} className={`${cls} linkish`} title="View latest results">{body}</Link>
         ) : (
           <div className={cls}>{body}</div>
         )}

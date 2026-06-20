@@ -125,7 +125,9 @@ const ICONS = {
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
-  { href: "/health", label: "Health", icon: ICONS.health, group: "Workspace", facilitatorHidden: true },
+  { href: "/insight/leadership-teams", label: "Leadership Teams", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
+  { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
+  { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
@@ -142,6 +144,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
 const SECTION_HELP: Record<string, string> = {
   dashboard: "your-dashboard",
   health: "read-team-health",
+  insight: "read-team-health",
   members: "invite-your-company",
   teams: "set-up-teams",
   workshops: "run-first-workshop",
@@ -186,7 +189,10 @@ export function Shell({
   // keeps the sub-links). Non-admins land on Teams — the first tab they can see.
   const orgHref = admin ? "/organization" : "/teams";
   const orgActive = ["/organization", "/teams", "/members", "/integrations"].some((h) => active(h));
-  const groups = ["Workspace", "Effectiveness", "Organization", "Help"].filter((g) =>
+  // Insight collapses to one rail icon; the text menu keeps the three sub-pages.
+  const insightHref = "/insight/leadership-teams";
+  const insightActive = active("/insight");
+  const groups = ["Workspace", "Insight", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
@@ -202,6 +208,7 @@ export function Shell({
         </button>
         {(() => {
           let orgDone = false;
+          let insightDone = false;
           return visibleNav.map((n) => {
             if (n.group === "Organization") {
               if (orgDone) return null;
@@ -209,6 +216,15 @@ export function Shell({
               return (
                 <Link key="org-rail" className={`ri${orgActive ? " active" : ""}`} href={orgHref} title="Organization">
                   {ICONS.org}
+                </Link>
+              );
+            }
+            if (n.group === "Insight") {
+              if (insightDone) return null;
+              insightDone = true;
+              return (
+                <Link key="insight-rail" className={`ri${insightActive ? " active" : ""}`} href={insightHref} title="Insight">
+                  {ICONS.health}
                 </Link>
               );
             }
