@@ -1677,3 +1677,16 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .rxport-lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint)}
 .rxport-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;border-radius:6px;padding:4px 10px;cursor:pointer}
 .rxport-btn:hover{background:var(--canvas);color:var(--ink)}
+
+/* Survey re-measure trend */
+.strend{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.strend:first-of-type{border-top:none}
+.strend-name{flex:1;font-size:13px;color:var(--ink);font-weight:600}
+.strend-spark{flex:none}
+.strend-now{display:flex;align-items:baseline;gap:3px;min-width:64px;justify-content:flex-end}
+.strend-val{font-size:16px;font-weight:700;color:var(--forest)}
+.strend-den{font-size:10px;color:var(--faint)}
+.strend-delta{font-size:11px;font-weight:700;min-width:52px;text-align:right}
+.strend-delta.up{color:var(--green)}
+.strend-delta.down{color:var(--rust)}
+.strend-delta.flat{color:var(--faint)}

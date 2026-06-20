@@ -1630,6 +1630,10 @@ export type Database = {
         Args: { p_survey: string }
         Returns: Json
       }
+      survey_trend: {
+        Args: { p_team: string; p_kind: string }
+        Returns: Json
+      }
       submit_individual_response: {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }
         Returns: undefined

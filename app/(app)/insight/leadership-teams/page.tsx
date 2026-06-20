@@ -8,6 +8,7 @@ import { instrumentFromRow, type SurveyInstrument } from "@/lib/survey";
 import { HealthClient, type Entity } from "./HealthClient";
 import { AssessmentsClient, type Dynamic, type FpMember } from "../../assessments/AssessmentsClient";
 import { SurveyRespond } from "../../assessments/SurveyRespond";
+import { SurveyTrends } from "@/components/SurveyTrend";
 import { SendSurvey } from "../../assessments/SendSurvey";
 
 // Insight · Leadership Teams — the workspace Health rollup plus the per-team
@@ -263,6 +264,10 @@ export default async function LeadershipTeamsPage({
           userId={ctx.userId}
           instruments={respondInstruments}
         />
+      ) : null}
+
+      {isTeamMember && teamTemplates.length ? (
+        <SurveyTrends teamId={teamId} instruments={teamTemplates.map((t) => ({ kind: t.key, name: t.name }))} />
       ) : null}
 
       <AssessmentsClient
