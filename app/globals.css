@@ -1643,3 +1643,4 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .chip{background:var(--canvas-2);border:1px solid var(--line-2);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
 .chip:hover{border-color:var(--green);color:var(--green);background:var(--open-bg)}
 .fb-warn{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--rust);background:var(--reject-bg);padding:3px 8px;border-radius:5px}
+.flow-row:focus-visible{background:var(--canvas);outline-offset:-2px}
