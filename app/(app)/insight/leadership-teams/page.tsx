@@ -157,11 +157,7 @@ export default async function LeadershipTeamsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-<<<<<<< Updated upstream
-    .select("id, name, kind, due_at, subject_user_id")
-=======
-    .select("id, name, kind, due_at, subject_user_id, definition, anonymity")
->>>>>>> Stashed changes
+    .select("id, name, kind, due_at, subject_user_id, anonymity")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });

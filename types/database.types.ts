@@ -1124,11 +1124,7 @@ export type Database = {
           closed_at: string | null
           due_at: string | null
           subject_user_id: string | null
-<<<<<<< Updated upstream
-=======
-          definition: Json | null
           anonymity: string
->>>>>>> Stashed changes
           created_by: string | null
           created_at: string
           updated_at: string
