@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
 import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject } from "./actions";
 
@@ -19,6 +20,8 @@ type Gap = {
   gap?: number | null;
 };
 type GapInfo = { subjectId: string | null; gap: Gap | null };
+type CommentRow = { dimension: string; text: string; author: string };
+type CommentResult = { masked: boolean; respondents: number; comments: CommentRow[] };
 
 // Lead/admin surface: send a date-bound assessment to the team, then remind /
 // close it. The date-bound survey is the "pre-work" you send ahead of a workshop.
@@ -30,7 +33,20 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
   const [due, setDue] = useState("");
   const [anon, setAnon] = useState("anonymous");
   const [openRoster, setOpenRoster] = useState<string | null>(null);
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const [commentData, setCommentData] = useState<Record<string, CommentResult>>({});
   const [toast, setToast] = useState<string | null>(null);
+
+  function toggleComments(id: string) {
+    if (openComments === id) { setOpenComments(null); return; }
+    setOpenComments(id);
+    if (!commentData[id]) {
+      const supabase = createClient();
+      supabase.rpc("survey_comments", { p_survey: id }).then(({ data }) => {
+        if (data) setCommentData((m) => ({ ...m, [id]: data as unknown as CommentResult }));
+      });
+    }
+  }
 
   function setSubject(id: string, subjectId: string | null) {
     startTransition(async () => {
@@ -129,9 +145,28 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
                       {st.responded}/{st.total} responded
                     </button>
                   ) : null}
+                  <button className="linkbtn" onClick={() => toggleComments(s.id)} title="Read free-text comments">Comments</button>
                   <button className="linkbtn" disabled={pending} onClick={() => remind(s.id)}>Remind</button>
                   <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => close(s.id)}>Close</button>
                 </div>
+                {openComments === s.id ? (
+                  <div className="roster">
+                    {!commentData[s.id] ? (
+                      <div className="src">Loading comments…</div>
+                    ) : commentData[s.id].masked ? (
+                      <div className="src">Comments stay hidden until at least 3 people respond ({commentData[s.id].respondents}/3).</div>
+                    ) : commentData[s.id].comments.length === 0 ? (
+                      <div className="src">No written comments yet.</div>
+                    ) : (
+                      commentData[s.id].comments.map((c, i) => (
+                        <div className="cmtrow" key={`${s.id}-c-${i}`}>
+                          <span className="cmttext">“{c.text}”</span>
+                          <span className="cmtauthor">— {c.author}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : null}
                 {openRoster === s.id && st ? (
                   <div className="roster">
                     {st.roster.map((m, i) => (

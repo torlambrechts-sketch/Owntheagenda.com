@@ -48,6 +48,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
   const [ready, setReady] = useState(false);
+  const [comment, setComment] = useState("");
   const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -88,7 +89,12 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
 
   async function submit(scores: Record<string, number>) {
     if (!inst) return;
-    const { error } = await supabase.rpc("submit_survey_response", { p_survey: survey.id, p_scores: scores });
+    const trimmed = comment.trim();
+    const { error } = await supabase.rpc("submit_survey_response", {
+      p_survey: survey.id,
+      p_scores: scores,
+      p_comments: trimmed ? { general: trimmed } : {},
+    });
     if (error) throw error;
     setSubmitted(true);
     loadResults();
@@ -111,15 +117,33 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
           : "Anonymous — your response is never tied to you."}
       </p>
       {!submitted ? (
-        <AssessmentRunner
-          instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
-          initialAnswers={initialAnswers}
-          draftKey={`otaa:survey:${survey.id}`}
-          onChange={saveDraft}
-          privacyNote="Anonymous in aggregate — individual answers are never shown."
-          submitLabel="Submit my read ›"
-          onSubmit={submit}
-        />
+        <>
+          <AssessmentRunner
+            instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+            initialAnswers={initialAnswers}
+            draftKey={`otaa:survey:${survey.id}`}
+            onChange={saveDraft}
+            privacyNote="Anonymous in aggregate — individual answers are never shown."
+            submitLabel="Submit my read ›"
+            onSubmit={submit}
+          />
+          <div className="svcomment">
+            <label className="dlabel" htmlFor={`cmt-${survey.id}`}>Add a comment <span className="opt">(optional)</span></label>
+            <textarea
+              id={`cmt-${survey.id}`}
+              className="inp"
+              rows={2}
+              placeholder="Anything you want the facilitator to know in your own words…"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+            <p className="src" style={{ marginTop: 4 }}>
+              {survey.anonymity === "attributed"
+                ? "Shown with your name to the facilitator."
+                : "Shown without your name, and only once at least 3 people respond."}
+            </p>
+          </div>
+        </>
       ) : (
         <>
           <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>

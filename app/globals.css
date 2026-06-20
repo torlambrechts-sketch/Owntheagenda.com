@@ -1181,6 +1181,12 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .gapdim-l{color:var(--ink);font-weight:600}
 .gapdim-v .muted,.muted{color:var(--faint);font-weight:400}
 .roster{padding:2px 0 8px}
+.svcomment{margin-top:12px}
+.svcomment textarea{resize:vertical;min-height:46px}
+.cmtrow{display:flex;flex-direction:column;gap:1px;padding:6px 2px;border-bottom:1px solid var(--line)}
+.cmtrow:last-child{border-bottom:none}
+.cmttext{font-size:12.5px;color:var(--ink);line-height:1.4}
+.cmtauthor{font-size:11px;color:var(--faint);font-weight:600}
 .rosterrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px}
 .rosterrow .person{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--ink)}
 .aspanel{margin-top:14px}
