@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1180">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../app/globals.css">
+<style>
+  :root{ --font-inter:"Inter"; --font-playfair:"Playfair Display"; }
+  body{ background:var(--canvas); }
+  .page-title{ font-family:var(--font-display); font-size:30px; font-weight:600; margin:0; }
+  .page-sub{ color:var(--muted); font-size:13.5px; max-width:640px; margin:6px 0 0; line-height:1.5; }
+  .cat-head{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); margin-bottom:12px; }
+  .cat-head .n{ color:var(--faint); }
+  .wrap{ max-width:1000px; margin:0 auto; padding:36px 30px 60px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Flows</h1>
+      <p class="page-sub">Run an assessment, wait for responses, then run the workshop on the results — as one tracked Flow. Build one below (use the full operating loop preset for commitments and re-measurement), or launch a Play to start in one click.</p>
+    </div>
+  </div>
+
+  <!-- ===== Composer ===== -->
+  <div class="fc card" style="margin-top:18px">
+    <div class="fc-head">
+      <div class="cat-head" style="margin-bottom:0">Build a flow</div>
+      <p class="fc-sub">Compose the steps, then create it. Each step is an action the flow runs in order.</p>
+      <div class="fc-presets">
+        <span class="fc-presets-l">Start from</span>
+        <button class="chip">Quick flow · 3 steps</button>
+        <button class="chip">Full operating loop · 6 steps</button>
+      </div>
+    </div>
+    <div class="fc-meta">
+      <input class="inp" value="Q3 psychological safety check">
+      <select class="inp"><option>Leadership Team</option></select>
+      <label class="fc-thr">Wait for <input class="inp sm" type="number" value="4"> responses</label>
+    </div>
+    <div class="fc-strip">
+      <div class="fc-box">
+        <div class="fc-box-top"><span class="fc-num">1</span><div class="fc-box-ctl"><button class="linkbtn xs">←</button><button class="linkbtn xs">→</button><button class="linkbtn xs danger">✕</button></div></div>
+        <select class="inp sm"><option>Assessment</option></select>
+        <input class="inp sm" value="Create assessment">
+        <span class="fc-hint">Open the pulse</span>
+      </div>
+      <div class="fc-box">
+        <div class="fc-box-top"><span class="fc-num">2</span><div class="fc-box-ctl"><button class="linkbtn xs">←</button><button class="linkbtn xs">→</button><button class="linkbtn xs danger">✕</button></div></div>
+        <select class="inp sm"><option>Collect</option></select>
+        <input class="inp sm" value="Collect responses">
+        <span class="fc-hint">Wait for responses</span>
+      </div>
+      <div class="fc-box">
+        <div class="fc-box-top"><span class="fc-num">3</span><div class="fc-box-ctl"><button class="linkbtn xs">←</button><button class="linkbtn xs">→</button><button class="linkbtn xs danger">✕</button></div></div>
+        <select class="inp sm"><option>Workshop</option></select>
+        <input class="inp sm" value="Run workshop">
+        <span class="fc-hint">Run the session</span>
+      </div>
+      <button class="fc-add">
+        <span class="fc-add-ring"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></span>
+        <span class="fc-add-l">Add step</span>
+      </button>
+    </div>
+    <div class="fc-foot">
+      <button class="linkbtn xs">Reset</button>
+      <button class="btn-prim">Create flow</button>
+    </div>
+  </div>
+
+  <!-- ===== Plays (collapsed) ===== -->
+  <div class="plays">
+    <button class="plays-head">
+      <span class="plays-title">Plays</span>
+      <span class="plays-sub">One-click recipes — assess, then auto-run the right workshop</span>
+      <span class="plays-chev">▾</span>
+    </button>
+  </div>
+
+  <!-- ===== Flows table ===== -->
+  <div class="cat-head" style="margin-top:30px">Your flows <span class="n">4</span></div>
+  <nav class="otabband">
+    <button class="otabband-t on">All<span class="otabband-c">4</span></button>
+    <button class="otabband-t">Ongoing<span class="otabband-c">2</span></button>
+    <button class="otabband-t">Completed<span class="otabband-c">2</span></button>
+  </nav>
+  <div class="opanel">
+    <div class="opanel-body">
+      <div class="tbl-card">
+        <table class="tbl">
+          <thead><tr><th>Flow</th><th style="width:160px">Team</th><th style="width:170px">Progress</th><th style="width:110px">Status</th><th style="width:48px"></th></tr></thead>
+          <tbody>
+            <tr class="flow-row open">
+              <td><span class="flow-cell"><span class="flow-title">Q3 Safety Flow</span><span class="pill sm internal">Flow</span></span></td>
+              <td>Leadership Team</td>
+              <td><span class="flow-prog-row"><span class="a-progress flow-prog"><span style="width:66%"></span></span><small>Stage 2 of 3</small></span></td>
+              <td><span class="pill sm open">Active</span></td>
+              <td class="r"><span class="flow-chev open">▾</span></td>
+            </tr>
+            <tr class="flow-exp-row"><td colspan="5"><div class="flow-exp">
+              <div class="wfx-run">
+                <div class="wfx-run-h">
+                  <button class="btn-sec sm">Edit steps</button>
+                  <button class="btn-sec sm">Refresh status</button>
+                </div>
+                <div class="wfx-steps flow">
+                  <div class="wfx-step done">
+                    <div class="wfx-step-top"><span class="wfx-num">1</span><span class="wfx-tag done">Done</span></div>
+                    <h4>Create assessment</h4>
+                    <p class="wfx-live ready">Pulse open · 7 responses</p>
+                    <div class="wfx-acts"><a class="linkbtn xs">Open assessments →</a></div>
+                    <div class="wfx-manage"><button class="linkbtn xs">Reopen</button></div>
+                  </div>
+                  <div class="wfx-step active">
+                    <div class="wfx-step-top"><span class="wfx-num">2</span><span class="wfx-tag active">In progress</span></div>
+                    <h4>Collect responses</h4>
+                    <div class="rg">
+                      <div class="rg-top">
+                        <svg class="rg-ring" width="44" height="44" viewBox="0 0 44 44">
+                          <circle cx="22" cy="22" r="16" class="rg-track"></circle>
+                          <circle cx="22" cy="22" r="16" class="rg-fill" stroke-dasharray="100.53" stroke-dashoffset="42" transform="rotate(-90 22 22)"></circle>
+                        </svg>
+                        <div class="rg-counts"><strong>7<span class="rg-of"> / 12</span></strong><span class="rg-label">responses collected</span></div>
+                      </div>
+                      <div class="rg-acts"><button class="linkbtn xs">Remind non-responders</button><button class="linkbtn xs">Start workshop now →</button></div>
+                    </div>
+                    <div class="wfx-acts"><a class="linkbtn xs">Track responses →</a></div>
+                    <div class="wfx-manage"><button class="linkbtn xs">Mark done</button><button class="linkbtn xs">Skip</button></div>
+                  </div>
+                  <div class="wfx-step pending">
+                    <div class="wfx-step-top"><span class="wfx-num">3</span><span class="wfx-tag">Pending</span></div>
+                    <h4>Run workshop</h4>
+                    <p class="wfx-gate">Build and run the session on the results</p>
+                    <div class="wfx-acts"><a class="linkbtn xs">Open workshops →</a></div>
+                    <div class="wfx-manage"><button class="linkbtn xs">Mark done</button><button class="linkbtn xs">Start</button></div>
+                  </div>
+                </div>
+              </div>
+            </div></td></tr>
+
+            <tr class="flow-row">
+              <td><span class="flow-cell"><span class="flow-title">Psychological Safety Tune-up</span><span class="pill sm internal">Play</span></span></td>
+              <td>Product Leadership</td>
+              <td><span class="flow-prog-row"><span class="a-progress flow-prog"><span style="width:100%"></span></span><small>Stage 3 of 3</small></span></td>
+              <td><span class="pill sm open">Active</span></td>
+              <td class="r"><span class="flow-chev">▾</span></td>
+            </tr>
+            <tr class="flow-row">
+              <td><span class="flow-cell"><span class="flow-title">Team Effectiveness Sprint</span><span class="pill sm internal">Play</span></span></td>
+              <td>Engineering Leads</td>
+              <td><span class="flow-prog-row"><span class="a-progress flow-prog"><span style="width:100%"></span></span><small>Stage 3 of 3</small></span></td>
+              <td><span class="pill sm open">Completed</span></td>
+              <td class="r"><span class="flow-chev">▾</span></td>
+            </tr>
+            <tr class="flow-row">
+              <td><span class="flow-cell"><span class="flow-title">Leadership effectiveness loop</span><span class="pill sm interview">Program</span></span></td>
+              <td>Exec Team</td>
+              <td><span class="flow-prog-row"><span class="a-progress flow-prog"><span style="width:100%"></span></span><small>Stage 6 of 6</small></span></td>
+              <td><span class="pill sm open">Completed</span></td>
+              <td class="r"><span class="flow-chev">▾</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
