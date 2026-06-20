@@ -23,3 +23,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# Design preview output
+scripts/preview/out/
