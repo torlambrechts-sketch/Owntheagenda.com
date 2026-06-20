@@ -38,7 +38,7 @@ function NextStep({ ns }: { ns: SessionRow["nextStep"] }) {
   );
 }
 
-export function SessionsClient({ rows }: { rows: SessionRow[] }) {
+export function SessionsTable({ rows }: { rows: SessionRow[] }) {
   const { view, controls } = useTableControls<SessionRow>(rows, {
     search: { placeholder: "Search sessions…", text: (s) => `${s.title} ${s.team ?? ""}` },
     sorts: [

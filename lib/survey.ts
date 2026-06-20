@@ -5,7 +5,7 @@
 // Grounded in: Bang & Midelfart, "Effective Management Teams"; Edmondson (1999);
 // Fyhn, Bang, Egeland & Schei (2023). Items are our own wording of the model.
 
-export type SurveyItem = { key: string; dimension: string; text: string };
+export type SurveyItem = { key: string; dimension: string; text: string; reverse?: boolean };
 export type SurveyDimension = { key: string; label: string; blurb: string };
 export type SurveyInstrument = {
   kind: string;
@@ -106,14 +106,21 @@ export const INSTRUMENT_LIST: SurveyInstrument[] = [
 export type ItemStat = { item_key: string; mean: number; n: number };
 
 // Per-dimension mean from the per-item means returned by survey_results.
+// Reverse-keyed items are flipped onto the same pole as the dimension before
+// averaging, so a high dimension mean always reads "more of this trait".
 export function dimensionMeans(
   inst: SurveyInstrument,
   items: ItemStat[],
 ): { key: string; label: string; blurb: string; mean: number | null }[] {
+  const { min, max } = inst.scale;
   return inst.dimensions.map((d) => {
     const ms = inst.items
       .filter((it) => it.dimension === d.key)
-      .map((it) => items.find((x) => x.item_key === it.key)?.mean)
+      .map((it) => {
+        const m = items.find((x) => x.item_key === it.key)?.mean;
+        if (typeof m !== "number") return undefined;
+        return it.reverse ? min + max - m : m;
+      })
       .filter((m): m is number => typeof m === "number");
     const mean = ms.length ? ms.reduce((a, b) => a + b, 0) / ms.length : null;
     return { key: d.key, label: d.label, blurb: d.blurb, mean: mean == null ? null : Math.round(mean * 100) / 100 };

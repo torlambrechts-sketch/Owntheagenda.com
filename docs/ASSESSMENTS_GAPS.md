@@ -25,47 +25,99 @@ trends) are preserved below the library under "Team dynamics".
 
 ## Gaps (development perspective)
 
-Ordered by impact. Each is additive — nothing here blocks the flow above.
+**Status: all 9 closed.** Ordered by impact. Each was additive — none blocked the
+flow above. Every backend change was verified against the live database with
+rolled-back tests; the full production build passes.
 
-1. **Authored per-trait report content (biggest gap).** The design's report has rich
-   prose per trait — *definition, advantages, watch-outs, "others with this result
-   often say…"*. We have only a one-line dimension `blurb`, so the report currently
-   shows the blurb + a generated band sentence. Needs an authored content table:
-   `assessment_trait_copy(template_key, dimension, band, definition, advantages[],
-   risks[], statements[])`, plus an editor.
+1. **✅ DONE — Authored per-trait report content.** Added `assessment_trait_copy`
+   (`template_key, dimension_key, definition, advantages[], risks[], statements[]`,
+   global reference content, RLS `select using (true)`), seeded for the catalog
+   instruments, and wired into the report: each expandable dimension row now shows
+   the authored *definition*, *Where it helps*, *Watch-outs* (Full view only), and
+   *People with this result often recognise…* statements, falling back to the
+   dimension blurb when a row is absent.
 
-2. **Team-aggregate report not yet wired into the library.** A team instrument's run
-   stores the *individual's* response. The team-combined report (≥3 respondents,
-   anonymity-masked) already exists via `survey_results` / `team_dynamics`, but it is
-   not surfaced in the new report view — it lives in the "Team dynamics" tools below.
-   Next step: a "Team report" mode in `AssessmentLibrary` that calls `survey_results`
-   for the active survey and renders the same band table from the aggregate.
+2. **✅ DONE — Team-aggregate report wired into the library.** A team instrument's run
+   now contributes to the team's open survey (`submit_survey_response`) when one is
+   open, else stores a personal response. `/assessments` enriches each team catalog
+   item with `openSurveyId` (latest open survey of that kind) and `teamReport`
+   (the anonymised aggregate from `survey_results` on the latest survey — min-3
+   masked). The detail view shows a **View team report →** action (hidden while
+   masked) that renders the same band table from the aggregated dimension means,
+   and a contextual note (responses so far / report unlocks at 3 / open to
+   contribute). Verified `survey_results` shape end-to-end against live data.
 
-3. **Assignment / invitations.** No model for "assign this instrument to these people"
-   — team members are implicitly eligible through an open survey. The detail's
-   "Assign people" (in the design) needs an assignment record + reminder hooks.
+3. **✅ DONE — Assignment.** Added `assessment_assignment` (admin-managed via
+   `assign_assessment` / `unassign_assessment` RPCs, idempotent, members-only). The
+   assignee sees an **★ Assigned to you** tag on the card, a banner in the library, and
+   a prompt on the detail (with the assigner's note); completing it (an
+   `individual_response`) satisfies it — completion is *derived*, never written, so it
+   can't drift. Admins get a **＋ Assign** picker on individual instruments showing each
+   member's status via `assessment_assignment_status` — which returns **completion
+   booleans only, never scores**, preserving result privacy. Verified end-to-end: admin
+   assigns, derived completion flips on submit, non-admins are blocked (42501),
+   non-assignees see nothing. *Reminders* remain a later hook (no mail transport wired
+   yet). Scoped to individual instruments — team instruments already get whole-team
+   participation through open surveys.
 
-4. **Reference norms / percentiles for individual instruments.** Bands are raw
-   position on the scale, not population-relative. Team surveys have a benchmark pool
-   (`benchmark_sample`); individual instruments (working style, strengths) have none,
-   so "in the top X%" isn't possible yet.
+4. **✅ DONE — Reference norms / percentiles for individual instruments.** Added the
+   `individual_norms(template_key)` RPC (security definer): for the caller it computes a
+   per-dimension percentile against the **global pool** of everyone who's taken the same
+   instrument — reverse-scoring aware, entirely server-side so only the caller's own
+   standing is returned (never anyone else's scores). A min-N guard (≥5 others) keeps
+   tiny pools from producing noisy/identifying percentiles. The report's expanded
+   dimension detail now reads "Compared with N others … you're around the Pth
+   percentile" on your own report. Verified the math (top scorer → 100th, middle →
+   60th, sub-threshold → null). Pools are empty until people take assessments, so it
+   degrades to no-percentile gracefully.
 
-5. **Item depth + reverse scoring for catalog instruments.** `working_style` /
-   `strengths_snapshot` carry ~2 items per dimension and no reverse-scored flags in
-   the JSONB definition (only the relational leadership schema has `reverse_scored`).
-   A defensible personality profile needs more items and reverse keys.
+5. **✅ DONE — Item depth + reverse scoring for catalog instruments.**
+   `working_style` and `strengths_snapshot` now carry **4 items per dimension** (16
+   total, up from 8), each dimension gaining one **reverse-keyed** item
+   (`"reverse": true` in the JSONB definition) to blunt acquiescence bias. Scoring
+   flips reverse items onto the dimension pole before averaging — in both the
+   client run (`AssessmentLibrary.scoreFrom`) and the shared item→dimension reducer
+   (`lib/survey.dimensionMeans`, which also feeds the team aggregate). Verified the
+   arithmetic (genuinely-high → max, yes-to-all acquiescence → mid, genuinely-low →
+   min). These instruments score entirely client-side, so the server composite /
+   benchmark path is untouched; reverse keys remain off team instruments until
+   `private.survey_composite` is made reverse-aware. `working_style.focus` was
+   re-grounded on concentration/depth (matching its authored copy and "Focus"
+   label) with fresh item keys so prior responses drop cleanly.
 
-6. **Candidate sharing & export are stubs.** "Share with candidate" and PDF/export are
-   not implemented (export shows a toast). Needs a shareable individual-report surface
-   (respecting `individual_response.shared`) and a print/PDF route.
+6. **✅ DONE — Sharing & export are real.** The report's **Export** now builds a
+   self-contained printable document (definitions, your-read, advantages, and —
+   Full view only — watch-outs) and opens the browser print dialog → Save as PDF.
+   A **Share with team** toggle on your own individual report calls
+   `set_individual_shared`, flipping `individual_response.shared`; the existing
+   teammate-scoped RLS (`shared and private.shares_team`) then lets people who share a
+   live team read it. Verified the toggle + visibility both ways (off → teammate sees
+   0, on → sees 1). *Remaining extension:* a dedicated "Shared with me" gallery to
+   browse teammates' shared reports inside the library (the rows are already readable
+   via RLS; only the browse surface is absent).
 
-7. **Longitudinal history for individuals.** `individual_response` keeps one row per
-   (user, template) — retaking overwrites. No personal trend over time (team pulses do
-   have `team_dynamics_history`).
+7. **✅ DONE — Longitudinal history for individuals.** Added an append-only
+   `individual_response_history` log (own-only RLS), written on every take inside the
+   security-definer `submit_individual_response`. `/assessments` loads each
+   instrument's take-history and the report shows a **Movement** strip — per-dimension
+   change in points since the first take ("▲/▼ N pts", green up / rust down) — whenever
+   you've taken it more than once. Verified the append + ordering end-to-end. (The
+   single "latest" row still drives the current report; the log is additive.)
 
-8. **Unify the Leadership test.** The 63-item leadership inventory is a separate
-   run/score/report flow (`/assessments/leadership`); it's linked as an external card
-   rather than run/reported inside the library.
+8. **✅ DONE (experience unified; engines intentionally separate) — Leadership test.**
+   The 63-item leadership inventory keeps its purpose-built relational engine (21
+   facets, per-category scoring, reverse-scoring, anonymised team rollup) — merging it
+   into the generic JSONB run/report model would *lose* that richness and risk
+   regressing a working flow, so that is deliberately not done. Instead it's now a
+   first-class library citizen: its card opens a **consistent in-library detail**
+   (About / What it measures / Details facts) like every other instrument, rather than
+   bouncing straight out, and the detail hands off to the dedicated guided run/report
+   via a clear **Open assessment →** action with an explanatory note. One library, one
+   detail pattern; the specialised instrument keeps its specialised engine.
 
-9. **Authoring UI.** Custom instruments can only be created by inserting
-   `assessment_template` rows directly — no admin UI to define dimensions/items.
+9. **✅ DONE — Authoring UI.** A full builder already ships at `/library`
+   (`TemplateBuilder.tsx`): admins set basics, scope, scale, dimensions and questions
+   and save via `save_assessment_template` (admin-gated RPC); custom instruments then
+   work everywhere a built-in does. Extended here with a per-question **⇄ reverse**
+   toggle so authored instruments can use the reverse scoring added in Gap 5 (the flag
+   rides through the definition JSONB → `instrumentFromRow` → `dimensionMeans`).

@@ -1135,6 +1135,21 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      assessment_trait_copy: {
+        Row: {
+          id: string
+          template_key: string
+          dimension_key: string
+          definition: string
+          advantages: string[]
+          risks: string[]
+          statements: string[]
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       individual_response: {
         Row: {
           id: string
@@ -1145,6 +1160,34 @@ export type Database = {
           shared: boolean
           created_at: string
           updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      individual_response_history: {
+        Row: {
+          id: string
+          workspace_id: string
+          user_id: string
+          template_key: string
+          scores: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      assessment_assignment: {
+        Row: {
+          id: string
+          workspace_id: string
+          template_key: string
+          assignee_user_id: string
+          assigned_by: string
+          note: string | null
+          due_at: string | null
+          created_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }
@@ -1484,6 +1527,22 @@ export type Database = {
       submit_individual_response: {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }
         Returns: undefined
+      }
+      individual_norms: {
+        Args: { p_template_key: string }
+        Returns: Json
+      }
+      assign_assessment: {
+        Args: { p_workspace: string; p_template_key: string; p_assignees: string[]; p_note?: string | null; p_due?: string | null }
+        Returns: number
+      }
+      unassign_assessment: {
+        Args: { p_workspace: string; p_template_key: string; p_assignee: string }
+        Returns: undefined
+      }
+      assessment_assignment_status: {
+        Args: { p_workspace: string; p_template_key: string }
+        Returns: { assignee_user_id: string; due_at: string | null; completed: boolean }[]
       }
       set_individual_shared: {
         Args: { p_workspace: string; p_template_key: string; p_shared: boolean }

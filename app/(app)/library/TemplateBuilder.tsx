@@ -6,7 +6,7 @@ import Link from "next/link";
 import { saveTemplate } from "./actions";
 
 type Dim = { label: string; blurb: string };
-type Item = { text: string; dim: number };
+type Item = { text: string; dim: number; reverse?: boolean };
 
 export type ExistingTemplate = {
   id: string;
@@ -18,7 +18,7 @@ export type ExistingTemplate = {
   definition: {
     scale?: { min?: number; max?: number; minLabel?: string; maxLabel?: string };
     dimensions?: { key: string; label: string; blurb?: string }[];
-    items?: { key: string; text: string; dimension: string }[];
+    items?: { key: string; text: string; dimension: string; reverse?: boolean }[];
     strengthDimension?: string;
   } | null;
 };
@@ -50,7 +50,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
     : [{ label: "", blurb: "" }];
   const keyToIdx = new Map((seed?.dimensions ?? []).map((d, i) => [d.key, i]));
   const seedItems: Item[] = seed?.items?.length
-    ? seed.items.map((it) => ({ text: it.text, dim: keyToIdx.get(it.dimension) ?? 0 }))
+    ? seed.items.map((it) => ({ text: it.text, dim: keyToIdx.get(it.dimension) ?? 0, reverse: it.reverse }))
     : [{ text: "", dim: 0 }];
 
   const [name, setName] = useState(existing?.name ?? "");
@@ -113,7 +113,9 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
       .map((it) => {
         const di = remap.get(it.dim)!;
         counts[di] = (counts[di] ?? 0) + 1;
-        return { key: `${kDimKeys[di]}_${counts[di]}`, dimension: kDimKeys[di], text: it.text.trim() };
+        const out: { key: string; dimension: string; text: string; reverse?: boolean } = { key: `${kDimKeys[di]}_${counts[di]}`, dimension: kDimKeys[di], text: it.text.trim() };
+        if (it.reverse) out.reverse = true;
+        return out;
       });
 
     const def: Record<string, unknown> = {
@@ -231,13 +233,19 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="cat-head" style={{ marginTop: 0, fontSize: 15 }}>Questions <span className="n">{items.length}</span></div>
-        <p className="page-sub" style={{ marginTop: -4 }}>Each is rated on the scale above.</p>
+        <p className="page-sub" style={{ marginTop: -4 }}>Each is rated on the scale above. Use <span style={{ fontWeight: 600 }}>⇄</span> to reverse-score a question (a high answer counts as low on its dimension) — a couple per dimension reduces yes-to-everything bias.</p>
         {items.map((it, i) => (
           <div className="builder-row" key={i}>
             <input className="inp" value={it.text} onChange={(e) => setItem(i, { text: e.target.value })} placeholder="Question text" style={{ flex: 2 }} />
             <select className="inp" value={it.dim} onChange={(e) => setItem(i, { dim: Number(e.target.value) })}>
               {namedDims.length ? namedDims.map((d) => (<option key={d.i} value={d.i}>{d.label}</option>)) : <option value={0}>—</option>}
             </select>
+            <button
+              className={`revtog${it.reverse ? " on" : ""}`}
+              onClick={() => setItem(i, { reverse: !it.reverse })}
+              title={it.reverse ? "Reverse-scored: a high answer counts as low on this dimension. Click to make normal." : "Normal scoring. Click to reverse-score (a high answer counts as low)."}
+              aria-pressed={it.reverse ? true : false}
+            >⇄</button>
             <button className="rowdel" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} disabled={items.length === 1} aria-label="Remove question">✕</button>
           </div>
         ))}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CanvasStatic, canvasSvgToPng, type CanvasObj } from "@/components/CanvasStatic";
 import { useTableControls } from "@/components/TableControls";
-import { startFromCanvas } from "./actions";
+import { startFromCanvas } from "./canvas-actions";
 
 export type GalleryItem = {
   id: string;

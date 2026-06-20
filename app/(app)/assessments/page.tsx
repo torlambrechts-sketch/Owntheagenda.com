@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { listTemplates, instrumentsFrom } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { AssessmentsClient, type Dynamic, type FpMember } from "./AssessmentsClient";
 import { AssessmentLibrary, type CatalogItem } from "./AssessmentLibrary";
 import { SurveyRespond } from "./SurveyRespond";
@@ -30,10 +31,61 @@ export default async function AssessmentsPage({
   const catalogInstruments = instrumentsFrom(catalogTemplates);
   const { data: myResp } = await supabase
     .from("individual_response")
-    .select("template_key, scores")
+    .select("template_key, scores, shared")
     .eq("workspace_id", ctx.workspace.id)
     .eq("user_id", ctx.userId);
   const myByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, (r.scores ?? {}) as Record<string, number>]));
+  const mySharedByKey = new Map((myResp ?? []).map((r) => [r.template_key as string, Boolean(r.shared)]));
+  // Personal take-history (oldest first) per instrument, for the report's trend.
+  const { data: histRows } = await supabase
+    .from("individual_response_history")
+    .select("template_key, scores, created_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("user_id", ctx.userId)
+    .order("created_at", { ascending: true });
+  const histByKey = new Map<string, { at: string; scores: Record<string, number> }[]>();
+  for (const h of histRows ?? []) {
+    const arr = histByKey.get(h.template_key as string) ?? [];
+    arr.push({ at: h.created_at as string, scores: (h.scores ?? {}) as Record<string, number> });
+    histByKey.set(h.template_key as string, arr);
+  }
+  // Instruments assigned to me (so the library can flag them).
+  const { data: myAssign } = await supabase
+    .from("assessment_assignment")
+    .select("template_key, note, due_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("assignee_user_id", ctx.userId);
+  const assignByKey = new Map(
+    (myAssign ?? []).map((a) => [a.template_key as string, { note: (a.note ?? null) as string | null, dueAt: (a.due_at ?? null) as string | null }]),
+  );
+  // Workspace members for the admin "assign" picker (admins only).
+  const admin = isAdmin(ctx.role);
+  let wsMembers: { id: string; name: string }[] = [];
+  if (admin) {
+    const { data: mem } = await supabase
+      .from("membership")
+      .select("user_id")
+      .eq("workspace_id", ctx.workspace.id)
+      .eq("status", "active");
+    const ids = (mem ?? []).map((m) => m.user_id as string);
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profile").select("id, full_name, display_name, email").in("id", ids);
+      const byId = new Map((profs ?? []).map((p) => [p.id, p]));
+      wsMembers = ids.map((id) => {
+        const p = byId.get(id) as { full_name?: string | null; display_name?: string | null; email?: string | null } | undefined;
+        return { id, name: p?.full_name || p?.display_name || p?.email || "Member" };
+      });
+    }
+  }
+  const { data: traitCopy } = await supabase
+    .from("assessment_trait_copy")
+    .select("template_key, dimension_key, definition, advantages, risks, statements");
+  const copyMap = new Map(
+    (traitCopy ?? []).map((r) => [
+      `${r.template_key}:${r.dimension_key}`,
+      { definition: r.definition as string, advantages: (r.advantages ?? []) as string[], risks: (r.risks ?? []) as string[], statements: (r.statements ?? []) as string[] },
+    ]),
+  );
   const catalog: CatalogItem[] = [
     {
       key: "leadership_effectiveness",
@@ -49,6 +101,12 @@ export default async function AssessmentsPage({
       completedByMe: false,
       myScores: null,
       external: "/assessments/leadership",
+      openSurveyId: null,
+      teamReport: null,
+      myHistory: [],
+      myShared: false,
+      norms: [],
+      assignedToMe: null,
     },
     ...catalogTemplates.map((t): CatalogItem => {
       const inst = catalogInstruments[t.key];
@@ -61,19 +119,34 @@ export default async function AssessmentsPage({
         scope: t.scope === "team" ? "team" : "individual",
         source: t.source,
         description: t.description,
-        dimensions: inst?.dimensions ?? [],
+        dimensions: (inst?.dimensions ?? []).map((d) => ({ ...d, copy: copyMap.get(`${t.key}:${d.key}`) ?? null })),
         items,
         scale: inst?.scale ?? { min: 1, max: 7, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
         mins: Math.max(3, Math.round(items.length * 0.5)),
         completedByMe: !!scores,
         myScores: scores,
         external: null,
+        openSurveyId: null,
+        teamReport: null,
+        myHistory: histByKey.get(t.key) ?? [],
+        myShared: mySharedByKey.get(t.key) ?? false,
+        norms: [],
+        assignedToMe: assignByKey.get(t.key) ?? null,
       };
     }),
   ];
 
+  // ----- per-dimension percentile norms for the instruments I've completed -----
+  // Global pool, reverse-aware, min-N guarded server-side; only my own standing
+  // is returned, never anyone else's scores.
+  for (const item of catalog) {
+    if (item.scope !== "individual" || !item.completedByMe || item.external) continue;
+    const { data: norm } = await supabase.rpc("individual_norms", { p_template_key: item.key });
+    item.norms = (norm as unknown as { dims?: { dimension: string; percentile: number | null; others_n: number }[] } | null)?.dims ?? [];
+  }
+
   if (teamList.length === 0) {
-    return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />;
+    return <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} isAdmin={admin} members={wsMembers} />;
   }
 
   const activeTeam =
@@ -178,6 +251,44 @@ export default async function AssessmentsPage({
     .eq("status", "open")
     .order("created_at", { ascending: false });
 
+  // ----- enrich the team catalog with this team's open survey + aggregate report -----
+  // openSurveyId lets a member contribute a response straight from the library;
+  // teamReport is the anonymised aggregate (min-3 masked, never attributed) from
+  // the team's latest survey of that kind — whether still open or already closed.
+  {
+    const { data: kindSurveys } = await supabase
+      .from("survey")
+      .select("id, kind, status")
+      .eq("team_id", teamId)
+      .order("created_at", { ascending: false });
+    const latestByKind = new Map<string, string>();
+    const openByKind = new Map<string, string>();
+    for (const s of kindSurveys ?? []) {
+      if (!latestByKind.has(s.kind)) latestByKind.set(s.kind, s.id);
+      if (s.status === "open" && !openByKind.has(s.kind)) openByKind.set(s.kind, s.id);
+    }
+    for (const item of catalog) {
+      if (item.scope !== "team") continue;
+      const inst = catalogInstruments[item.key];
+      if (!inst) continue;
+      item.openSurveyId = openByKind.get(item.key) ?? null;
+      const latest = latestByKind.get(item.key);
+      if (!latest) continue;
+      const { data: res } = await supabase.rpc("survey_results", {
+        p_survey: latest,
+        p_strength_items: strengthItemKeys(inst),
+      });
+      const r = res as unknown as
+        | { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] }
+        | null;
+      if (!r) continue;
+      const dims = dimensionMeans(inst, r.items ?? [])
+        .filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null)
+        .map((d) => ({ key: d.key, mean: d.mean }));
+      item.teamReport = { dims, respondents: r.respondents, masked: r.masked };
+    }
+  }
+
   // Instrument catalog from the template library (data-driven).
   const teamTemplates = catalogTemplates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
   const instruments = catalogInstruments;
@@ -239,7 +350,7 @@ export default async function AssessmentsPage({
 
   return (
     <div>
-      <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} />
+      <AssessmentLibrary workspaceId={ctx.workspace.id} catalog={catalog} userName={userName} isAdmin={admin} members={wsMembers} />
 
       <div className="cat-head" style={{ marginTop: 34 }}>
         Team dynamics <span className="n">{activeTeam.name}</span>
