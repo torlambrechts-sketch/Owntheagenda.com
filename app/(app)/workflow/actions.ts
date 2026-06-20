@@ -35,6 +35,27 @@ export async function createFlow(
   return { id: data as string };
 }
 
+// Create a Flow from a composed list of step boxes (the builder).
+export async function createFlowSteps(
+  workspaceId: string,
+  title: string,
+  teamId: string | null,
+  minResponses: number,
+  steps: { kind: string; title: string }[],
+) {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_flow_steps", {
+    p_workspace: workspaceId,
+    p_title: title,
+    p_team: teamId,
+    p_min_responses: minResponses,
+    p_steps: steps,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return { id: data as string };
+}
+
 // Launch a Play — a one-click Flow with the workshop pre-selected.
 export async function startPlay(
   workspaceId: string,

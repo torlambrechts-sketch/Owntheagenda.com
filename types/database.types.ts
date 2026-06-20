@@ -1229,6 +1229,10 @@ export type Database = {
         Args: { p_workspace: string; p_title: string; p_team?: string | null; p_min_responses?: number }
         Returns: string
       }
+      create_flow_steps: {
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json }
+        Returns: string
+      }
       flow_remind: {
         Args: { p_program: string }
         Returns: number
