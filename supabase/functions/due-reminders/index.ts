@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
   const { data: notifs, error: nErr } = await admin
     .from("notification")
     .select("id, user_id, title, body, kind")
-    .in("kind", ["action_due_soon", "action_overdue", "survey_open", "survey_due"])
+    .in("kind", ["action_due_soon", "action_overdue", "survey_open", "survey_due", "assessment_due_soon", "assessment_overdue"])
     .is("emailed_at", null)
     .gte("created_at", since);
   if (nErr) return json({ error: nErr.message }, 500);
