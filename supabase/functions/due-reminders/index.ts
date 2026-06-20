@@ -20,6 +20,9 @@ const APP_URL = (Deno.env.get("APP_URL") ?? "").replace(/\/$/, "");
 const REMINDER_KINDS = [
   "action_due_soon", "action_overdue", "survey_open", "survey_due",
   "assessment_due_soon", "assessment_overdue",
+  // Flow distribution + nudges: assessment opened to a team, response
+  // reminders, and overdue flow / flow-task alerts.
+  "pulse_open", "pulse_reminder", "flow_overdue", "flow_task_overdue",
 ];
 
 type Notif = { id: string; user_id: string; title: string; body: string | null; kind: string };
