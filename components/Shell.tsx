@@ -131,7 +131,6 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
-  { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },

@@ -145,7 +145,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
         definition: buildDefinition(),
       });
       if (res.error) setError(res.error);
-      else { router.push("/library"); router.refresh(); }
+      else { router.push("/assessments"); router.refresh(); }
     });
   }
 
@@ -153,7 +153,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
 
   return (
     <div>
-      <Link href="/library" className="linkbtn" style={{ fontSize: 12 }}>‹ Library</Link>
+      <Link href="/assessments" className="linkbtn" style={{ fontSize: 12 }}>‹ Assessments</Link>
       <h1 className="page-title" style={{ marginTop: 6 }}>{existing ? "Edit assessment" : "New assessment"}</h1>
       <p className="page-sub">Custom instruments work everywhere a built-in does — the picker, the library and any survey block.</p>
 
@@ -254,7 +254,7 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
 
       {error ? <div className="formerr">{error}</div> : null}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <Link href="/library" className="btn-ghost" style={{ flex: "none" }}>Cancel</Link>
+        <Link href="/assessments" className="btn-ghost" style={{ flex: "none" }}>Cancel</Link>
         <button className="btn-prim" disabled={pending} onClick={save}>{pending ? "Saving…" : existing ? "Save changes" : "Create assessment"}</button>
       </div>
     </div>
