@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ordinal } from "@/lib/util";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
 import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { ResultsExport } from "@/components/ResultsExport";
 import {
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
+  instrumentFromRow,
   type ItemStat,
   type SurveyInstrument,
 } from "@/lib/survey";
@@ -48,11 +50,17 @@ export function SurveyModule({
   onToggleReady: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
-  const inst = instrument;
   const [surveyId, setSurveyId] = useState<string | null>(initialSurveyId);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
   const [busy, setBusy] = useState(false);
+  const [snapInst, setSnapInst] = useState<SurveyInstrument | null>(null);
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
+  const [draftReady, setDraftReady] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prefer the survey's own snapshot definition (locked at open) over the live
+  // catalog instrument, so a later template edit can't reinterpret responses.
+  const inst = snapInst ?? instrument;
 
   const loadResults = useCallback(
     async (sid: string) => {
@@ -85,6 +93,37 @@ export function SurveyModule({
   useEffect(() => {
     if (surveyId) { loadResults(surveyId); loadMine(surveyId); }
   }, [surveyId, loadResults, loadMine]);
+
+  // Resolve the instrument from the bound survey's snapshot definition (falls
+  // back to the catalog instrument for legacy rows / non-team readers).
+  useEffect(() => {
+    if (!surveyId) return;
+    let active = true;
+    supabase.from("survey").select("kind, name, definition").eq("id", surveyId).maybeSingle().then(({ data }) => {
+      if (!active || !data) return;
+      const i = instrumentFromRow({ key: data.kind as string, name: data.name as string, definition: (data as { definition?: unknown }).definition });
+      if (i) setSnapInst(i);
+    });
+    return () => { active = false; };
+  }, [surveyId, supabase]);
+
+  // Load + debounce-save a server-side draft for cross-device resume.
+  useEffect(() => {
+    if (!surveyId) { setDraftReady(true); return; }
+    let active = true;
+    supabase.rpc("get_survey_draft", { p_survey: surveyId }).then(({ data }) => {
+      if (!active) return;
+      if (data && typeof data === "object") setInitialAnswers(data as Record<string, number>);
+      setDraftReady(true);
+    });
+    return () => { active = false; };
+  }, [surveyId, supabase]);
+  const saveDraft = useCallback((scores: Record<string, number>) => {
+    if (!surveyId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void supabase.rpc("save_survey_draft", { p_survey: surveyId, p_scores: scores }); }, 600);
+  }, [supabase, surveyId]);
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   useEffect(() => {
     const ch = supabase
@@ -153,14 +192,18 @@ export function SurveyModule({
           <>
             {!submitted ? (
               <div className="assess-form">
-                <AssessmentRunner
-                  instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
-                  draftKey={`otaa:block:${blockId}:${surveyId}`}
-                  privacyNote="Anonymous in aggregate — individual answers are never shown."
-                  estimateMins={2}
-                  submitLabel="Submit my read ›"
-                  onSubmit={submit}
-                />
+                {draftReady ? (
+                  <AssessmentRunner
+                    instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+                    initialAnswers={initialAnswers}
+                    draftKey={`otaa:block:${blockId}:${surveyId}`}
+                    onChange={saveDraft}
+                    privacyNote="Anonymous in aggregate — individual answers are never shown."
+                    estimateMins={2}
+                    submitLabel="Submit my read ›"
+                    onSubmit={submit}
+                  />
+                ) : null}
               </div>
             ) : (
               <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
@@ -198,6 +241,16 @@ export function SurveyModule({
               }) : (
                 <div className="svdim-blurb">Results appear once at least 3 people respond.</div>
               )}
+              {dims ? (
+                <ResultsExport
+                  surveyName={title}
+                  instrumentName={inst.name}
+                  scaleMax={max}
+                  respondents={respondents}
+                  composite={results?.composite ?? null}
+                  dims={dims.map((d) => ({ key: d.key, label: d.label, mean: d.mean }))}
+                />
+              ) : null}
             </div>
           </>
         )}
