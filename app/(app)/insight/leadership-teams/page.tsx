@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { listTemplates, instrumentsFrom } from "@/lib/assessments";
+import { instrumentFromRow, type SurveyInstrument } from "@/lib/survey";
 import { HealthClient, type Entity } from "./HealthClient";
 import { AssessmentsClient, type Dynamic, type FpMember } from "../../assessments/AssessmentsClient";
 import { SurveyRespond } from "../../assessments/SurveyRespond";
@@ -157,7 +158,7 @@ export default async function LeadershipTeamsPage({
 
   const { data: openSurveys } = await supabase
     .from("survey")
-    .select("id, name, kind, due_at, subject_user_id")
+    .select("id, name, kind, due_at, subject_user_id, definition")
     .eq("team_id", teamId)
     .eq("status", "open")
     .order("created_at", { ascending: false });
@@ -165,6 +166,16 @@ export default async function LeadershipTeamsPage({
   const catalogTemplates = await listTemplates();
   const instruments = instrumentsFrom(catalogTemplates);
   const teamTemplates = catalogTemplates.filter((t) => t.scope === "team").map((t) => ({ key: t.key, name: t.name }));
+
+  // Respondents and the post-submit aggregate resolve from each open survey's
+  // own snapshot definition (taken when it opened), so a later template edit
+  // can't reinterpret in-flight responses. Falls back to the live catalog when
+  // a survey predates the snapshot column.
+  const respondInstruments: Record<string, SurveyInstrument> = { ...instruments };
+  for (const s of openSurveys ?? []) {
+    const snap = instrumentFromRow({ key: s.kind, name: s.name, definition: s.definition });
+    if (snap) respondInstruments[s.kind] = snap;
+  }
 
   type SurveyStatus = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
   const surveyStatus: Record<string, SurveyStatus> = {};
@@ -250,7 +261,7 @@ export default async function LeadershipTeamsPage({
         <SurveyRespond
           surveys={(openSurveys ?? []) as { id: string; name: string; kind: string }[]}
           userId={ctx.userId}
-          instruments={instruments}
+          instruments={respondInstruments}
         />
       ) : null}
 

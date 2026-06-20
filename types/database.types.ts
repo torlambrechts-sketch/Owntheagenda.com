@@ -1096,6 +1096,7 @@ export type Database = {
           closed_at: string | null
           due_at: string | null
           subject_user_id: string | null
+          definition: Json | null
           created_by: string | null
           created_at: string
           updated_at: string

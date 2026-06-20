@@ -2,7 +2,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { listTemplates, instrumentsFrom } from "@/lib/assessments";
-import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { dimensionMeans, strengthItemKeys, instrumentFromRow } from "@/lib/survey";
 import { AssessmentLibrary, type CatalogItem, type SessionRow, type ResponseRow } from "./AssessmentLibrary";
 
 export default async function AssessmentsPage() {
@@ -145,23 +145,26 @@ export default async function AssessmentsPage() {
   if (primaryTeam) {
     const { data: kindSurveys } = await supabase
       .from("survey")
-      .select("id, kind, status")
+      .select("id, kind, status, definition")
       .eq("team_id", primaryTeam.id)
       .order("created_at", { ascending: false });
-    const latestByKind = new Map<string, string>();
+    const latestByKind = new Map<string, { id: string; definition: unknown }>();
     const openByKind = new Map<string, string>();
     for (const s of kindSurveys ?? []) {
-      if (!latestByKind.has(s.kind)) latestByKind.set(s.kind, s.id);
+      if (!latestByKind.has(s.kind)) latestByKind.set(s.kind, { id: s.id, definition: s.definition });
       if (s.status === "open" && !openByKind.has(s.kind)) openByKind.set(s.kind, s.id);
     }
     for (const item of catalog) {
       if (item.scope !== "team") continue;
-      const inst = catalogInstruments[item.key];
-      if (!inst) continue;
+      const base = catalogInstruments[item.key];
+      if (!base) continue;
       item.openSurveyId = openByKind.get(item.key) ?? null;
       const latest = latestByKind.get(item.key);
       if (!latest) continue;
-      const { data: res } = await supabase.rpc("survey_results", { p_survey: latest, p_strength_items: strengthItemKeys(inst) });
+      // Read against the survey's own snapshot definition, not the (possibly
+      // since-edited) live template; fall back to the catalog for legacy rows.
+      const inst = instrumentFromRow({ key: item.key, name: base.name, definition: latest.definition }) ?? base;
+      const { data: res } = await supabase.rpc("survey_results", { p_survey: latest.id, p_strength_items: strengthItemKeys(inst) });
       const r = res as unknown as { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
       if (!r) continue;
       const dims = dimensionMeans(inst, r.items ?? [])

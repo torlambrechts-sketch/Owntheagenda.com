@@ -63,21 +63,49 @@ new surfaces read as one product:
 - **Respondent** — the scale + progress now ride a sticky header; the progress fill animates; the
   mask reads as a friendly countdown rather than a locked door.
 
+## Definition snapshotting — _shipped & verified on the live project_
+
+The #1 correctness gap from the first review is now **closed** (migration
+`20260620120000_survey_definition_snapshot.sql`, applied to project `fqeohcfkimoopwjxxcft`):
+
+- **Schema.** `public.survey` gains a nullable `definition jsonb`. Additive; RLS unchanged (the
+  existing team-read select policy now also covers the column — questions aren't sensitive).
+- **Write.** `public.create_survey` (the single creation chokepoint that `ensure_block_survey` /
+  `ensure_workshop_survey` / `sendSurvey` all funnel through) snapshots the matching template's
+  `definition` (workspace-custom preferred over global) onto the new row. All other behaviour
+  (deadline body, notify non-responders) preserved.
+- **Read.** `private.survey_composite` resolves from the survey's own snapshot first, falling back
+  to the live template for legacy rows. The two client read sites that map item-means →
+  dimensions for display (`insight/leadership-teams` → `SurveyRespond`, and the
+  `assessments` landing "team reading") now build the instrument from the survey's snapshot via
+  `instrumentFromRow`, falling back to the live catalog by kind.
+- **Backfill.** Every existing survey was locked to its current template definition.
+
+**Verification on the live DB (read-only + rolled-back):**
+- Backfill coverage **21/21** surveys, 0 null.
+- For every survey with ≥3 responses, the snapshot-based composite **equals** the live-template
+  composite (no regression) and uses the snapshot branch.
+- **Protection proof (rolled back):** inside a transaction, corrupting the `strategy_health`
+  template to `scale.max = 999` left the survey's composite unchanged at **49.3** (it read the
+  snapshot, not the edited template); the transaction was rolled back and the template confirmed
+  intact (`scale.max = 7`).
+- `get_advisors(security)`: 108 findings, all WARN/INFO, **0 ERROR**; the only `survey`-related
+  ones are the project's intentional `authenticated_security_definer_function_executable` notices.
+  No new findings.
+
+_Residual (low risk, documented):_ run-mode `SurveyModule`'s **display** mapping still resolves by
+kind from the live catalog — acceptable because a run-mode survey is opened in-session, so its
+snapshot equals the live template at that moment; server scoring is snapshot-correct regardless.
+
 ## Open gaps (deferred — with the exact next step)
 
-These are clean follow-ons, deferred to keep this wave client-only and verifiable without mutating
-the shared Supabase project. Each needs the house DB cadence (migration → `get_advisors` →
+These are clean follow-ons. Each needs the house DB cadence (migration → `get_advisors` →
 rolled-back RLS role test → typecheck/test/build → commit/merge).
 
-1. **Definition snapshotting at survey open — _correctness, do this first._** Editing an
-   `assessment_template` while a survey is open desyncs items from already-submitted responses.
-   *Sketch:* add `definition jsonb` to `survey`; in the open/create RPC, copy the template's
-   current `definition` onto the survey row; resolve the runtime instrument from the **survey's**
-   snapshot (fallback to the template) so an open survey is immutable.
-2. **DB-backed, workspace-extensible question bank (A2).** Promote `lib/itembank.ts` into an
+1. **DB-backed, workspace-extensible question bank (A2).** Promote `lib/itembank.ts` into an
    `assessment_item` table (workspace-null = global) with `select`-for-all RLS and an admin-gated
    upsert; the picker reads global + workspace rows. The curated set seeds the globals.
-3. **Server-side resume + CSV/JSON export + team longitudinal trend (C5).** Persist partial
+2. **Server-side resume + CSV/JSON export + team longitudinal trend (C5).** Persist partial
    responses server-side (cross-device resume), add a results export beside print, and a
    re-measure trend for team aggregates (individual history already exists).
 
@@ -103,5 +131,6 @@ rolled-back RLS role test → typecheck/test/build → commit/merge).
 No open correctness or security gaps in what shipped. The three intuitiveness gaps the brief
 named are closed for the live path: authors now **start from proven questions** and can **take
 their own instrument before publishing**; respondents get **progress, a sticky scale, and
-resume**. The remaining bets are schema-bound and sequenced — with definition snapshotting as the
-clear next step because it's a correctness fix, not a feature.
+resume**, and the top correctness gap — **definition snapshotting** — is now shipped and verified
+on the live project. The remaining bets (DB-backed bank, server-side resume/export/trend) are
+schema-bound and sequenced.
