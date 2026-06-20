@@ -31,6 +31,7 @@ export function AssessmentRunner({
   draftKey,
   privacyNote,
   estimateMins,
+  allowPartial = false,
   headerSub = "Answer as honestly as you can — there are no right or wrong answers.",
 }: {
   instrument: RunnerInstrument;
@@ -42,6 +43,8 @@ export function AssessmentRunner({
   draftKey?: string;
   privacyNote?: string;
   estimateMins?: number;
+  /** Allow submitting before every item is answered (shows provisional progress). */
+  allowPartial?: boolean;
   headerSub?: string;
 }) {
   const items = instrument.items;
@@ -187,7 +190,7 @@ export function AssessmentRunner({
         ))}
         <div className="mactions" style={{ marginTop: 14 }}>
           <span className="arun-count">{answered} / {n} answered</span>
-          <button className="btn-prim" disabled={!allRated || busy} onClick={doSubmit}>{busy ? "Saving…" : submitLabel}</button>
+          <button className="btn-prim" disabled={(allowPartial ? answered === 0 : !allRated) || busy} onClick={doSubmit}>{busy ? "Saving…" : submitLabel}</button>
         </div>
       </div>
     );
@@ -255,8 +258,11 @@ export function AssessmentRunner({
       <div className="a-runnav">
         <button className="btn-sec" disabled={idx === 0} onClick={() => setIdx((i) => Math.max(0, i - 1))}>‹ Back</button>
         <div className="sp" />
+        {allowPartial && !last && answered > 0 ? (
+          <button className="btn-sec" disabled={busy} onClick={doSubmit}>{busy ? "Saving…" : `See results (${answered}/${n})`}</button>
+        ) : null}
         {last ? (
-          <button className="btn-prim" disabled={cur == null || !allRated || busy} onClick={doSubmit}>{busy ? "Saving…" : submitLabel}</button>
+          <button className="btn-prim" disabled={busy || (allowPartial ? answered === 0 : cur == null || !allRated)} onClick={doSubmit}>{busy ? "Saving…" : allowPartial && !allRated ? `See results (${answered}/${n})` : submitLabel}</button>
         ) : (
           <button className="btn-prim" disabled={cur == null} onClick={() => setIdx((i) => Math.min(n - 1, i + 1))}>Next ›</button>
         )}

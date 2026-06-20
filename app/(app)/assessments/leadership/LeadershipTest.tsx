@@ -72,6 +72,7 @@ export function LeadershipTest({
         estimateMins={15}
         privacyNote={teamId ? "Saved privately — only the anonymised team aggregate is shared with leads." : "Shown to you and not saved."}
         submitLabel="See results ›"
+        allowPartial
         onBack={results ? () => setTaking(false) : undefined}
         onSubmit={submit}
       />
