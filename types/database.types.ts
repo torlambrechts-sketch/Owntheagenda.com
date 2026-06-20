@@ -1169,6 +1169,26 @@ export type Database = {
         }
         Returns: undefined
       }
+      program_status: {
+        Args: { p_program: string }
+        Returns: { step_id: string; live: string | null; ready: boolean }[]
+      }
+      program_sync: {
+        Args: { p_program: string }
+        Returns: undefined
+      }
+      program_start_pulse: {
+        Args: { p_program: string; p_name?: string | null }
+        Returns: string
+      }
+      program_build_workshop: {
+        Args: { p_program: string; p_template: string; p_title?: string | null }
+        Returns: string
+      }
+      program_schedule_repulse: {
+        Args: { p_program: string; p_when: string }
+        Returns: string
+      }
       accept_invitation: {
         Args: { p_token: string }
         Returns: Database["public"]["Tables"]["workspace"]["Row"]
