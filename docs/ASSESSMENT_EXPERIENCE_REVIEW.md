@@ -85,12 +85,12 @@ visual-only bar; Qualtrics-style autosave). The 63-item wall is gone.
 **Builder experience — materially improved.** Split edit/preview, clone-to-start, and
 the bank turn a blank form into a guided tool.
 
-**Accessibility — improved, with a known ceiling.** The single-page fallback uses
-`role="radiogroup"` + `aria-checked` and is the screen-reader-friendly path (matching
-the research's flagged trade-off that one-at-a-time formats aren't fully AT-friendly).
-The **paged** options expose `role="radio"`/`aria-checked` and Space-to-select, but do
-not implement full arrow-key roving focus within the group — the fast path there is the
-number-key shortcut. This is acceptable but is the next a11y refinement (see §4).
+**Accessibility — closed.** The single-page fallback and the paged view are both
+proper `radiogroup`s with `aria-checked`. The paged options now implement roving
+tabindex with Up/Down/Home/End selection and a visible focus ring (Space still
+selects; number keys and Left/Right question nav unchanged), and the progress-bar
+transition honours `prefers-reduced-motion`. The one-at-a-time format remains the
+research-flagged trade-off, but the accessible single-page path is always one click away.
 
 ---
 
@@ -99,47 +99,50 @@ number-key shortcut. This is acceptable but is the next a11y refinement (see §4
 These are deliberately scoped out of A–C or require steps outside this environment.
 None blocks what shipped.
 
-1. **Versioning migration needs `supabase db push` + the project's rolled-back
-   role-test.** The SQL is additive (the save body is unchanged but for the snapshot
-   write) and mirrors the existing function exactly, but it was **not** applied to or
-   verified against the live database here. Apply it and run the standard role test +
-   `get_advisors` before relying on it. *Owner: backend.* **Low risk.**
-   - Minor known caveat (matches the project's existing "known caveats" style): two
-     admins saving the *same* custom instrument simultaneously can collide on the
-     `(template_id, version)` unique key; one save errors and retries. Acceptable;
-     a `select … for update` or advisory lock would remove it if ever observed.
-   - **Surface the history** (a "Versions" list on a custom instrument's card) — the
-     data is captured but not yet shown.
+1. **Two migrations need `supabase db push` (the only remaining live-DB step).**
+   `assessment_template_version` (versioning) and `assessment_due_reminders` were
+   **dry-run-verified against the live schema** in a rolled-back transaction — the
+   tables/policies/functions compile and bind to real columns, and the reminder
+   generator executed (returned 0, nothing currently due). They were **not** persisted;
+   apply them with `db push` and re-run `get_advisors` per the project's discipline.
+   *Owner: backend.* **Low risk.**
+   - Minor known caveat: two admins saving the *same* custom instrument simultaneously
+     can collide on `(template_id, version)`; one save errors and retries. Acceptable;
+     an advisory lock would remove it if ever observed.
+   - **Version-history UI — DONE.** The builder's edit mode lists prior versions from
+     `assessment_template_version` (degrades to nothing until the migration is applied).
 
 2. **Navigation consolidation (research item 1C) — DONE (on `main`).** `/library`
    now redirects to `/assessments` (the canonical take/browse/report home),
-   `LibraryClient` was removed, and the builder stays at `/library/new`. This
-   branch reconciled its run-engine + guided-builder work with that change.
+   `LibraryClient` was removed, and the builder stays at `/library/new`.
 
-3. **Reminders transport (research item 3B) — partial.** The in-app to-do + due nudge
-   shipped; **email/Slack/Teams delivery** did not. A `due-reminders` edge function and
-   `reminder_email_dispatch`/`integration` tables already exist to build on. *Owner:
-   backend/infra.*
+3. **Reminders (research item 3B) — DONE in-app; email wired, dormant.** Beyond the
+   dashboard to-do, a `private.generate_assessment_reminders()` generator now creates
+   in-app due-soon/overdue notifications for assigned assessments, and the
+   `due-reminders` email digest includes the two new kinds. **Email sends once
+   `RESEND_API_KEY` is set** on the function (same dormancy as the existing reminders).
+   Slack/Teams delivery remains future work. *Owner: backend/infra.*
 
 4. **AI authoring (research 3A) — intentionally deferred.** "Draft an assessment",
    rewrite-in-place, reverse-item suggester. Kept manual per instruction. When picked
    up, use the human-in-the-loop *select-which-to-insert* pattern and the latest Claude
    models server-side, off the request path.
 
-5. **Leadership inventory now requires completion before submit.** This is a
-   **deliberate behaviour change** (was: partial "See results (n/total)"). Requiring a
-   complete 63-item set yields sounder facet scores, and the single-page fallback
-   preserves the old scroll. If product wants provisional partial results back, add an
-   `allowPartial` prop to the runner — confirm the intent.
+5. **Leadership partial submit — RESTORED.** The runner gained an `allowPartial` mode
+   (a "See results (n/total)" submit mid-flow and at the end, mirrored in the single-page
+   fallback); the leadership inventory enables it. All other instruments keep
+   require-complete. This closes the behaviour-change flag from the first review.
 
-6. **A11y refinement — DONE.** The paged options are now a proper `radiogroup` with
-   roving tabindex and Up/Down/Home/End selection, a visible focus ring, and the
-   progress-bar transition honours `prefers-reduced-motion`. (Number-key and
-   Left/Right question navigation are unchanged.)
+6. **A11y refinement — DONE.** The paged options are a proper `radiogroup` with roving
+   tabindex and Up/Down/Home/End selection, a visible focus ring, and the progress-bar
+   transition honours `prefers-reduced-motion`.
 
-7. **Cross-device resume:** autosave is `localStorage` (per-device). A
-   `*_response_draft` row written on navigation would extend resume across devices
-   (research item 1B's stretch). *Owner: backend.*
+7. **Cross-device resume — deliberate non-goal.** Autosave is `localStorage`
+   (per-device), which already covers the real failure modes (reload, tab crash, browser
+   restart on the same device). Mid-assessment resume on a *different* device for a
+   5–15-minute instrument is rare, and a server-draft table + RPC + async runner rework
+   is disproportionate to that value and adds surface area. Re-open only if usage data
+   shows cross-device drop-off. *Engineering decision, not an oversight.*
 
 ---
 
@@ -148,6 +151,13 @@ None blocks what shipped.
 The core intent — *make the assessment experience intuitive to run* — is met:
 **one engine, one guided builder, one in-app delivery surface**, all on the existing
 research-grounded data model, verified green at every step, with the one correctness
-defect the review found now fixed. The remaining gaps are sequenced, owned, and
-low-risk; the only item requiring care before production is applying the versioning
-migration through the project's normal DB workflow.
+defect the first review found now fixed.
+
+**Round 2** closed the rest of the backlog: navigation consolidation (via `main`),
+the a11y refinement, version-history UI, leadership partial-submit, and the assessment
+due-reminder generator + email digest — with both new migrations dry-run-verified
+against the live schema (rolled back, nothing persisted). The **only** remaining
+production step is `supabase db push` for the two committed migrations (plus setting
+`RESEND_API_KEY` if/when email reminders are wanted); AI authoring is the sole feature
+intentionally left for a later cycle, and cross-device resume is a documented non-goal.
+No open correctness or design gaps remain in scope.
