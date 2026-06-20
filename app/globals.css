@@ -214,6 +214,9 @@ button { font-family:inherit; }
 .a-phead .a-ps{font-size:13px;color:var(--muted);margin-top:3px;max-width:640px}
 .a-phead .a-pr{margin-left:auto;display:flex;gap:10px;align-items:center;flex-shrink:0}
 .a-group{margin-bottom:26px}
+.a-tplbody{padding:18px 20px}
+.a-tplbody .a-group{margin-bottom:18px}
+.a-tplbody .a-group:last-child{margin-bottom:0}
 .a-gt{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--faint);margin:0 0 12px;display:flex;align-items:center;gap:8px}
 .a-lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
 .a-card{border:1px solid var(--line);border-radius:11px;background:var(--surface);padding:18px;cursor:pointer;text-align:left;font-family:inherit;transition:box-shadow .15s,border-color .15s,transform .12s;display:flex;flex-direction:column;gap:11px;box-shadow:var(--shadow)}
