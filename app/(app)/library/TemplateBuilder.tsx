@@ -27,6 +27,9 @@ export type ExistingTemplate = {
 // One reusable item drawn from any readable instrument, for the question bank.
 export type BankItem = { text: string; instrument: string; source: string | null; dimension: string | null };
 
+// A past saved definition of the instrument being edited.
+export type TemplateVersion = { version: number; name: string; created_at: string };
+
 const CATEGORY_LABEL: Record<string, string> = {
   psych_safety: "Psychological safety",
   team_effectiveness: "Team effectiveness",
@@ -58,11 +61,13 @@ export function TemplateBuilder({
   seed = null,
   bankItems = [],
   categories = [],
+  versions = [],
 }: {
   existing: ExistingTemplate | null;
   seed?: ExistingTemplate | null;
   bankItems?: BankItem[];
   categories?: string[];
+  versions?: TemplateVersion[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -349,6 +354,23 @@ export function TemplateBuilder({
         ))}
         <button className="btn-ghost" style={{ flex: "none", marginTop: 8 }} onClick={() => addQuestion()}>+ Add question</button>
       </div>
+
+      {existing && versions.length ? (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="cat-head" style={{ marginTop: 0, fontSize: 15 }}>Version history <span className="n">{versions.length}</span></div>
+          <p className="page-sub" style={{ marginTop: -4 }}>Each save snapshots the definition so past responses keep their original meaning. Saving again adds version {versions[0].version + 1}.</p>
+          <div className="bank-list">
+            {versions.map((v) => (
+              <div className="bank-row" key={v.version}>
+                <div className="bank-text">
+                  <span>v{v.version} · {v.name}</span>
+                  <small>{new Date(v.created_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}</small>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {error ? <div className="formerr">{error}</div> : null}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>

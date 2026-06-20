@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
-import { TemplateBuilder, type ExistingTemplate, type BankItem } from "../TemplateBuilder";
+import { TemplateBuilder, type ExistingTemplate, type BankItem, type TemplateVersion } from "../TemplateBuilder";
 
 // Author a workspace-custom assessment. Create (no id), edit (?id=…), or start
 // from a copy of any readable instrument (?from=…). Admin-only — the save RPC
@@ -85,5 +85,25 @@ export default async function TemplateBuilderPage({
     new Set([...baseCategories, ...((bankRows as { category?: string }[] | null) ?? []).map((r) => r.category).filter(Boolean) as string[]]),
   ).sort();
 
-  return <TemplateBuilder existing={existing} seed={seed} bankItems={bankItems} categories={categories} />;
+  // Version history for the instrument being edited. Degrades to [] if the
+  // assessment_template_version migration hasn't been applied yet (the query
+  // returns an error we ignore rather than throw).
+  let versions: TemplateVersion[] = [];
+  if (existing) {
+    // The table isn't in the generated types until the migration is applied, so
+    // this query is untyped and guarded — it returns [] until then.
+    const { data: vrows, error: vErr } = await (supabase as unknown as {
+      from: (t: string) => {
+        select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: TemplateVersion[] | null; error: unknown }> } } };
+      };
+    })
+      .from("assessment_template_version")
+      .select("version, name, created_at")
+      .eq("template_id", existing.id)
+      .order("version", { ascending: false })
+      .limit(25);
+    if (!vErr && Array.isArray(vrows)) versions = vrows;
+  }
+
+  return <TemplateBuilder existing={existing} seed={seed} bankItems={bankItems} categories={categories} versions={versions} />;
 }
