@@ -128,7 +128,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/insight/leadership-teams", label: "Leadership Teams", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
+  { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/library", label: "Library", icon: ICONS.library, group: "Effectiveness" },
