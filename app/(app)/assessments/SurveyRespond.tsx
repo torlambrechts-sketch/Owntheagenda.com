@@ -63,10 +63,13 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
         .eq("survey_id", survey.id)
         .eq("respondent_id", userId)
         .maybeSingle();
-      if (data) setSubmitted(true);
+      if (data) {
+        setSubmitted(true);
+        try { window.localStorage.removeItem(draftKey); } catch { /* ignore */ }
+      }
       loadResults();
     })();
-  }, [supabase, survey.id, userId, loadResults]);
+  }, [supabase, survey.id, userId, loadResults, draftKey]);
 
   // Resume an unfinished read after a refresh / navigation (client-only draft).
   useEffect(() => {
