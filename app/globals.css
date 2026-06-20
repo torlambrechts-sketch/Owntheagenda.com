@@ -250,6 +250,7 @@ button { font-family:inherit; }
 .a-likert{display:flex;flex-direction:column;gap:9px}
 .a-lopt{display:flex;align-items:center;gap:13px;border:1px solid var(--line-2);border-radius:10px;padding:12px 15px;cursor:pointer;font-size:14px;background:var(--surface);transition:border-color .12s,background .12s}
 .a-lopt:hover{border-color:var(--green);background:var(--canvas)}
+.a-lopt:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .a-lopt.on{border-color:var(--green);background:var(--open-bg)}
 .a-lr{width:20px;height:20px;border-radius:50%;border:2px solid var(--line-2);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .a-lopt.on .a-lr{border-color:var(--green);background:var(--green)}
@@ -1540,6 +1541,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 }
 @media (prefers-reduced-motion:reduce){
   .sw,.scrim,.toast{transition:none}
+  .a-progress>span,.arun-progress-bottom>span{transition:none}
 }
 
 /* ---- Flows: header actions, plays, readiness gate, builder ---------- */

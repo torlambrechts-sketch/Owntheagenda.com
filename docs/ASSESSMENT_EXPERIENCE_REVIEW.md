@@ -111,12 +111,10 @@ None blocks what shipped.
    - **Surface the history** (a "Versions" list on a custom instrument's card) — the
      data is captured but not yet shown.
 
-2. **Navigation consolidation (research item 1C) — not done.** `/assessments` and
-   `/library` still overlap. Recommendation: make `/assessments` the canonical
-   take/browse/report home, fold `/library`'s search/facets into it, and reduce
-   `/library` to the builder route. Deferred because it touches routing/nav and wants
-   product sign-off + runtime verification (not just a typecheck). *Owner: product +
-   frontend.* **Medium.**
+2. **Navigation consolidation (research item 1C) — DONE (on `main`).** `/library`
+   now redirects to `/assessments` (the canonical take/browse/report home),
+   `LibraryClient` was removed, and the builder stays at `/library/new`. This
+   branch reconciled its run-engine + guided-builder work with that change.
 
 3. **Reminders transport (research item 3B) — partial.** The in-app to-do + due nudge
    shipped; **email/Slack/Teams delivery** did not. A `due-reminders` edge function and
@@ -134,8 +132,10 @@ None blocks what shipped.
    preserves the old scroll. If product wants provisional partial results back, add an
    `allowPartial` prop to the runner — confirm the intent.
 
-6. **A11y refinement:** add arrow-key roving focus to the paged radio options, and
-   consider honouring `prefers-reduced-motion` on the progress-bar transition.
+6. **A11y refinement — DONE.** The paged options are now a proper `radiogroup` with
+   roving tabindex and Up/Down/Home/End selection, a visible focus ring, and the
+   progress-bar transition honours `prefers-reduced-motion`. (Number-key and
+   Left/Right question navigation are unchanged.)
 
 7. **Cross-device resume:** autosave is `localStorage` (per-device). A
    `*_response_draft` row written on navigation would extend resume across devices

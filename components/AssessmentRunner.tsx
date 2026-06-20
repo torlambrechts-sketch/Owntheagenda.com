@@ -211,21 +211,41 @@ export function AssessmentRunner({
         <div className="a-runmeta"><span>Question {idx + 1} of {n}</span><span>{answered} / {n} answered</span></div>
         <div className="a-qnum">This statement fits me</div>
         <div className="a-qtext">{it?.text}</div>
-        <div className="a-likert">
-          {opts.map((v) => (
-            <div
-              key={v}
-              className={`a-lopt${cur === v ? " on" : ""}`}
-              role="radio"
-              aria-checked={cur === v}
-              tabIndex={0}
-              onClick={() => it && setAnswer(it.key, v)}
-              onKeyDown={(e) => { if (e.key === " ") { e.preventDefault(); it && setAnswer(it.key, v); } }}
-            >
-              <span className="a-lr" />{optLabel(v)}
-              <span className="arun-kbd">{v}</span>
-            </div>
-          ))}
+        <div className="a-likert" role="radiogroup" aria-label={it?.text}>
+          {opts.map((v, oi) => {
+            const checked = cur === v;
+            // Roving tabindex: only the checked option (or the first, when none
+            // is chosen) is in the tab order; arrows move within the group.
+            const tab = checked || (cur == null && oi === 0) ? 0 : -1;
+            return (
+              <div
+                key={v}
+                className={`a-lopt${checked ? " on" : ""}`}
+                role="radio"
+                aria-checked={checked}
+                aria-label={optLabel(v)}
+                tabIndex={tab}
+                onClick={() => it && setAnswer(it.key, v)}
+                onKeyDown={(e) => {
+                  if (!it) return;
+                  if (e.key === " ") { e.preventDefault(); setAnswer(it.key, v); return; }
+                  let n = -1;
+                  if (e.key === "ArrowDown") n = Math.min(opts.length - 1, oi + 1);
+                  else if (e.key === "ArrowUp") n = Math.max(0, oi - 1);
+                  else if (e.key === "Home") n = 0;
+                  else if (e.key === "End") n = opts.length - 1;
+                  else return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setAnswer(it.key, opts[n]);
+                  (e.currentTarget.parentElement?.children[n] as HTMLElement | undefined)?.focus();
+                }}
+              >
+                <span className="a-lr" />{optLabel(v)}
+                <span className="arun-kbd">{v}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
