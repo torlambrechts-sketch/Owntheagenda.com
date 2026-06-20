@@ -8,7 +8,7 @@ import { useState } from "react";
 // strip used on Workshops and Assessments.
 
 type Named = { id: string; name: string };
-export type ComposerStep = { kind: string; title: string };
+export type ComposerStep = { kind: string; title: string; template?: string };
 
 const STEP_KINDS: { value: string; label: string; hint: string }[] = [
   { value: "assessment", label: "Assessment", hint: "Open the pulse" },
@@ -54,7 +54,6 @@ export function FlowComposer({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
-    workshopTemplate: string | null,
   ) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -63,7 +62,6 @@ export function FlowComposer({
   const [collectDays, setCollectDays] = useState(7);
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
   const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
-  const [workshopTemplate, setWorkshopTemplate] = useState("");
 
   function patch(i: number, p: Partial<ComposerStep>) {
     setSteps((s) => s.map((step, idx) => (idx === i ? { ...step, ...p } : step)));
@@ -182,8 +180,8 @@ export function FlowComposer({
               <>
                 <select
                   className="inp sm"
-                  value={workshopTemplate}
-                  onChange={(e) => setWorkshopTemplate(e.target.value)}
+                  value={s.template ?? ""}
+                  onChange={(e) => patch(i, { template: e.target.value || undefined })}
                   aria-label="Workshop template"
                 >
                   <option value="">Pick when ready (build manually)</option>
@@ -211,9 +209,7 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() =>
-            onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays, workshopTemplate || null)
-          }
+          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays)}
         >
           Create flow
         </button>
