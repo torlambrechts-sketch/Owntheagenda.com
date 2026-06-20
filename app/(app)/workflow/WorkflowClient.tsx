@@ -51,6 +51,7 @@ export type ProgramView = {
   playKey: string | null;
   minResponses: number;
   assessmentKind: string | null;
+  dueAt: string | null;
   steps: StepView[];
   tasks: TaskView[];
 };

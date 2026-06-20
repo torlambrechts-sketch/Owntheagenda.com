@@ -103,10 +103,11 @@ export function FlowsTable({
                 <thead>
                   <tr>
                     <th>Flow</th>
-                    <th style={{ width: 160 }}>Team</th>
-                    <th style={{ width: 170 }}>Progress</th>
-                    <th style={{ width: 110 }}>Status</th>
-                    <th style={{ width: 48 }} />
+                    <th style={{ width: 140 }}>Team</th>
+                    <th style={{ width: 150 }}>Progress</th>
+                    <th style={{ width: 96 }}>Due</th>
+                    <th style={{ width: 100 }}>Status</th>
+                    <th style={{ width: 40 }} />
                   </tr>
                 </thead>
                 <tbody>
@@ -125,6 +126,8 @@ export function FlowsTable({
                         team={teamName(p.teamId)}
                         stage={`Stage ${Math.min(p.currentOrd, total)} of ${total}`}
                         pct={pct}
+                        dueAt={p.dueAt}
+                        completed={p.status === "completed"}
                         statusPill={STATUS_PILL[p.status] ?? "draft"}
                         statusText={statusLabel(p.status)}
                         tasks={p.tasks}
@@ -147,6 +150,77 @@ export function FlowsTable({
   );
 }
 
+function isOverdue(due: string | null, done: boolean) {
+  return !!due && !done && new Date(due) < new Date();
+}
+
+function TaskSubRow({
+  t,
+  members,
+  canManage,
+  pending,
+  onToggleTask,
+  onAssignTask,
+}: {
+  t: TaskView;
+  members: Member[];
+  canManage: boolean;
+  pending: boolean;
+  onToggleTask: (task: TaskView, status: string) => void;
+  onAssignTask: (taskId: string, ownerId: string | null, ownerName: string | null) => void;
+}) {
+  const done = t.status === "done";
+  const isAction = t.source === "action";
+  const overdue = isOverdue(t.dueAt, done);
+  return (
+    <tr className="flow-subrow">
+      <td>
+        <span className="flow-sub">
+          <button
+            type="button"
+            className={`flow-check${done ? " on" : ""}`}
+            disabled={!canManage || pending}
+            aria-label={done ? "Mark open" : "Mark done"}
+            onClick={() => onToggleTask(t, done ? "open" : "done")}
+          >
+            {done ? "✓" : ""}
+          </button>
+          <span className={`pill sm ${isAction ? "internal" : done ? "open" : "draft"}`}>
+            {TASK_LABEL[t.kind] ?? t.kind}
+          </span>
+          <span className={`flow-sub-title${done ? " done" : ""}`}>{t.title}</span>
+        </span>
+      </td>
+      <td className="flow-sub-meta">
+        {canManage && !isAction ? (
+          <select
+            className="inp sm flow-owner"
+            value={t.ownerId ?? ""}
+            disabled={pending}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const m = members.find((x) => x.id === e.target.value);
+              onAssignTask(t.id, m?.id ?? null, m?.name ?? null);
+            }}
+          >
+            <option value="">{t.ownerName ?? "Unassigned"}</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>{m.name}</option>
+            ))}
+          </select>
+        ) : (
+          t.ownerName ?? "Unassigned"
+        )}
+      </td>
+      <td className={`flow-sub-meta${overdue ? " overdue" : ""}`}>
+        {fmtDue(t.dueAt)}
+        {overdue ? " · overdue" : ""}
+      </td>
+      <td colSpan={3} className="flow-sub-meta">{done ? "Done" : "To do"}</td>
+    </tr>
+  );
+}
+
 function FlowRows({
   open,
   onToggle,
@@ -155,6 +229,8 @@ function FlowRows({
   team,
   stage,
   pct,
+  dueAt,
+  completed,
   statusPill,
   statusText,
   tasks,
@@ -172,6 +248,8 @@ function FlowRows({
   team: string;
   stage: string;
   pct: number;
+  dueAt: string | null;
+  completed: boolean;
   statusPill: string;
   statusText: string;
   tasks: TaskView[];
@@ -182,7 +260,10 @@ function FlowRows({
   onAssignTask: (taskId: string, ownerId: string | null, ownerName: string | null) => void;
   expanded: ReactNode;
 }) {
-  const openTasks = tasks.filter((t) => t.status !== "skipped");
+  const [showCommitments, setShowCommitments] = useState(false);
+  const drivers = tasks.filter((t) => t.source === "flow" && t.status !== "skipped");
+  const commitments = tasks.filter((t) => t.source === "action" && t.status !== "skipped");
+  const flowOverdue = isOverdue(dueAt, completed);
   return (
     <>
       <tr
@@ -211,60 +292,56 @@ function FlowRows({
             <small>{stage}</small>
           </span>
         </td>
+        <td className={`flow-due${flowOverdue ? " overdue" : ""}`}>
+          {fmtDue(dueAt)}
+          {flowOverdue ? <span className="flow-due-flag">overdue</span> : null}
+        </td>
         <td><span className={`pill sm ${statusPill}`}>{statusText}</span></td>
         <td className="r"><span className={`flow-chev${open ? " open" : ""}`}>▾</span></td>
       </tr>
-      {openTasks.map((t) => {
-        const done = t.status === "done";
-        const isAction = t.source === "action";
-        return (
-          <tr className="flow-subrow" key={t.id}>
-            <td>
-              <span className="flow-sub">
-                <button
-                  type="button"
-                  className={`flow-check${done ? " on" : ""}`}
-                  disabled={!canManage || pending}
-                  aria-label={done ? "Mark open" : "Mark done"}
-                  onClick={() => onToggleTask(t, done ? "open" : "done")}
-                >
-                  {done ? "✓" : ""}
-                </button>
-                <span className={`pill sm ${isAction ? "internal" : done ? "open" : "draft"}`}>
-                  {TASK_LABEL[t.kind] ?? t.kind}
-                </span>
-                <span className={`flow-sub-title${done ? " done" : ""}`}>{t.title}</span>
+
+      {drivers.map((t) => (
+        <TaskSubRow
+          key={t.id}
+          t={t}
+          members={members}
+          canManage={canManage}
+          pending={pending}
+          onToggleTask={onToggleTask}
+          onAssignTask={onAssignTask}
+        />
+      ))}
+
+      {commitments.length ? (
+        <tr className="flow-subrow flow-commit-toggle" onClick={() => setShowCommitments((v) => !v)}>
+          <td colSpan={6}>
+            <span className="flow-sub flow-commit-head">
+              <span className={`flow-chev xs${showCommitments ? " open" : ""}`}>▾</span>
+              {commitments.length} commitment{commitments.length === 1 ? "" : "s"} from the workshop
+              <span className="flow-commit-done">
+                {commitments.filter((c) => c.status === "done").length}/{commitments.length} done
               </span>
-            </td>
-            <td className="flow-sub-meta">
-              {canManage && !isAction ? (
-                <select
-                  className="inp sm flow-owner"
-                  value={t.ownerId ?? ""}
-                  disabled={pending}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => {
-                    const m = members.find((x) => x.id === e.target.value);
-                    onAssignTask(t.id, m?.id ?? null, m?.name ?? null);
-                  }}
-                >
-                  <option value="">{t.ownerName ?? "Unassigned"}</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-              ) : (
-                t.ownerName ?? "Unassigned"
-              )}
-            </td>
-            <td className="flow-sub-meta">{fmtDue(t.dueAt)}</td>
-            <td colSpan={2} className="flow-sub-meta">{done ? "Done" : "To do"}</td>
-          </tr>
-        );
-      })}
+            </span>
+          </td>
+        </tr>
+      ) : null}
+      {showCommitments
+        ? commitments.map((t) => (
+            <TaskSubRow
+              key={t.id}
+              t={t}
+              members={members}
+              canManage={canManage}
+              pending={pending}
+              onToggleTask={onToggleTask}
+              onAssignTask={onAssignTask}
+            />
+          ))
+        : null}
+
       {open ? (
         <tr className="flow-exp-row">
-          <td colSpan={5}>
+          <td colSpan={6}>
             <div className="flow-exp">{expanded}</div>
           </td>
         </tr>

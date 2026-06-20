@@ -13,7 +13,7 @@ export default async function WorkflowPage() {
   const [{ data: programs }, { data: teams }, { data: templates }, { data: instruments }, { data: memberRows }] = await Promise.all([
     supabase
       .from("program")
-      .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, assessment_kind, created_at")
+      .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, assessment_kind, due_at, created_at")
       .eq("workspace_id", wsId)
       .order("created_at", { ascending: false }),
     supabase.from("team").select("id, name").eq("workspace_id", wsId).is("deleted_at", null).order("name"),
@@ -149,6 +149,7 @@ export default async function WorkflowPage() {
     playKey: p.play_key,
     minResponses: p.min_responses,
     assessmentKind: p.assessment_kind,
+    dueAt: p.due_at,
     steps: byProgram.get(p.id) ?? [],
     tasks: tasksByProgram.get(p.id) ?? [],
   }));
