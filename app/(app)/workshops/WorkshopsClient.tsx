@@ -112,6 +112,7 @@ export function WorkshopsClient({
   const [quickInst, setQuickInst] = useState("");
   const [quickTitle, setQuickTitle] = useState("");
   const [preview, setPreview] = useState<TemplateCard | null>(null);
+  const [browseOpen, setBrowseOpen] = useState(false);
   // list controls
   const [statusTab, setStatusTab] = useState("all");
   const [page, setPage] = useState(1);
@@ -227,13 +228,13 @@ export function WorkshopsClient({
               <span className="wcard-meta">{CATEGORY[t.category] ?? t.category} · {t.steps} steps</span>
             </button>
           ))}
-          <Link className="wcard-more" href="/library">
+          <button type="button" className="wcard-more" onClick={() => setBrowseOpen(true)}>
             <span className="wcard-ring">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
             </span>
             <span className="wcard-nl">More templates</span>
-            <span className="wcard-more-sub">Browse the library</span>
-          </Link>
+            <span className="wcard-more-sub">Browse all {templates.length}</span>
+          </button>
         </div>
       </div>
 
@@ -428,6 +429,27 @@ export function WorkshopsClient({
           </ol>
         </SideWindow>
       ) : null}
+
+      <SideWindow
+        open={browseOpen}
+        onClose={() => setBrowseOpen(false)}
+        title="All templates"
+        subtitle={`${templates.length} proven frameworks — pick one to preview`}
+      >
+        {Array.from(new Set(templates.map((t) => t.category))).map((cat) => (
+          <div key={cat} style={{ marginBottom: 16 }}>
+            <div className="a-gt" style={{ marginBottom: 8 }}>{CATEGORY[cat] ?? cat}</div>
+            <div className="browse-list">
+              {templates.filter((t) => t.category === cat).map((t) => (
+                <button key={t.id} type="button" className="browse-row" onClick={() => { setBrowseOpen(false); setPreview(t); }}>
+                  <span className="browse-nm">{t.name}</span>
+                  <span className="browse-meta">{t.steps} steps · {t.minutes} min</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </SideWindow>
 
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>

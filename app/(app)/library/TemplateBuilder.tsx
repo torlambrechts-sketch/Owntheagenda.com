@@ -188,7 +188,7 @@ export function TemplateBuilder({
         definition: buildDefinition(),
       });
       if (res.error) setError(res.error);
-      else { router.push("/library"); router.refresh(); }
+      else { router.push("/assessments"); router.refresh(); }
     });
   }
 
@@ -226,7 +226,7 @@ export function TemplateBuilder({
 
   return (
     <div>
-      <Link href="/library" className="linkbtn" style={{ fontSize: 12 }}>‹ Library</Link>
+      <Link href="/assessments" className="linkbtn" style={{ fontSize: 12 }}>‹ Assessments</Link>
       <div className="bld-head">
         <div>
           <h1 className="page-title" style={{ marginTop: 6 }}>{existing ? "Edit assessment" : isClone ? "New assessment (from a copy)" : "New assessment"}</h1>
@@ -352,7 +352,7 @@ export function TemplateBuilder({
 
       {error ? <div className="formerr">{error}</div> : null}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-        <Link href="/library" className="btn-ghost" style={{ flex: "none" }}>Cancel</Link>
+        <Link href="/assessments" className="btn-ghost" style={{ flex: "none" }}>Cancel</Link>
         <button className="btn-prim" disabled={pending} onClick={save}>{pending ? "Saving…" : existing ? "Save changes" : "Create assessment"}</button>
       </div>
         </div>

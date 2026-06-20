@@ -225,25 +225,23 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
   }
 
   // ---------- library ----------
+  // Workshop-style boxed card: an icon "preview" box, name, and meta line.
   const card = (c: CatalogItem) => (
-    <button className={`a-card${c.scope === "team" ? " team" : ""}`} key={c.key} onClick={() => openDetail(c)}>
-      <span className="a-aicon">
-        {c.scope === "team" ? (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 19v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" /></svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
-        )}
+    <button className="wcard" key={c.key} onClick={() => openDetail(c)} title={c.name}>
+      <span className="wcard-prev a-wprev">
+        <span className={`a-aicon${c.scope === "team" ? " team" : ""}`}>
+          {c.scope === "team" ? (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M16 19v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 19v-2a4 4 0 0 0-3-3.87M16 3.13A4 4 0 0 1 16 11" /></svg>
+          ) : (
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+          )}
+        </span>
       </span>
-      <div>
-        <div className="a-anm">{c.name}</div>
-        <div className="a-acat">{c.category}</div>
-      </div>
-      <div className="a-ameta">
-        <span>◇ {c.dimensions.length} {c.dimensions.length === 1 ? "dimension" : "dimensions"}</span>
-        {c.items.length ? <span>◷ ~{c.mins} min</span> : null}
-        {c.completedByMe ? <span className="a-done-tag">✓ Completed</span> : null}
-        {c.assignedToMe && !c.completedByMe ? <span className="a-assign-tag">★ Assigned to you</span> : null}
-      </div>
+      <span className="wcard-nm">{c.name}</span>
+      <span className="wcard-meta">
+        {c.scope === "team" ? "Team" : "Personality"} · {c.dimensions.length} {c.dimensions.length === 1 ? "dim" : "dims"}
+        {c.completedByMe ? " · ✓ Done" : c.assignedToMe ? " · ★ Assigned" : ""}
+      </span>
     </button>
   );
 
@@ -267,21 +265,19 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             ))}
           </div>
         ) : null}
-        {/* templates first, in a box (like the workshop "Create" card) */}
+        {/* templates first, in a box — one line of boxed cards + "More" (like Workshops) */}
         <div className="wk-create">
           <div className="cat-head wk-create-h">Start an assessment</div>
-          <div className="a-tplbody">
-            {personality.length ? (
-              <div className="a-group">
-                <div className="a-gt">Personality</div>
-                <div className="a-lib">{personality.map(card)}</div>
-              </div>
-            ) : null}
-            {team.length ? (
-              <div className="a-group">
-                <div className="a-gt">Team</div>
-                <div className="a-lib">{team.map(card)}</div>
-              </div>
+          <div className="wk-strip">
+            {[...personality, ...team].map(card)}
+            {isAdmin ? (
+              <Link className="wcard-more" href="/library/new">
+                <span className="wcard-ring">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+                </span>
+                <span className="wcard-nl">More assessments</span>
+                <span className="wcard-more-sub">Create a custom one</span>
+              </Link>
             ) : null}
           </div>
         </div>

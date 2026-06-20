@@ -28,9 +28,9 @@ describe("clock", () => {
 });
 
 describe("roleLabel", () => {
-  it("capitalises the role", () => {
+  it("returns the business-facing role label", () => {
     expect(roleLabel("owner")).toBe("Owner");
-    expect(roleLabel("member")).toBe("Member");
+    expect(roleLabel("member")).toBe("Employee");
   });
 });
 

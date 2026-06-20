@@ -13,7 +13,7 @@ export default async function TemplateBuilderPage({
   searchParams: { id?: string; from?: string };
 }) {
   const ctx = await requireSession();
-  if (!isAdmin(ctx.role)) redirect("/library");
+  if (!isAdmin(ctx.role)) redirect("/assessments");
   const supabase = createClient();
 
   function toExisting(data: {
@@ -42,7 +42,7 @@ export default async function TemplateBuilderPage({
       .maybeSingle();
     // Editing is restricted to this workspace's own custom instruments.
     if (data && data.workspace_id === ctx.workspace.id) existing = toExisting(data);
-    else redirect("/library");
+    else redirect("/assessments");
   } else if (searchParams.from) {
     // Clone any *readable* instrument (a global built-in or an own custom one)
     // into a fresh draft — RLS already limits what can be read.
