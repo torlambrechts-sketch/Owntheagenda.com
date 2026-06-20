@@ -1202,6 +1202,7 @@ export type Database = {
           user_id: string
           template_key: string
           scores: Json
+          definition: Json | null
           shared: boolean
           created_at: string
           updated_at: string
@@ -1217,6 +1218,7 @@ export type Database = {
           user_id: string
           template_key: string
           scores: Json
+          definition: Json | null
           created_at: string
         }
         Insert: { [k: string]: unknown }

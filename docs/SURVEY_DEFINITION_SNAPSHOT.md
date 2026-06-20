@@ -49,7 +49,6 @@ is useful even before a workspace has authored any instruments.
 - `typecheck` · `lint` · `build` green; unit suite unchanged (the pre-existing `roleLabel`
   failure is unrelated).
 
-_Residual (low risk, documented):_ run-mode `SurveyModule`'s display mapping still resolves
-by kind from the live catalog — fine, because a run-mode survey is opened in-session (its
-snapshot equals the live template at that moment); server scoring is snapshot-correct
-regardless.
+_Update:_ the run-mode residual has since been closed — `SurveyModule` now resolves its
+instrument from the bound survey's snapshot definition (via `instrumentFromRow`), so the
+in-room display is snapshot-correct too, not just the server scoring.

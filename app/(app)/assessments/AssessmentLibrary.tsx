@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { toCsv, downloadText, fileSlug } from "@/lib/exporting";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
 export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
@@ -22,6 +23,10 @@ export type CatalogItem = {
   mins: number;
   completedByMe: boolean;
   myScores: Record<string, number> | null;
+  // individual scope: the instrument as it was when I last took it (snapshot), so
+  // the report maps my stored answers even if the template was edited since. A
+  // fresh re-take still uses the live `dimensions`/`items` above.
+  reportInst?: { dimensions: CatalogDim[]; items: CatalogItemDef[]; scale: { min: number; max: number; minLabel: string; maxLabel: string } } | null;
   external: string | null; // route for instruments handled elsewhere (e.g. leadership)
   openSurveyId: string | null; // team scope: an open survey to contribute a response to
   teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
@@ -140,7 +145,12 @@ export function AssessmentLibrary({
   }
   function startRun() { go("run"); }
   function viewSample() { if (!active) return; setSample(true); setTeamMode(false); setScores(sampleScores(active)); setMode("admin"); setExp(new Set()); go("report"); }
-  function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(c, c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
+  // Resolve the instrument used to read a past result: the take-time snapshot
+  // when present, else the live item.
+  function reportInstFor(c: CatalogItem): CatalogItem {
+    return c.reportInst ? { ...c, dimensions: c.reportInst.dimensions, items: c.reportInst.items, scale: c.reportInst.scale } : c;
+  }
+  function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(reportInstFor(c), c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
   function viewTeam(c: CatalogItem) { setSample(false); setTeamMode(true); setScores(scoreFromAggregate(c)); setMode("admin"); setExp(new Set()); go("report"); }
 
   async function finishRun(answers: Record<string, number>) {
@@ -222,6 +232,44 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
     const w = window.open("", "_blank", "width=820,height=1000");
     if (!w) { flash("Allow pop-ups to export"); return; }
     w.document.write(html); w.document.close();
+  }
+
+  // Structured exports of the same report — for a spreadsheet or a tool.
+  // Mirrors the print view's privacy: a candidate's own view exports bands, not
+  // raw means (admin / team-aggregate views export means too).
+  function exportWho() {
+    if (!active) return "report";
+    return sample ? "Sample profile" : teamMode ? `${active.name} · team` : userName;
+  }
+  function exportCsv() {
+    if (!active) return;
+    const who = exportWho();
+    const rows: (string | number | null)[][] = [
+      ["Assessment", active.name],
+      ["Who", who],
+      ["Scale", `${active.scale.min}-${active.scale.max}`],
+      [],
+      cand ? ["Dimension", "Band"] : ["Dimension", "Mean", "Band"],
+      ...scores.map((s) => (cand ? [s.label, BANDS[s.band]] : [s.label, Number(s.mean.toFixed(2)), BANDS[s.band]])),
+    ];
+    downloadText(`${fileSlug(`${active.name}-${who}`)}.csv`, "text/csv", toCsv(rows));
+  }
+  function exportJson() {
+    if (!active) return;
+    const who = exportWho();
+    const payload = {
+      assessment: active.name,
+      who,
+      scale: { min: active.scale.min, max: active.scale.max },
+      dimensions: scores.map((s) => ({
+        key: s.key,
+        label: s.label,
+        band: BANDS[s.band],
+        ...(cand ? {} : { mean: s.mean, pct: s.pct }),
+      })),
+      exportedAt: new Date().toISOString(),
+    };
+    downloadText(`${fileSlug(`${active.name}-${who}`)}.json`, "application/json", JSON.stringify(payload, null, 2));
   }
 
   // ---------- library ----------
@@ -493,7 +541,7 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
   const cand = mode === "candidate";
   // Personal trend: per-dimension movement since the first take (own report only).
   const showTrend = !sample && !teamMode && active.myHistory.length > 1;
-  const firstScores = showTrend ? scoreFrom(active, active.myHistory[0].scores) : [];
+  const firstScores = showTrend ? scoreFrom(reportInstFor(active), active.myHistory[0].scores) : [];
   return (
     <>
       <div className="a-phead">
@@ -508,7 +556,9 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
               {sharedKeys.has(active.key) ? "✓ Shared with team" : "Share with team"}
             </button>
           ) : null}
-          <button className="btn-sec" onClick={exportReport}>⤓ Export</button>
+          <button className="btn-sec" onClick={exportReport}>⤓ PDF</button>
+          <button className="btn-sec" onClick={exportCsv}>CSV</button>
+          <button className="btn-sec" onClick={exportJson}>JSON</button>
         </div>
       </div>
       <div className="a-report">
