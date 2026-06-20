@@ -1138,8 +1138,10 @@ export type Database = {
         Row: {
           id: string
           survey_id: string
-          respondent_id: string
+          respondent_id: string | null
+          respondent_hash: string | null
           scores: Json
+          comments: Json
           created_at: string
         }
         Insert: { [k: string]: unknown }
@@ -1621,8 +1623,12 @@ export type Database = {
         Returns: number
       }
       submit_survey_response: {
-        Args: { p_survey: string; p_scores: Json }
+        Args: { p_survey: string; p_scores: Json; p_comments?: Json }
         Returns: undefined
+      }
+      survey_comments: {
+        Args: { p_survey: string }
+        Returns: Json
       }
       save_survey_draft: {
         Args: { p_survey: string; p_scores: Json }
