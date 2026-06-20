@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
+import { AssessmentRunner } from "@/components/AssessmentRunner";
 import { ordinal } from "@/lib/util";
 import {
   dimensionMeans,
@@ -43,11 +44,8 @@ export function SurveyRespond({
 
 function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: string; inst: SurveyInstrument | null }) {
   const supabase = useMemo(() => createClient(), []);
-  const [scores, setScores] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
-  const [busy, setBusy] = useState(false);
-  const draftKey = `ota:svdraft:${survey.id}`;
 
   const loadResults = useCallback(async () => {
     if (!inst) return;
@@ -63,43 +61,20 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
         .eq("survey_id", survey.id)
         .eq("respondent_id", userId)
         .maybeSingle();
-      if (data) {
-        setSubmitted(true);
-        try { window.localStorage.removeItem(draftKey); } catch { /* ignore */ }
-      }
+      if (data) setSubmitted(true);
       loadResults();
     })();
-  }, [supabase, survey.id, userId, loadResults, draftKey]);
+  }, [supabase, survey.id, userId, loadResults]);
 
-  // Resume an unfinished read after a refresh / navigation (client-only draft).
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(draftKey);
-      if (raw) setScores(JSON.parse(raw));
-    } catch { /* ignore unreadable / disabled storage */ }
-  }, [draftKey]);
-
-  // Autosave the in-progress read so a closed tab doesn't lose it.
-  useEffect(() => {
-    try {
-      if (Object.keys(scores).length) window.localStorage.setItem(draftKey, JSON.stringify(scores));
-    } catch { /* ignore quota / disabled storage */ }
-  }, [scores, draftKey]);
-
-  async function submit() {
+  async function submit(scores: Record<string, number>) {
     if (!inst) return;
-    setBusy(true);
-    await supabase.rpc("submit_survey_response", { p_survey: survey.id, p_scores: scores });
-    setBusy(false);
+    const { error } = await supabase.rpc("submit_survey_response", { p_survey: survey.id, p_scores: scores });
+    if (error) throw error;
     setSubmitted(true);
     loadResults();
-    try { window.localStorage.removeItem(draftKey); } catch { /* ignore */ }
   }
 
   if (!inst) return null;
-  const allRated = inst.items.every((it) => scores[it.key]);
-  const answered = inst.items.filter((it) => scores[it.key]).length;
-  const total = inst.items.length;
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
@@ -110,38 +85,20 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
     <div className="svcard">
       <div className="svcard-h"><b>{survey.name}</b><span className="src">{inst.name}</span></div>
       {!submitted ? (
-        <>
-          <div className="svrespond-head">
-            <p className="assess-lead" style={{ margin: 0 }}>{inst.scale.min} = {inst.scale.minLabel} · {max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
-            <div className="svprog" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={answered}>
-              <div className="svprog-bar"><div className="svprog-fill" style={{ width: `${total ? Math.round((answered / total) * 100) : 0}%` }} /></div>
-              <span className="svprog-lab">{answered} of {total} answered</span>
-            </div>
-          </div>
-          {inst.dimensions.map((d) => (
-            <div key={d.key} className="svgroup">
-              <div className="svgroup-h">{d.label}</div>
-              {inst.items.filter((it) => it.dimension === d.key).map((it) => (
-                <div className="asq" key={it.key}>
-                  <div className="asq-q"><span>{it.text}</span></div>
-                  <div className="asopts sv7">
-                    {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
-                      <button key={v} className={scores[it.key] === v ? "on" : ""} onClick={() => setScores((s) => ({ ...s, [it.key]: v }))}>{v}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-          <div className="mactions"><button className="btn-prim" disabled={!allRated || busy} onClick={submit}>{busy ? "Submitting…" : "Submit my read"}</button></div>
-        </>
+        <AssessmentRunner
+          instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+          draftKey={`otaa:survey:${survey.id}`}
+          privacyNote="Anonymous in aggregate — individual answers are never shown."
+          submitLabel="Submit my read ›"
+          onSubmit={submit}
+        />
       ) : (
         <>
           <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
           <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "10px 0 0" }}>
             <div className="aa-h">
               Team reading
-              {respondents < 3 ? <span className="aa-mask">· {respondents} of 3 — {3 - respondents} more to reveal</span> : null}
+              {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
               {strength ? <span className={`svchip ${strength.tone}`}>{strength.label} on {strengthLabel}</span> : null}
             </div>
             {results && !results.masked && results.composite != null ? (

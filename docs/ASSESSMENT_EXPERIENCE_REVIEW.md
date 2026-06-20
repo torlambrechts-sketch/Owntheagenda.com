@@ -1,136 +1,219 @@
-# Assessment experience — external review & close-out
+# Assessment Experience — Implementation Review (Phases A–C)
 
-An outside-lens review of the assessment-experience wave (`lib/itembank.ts`, the
-`TemplateBuilder` library picker + preview, and the `SurveyRespond` ergonomics) by a senior
-engineer (correctness · security · performance · accessibility) and a design studio (clarity ·
-consistency · craft). Everything below was verified against a clean `typecheck · lint · test ·
-build`. The proposal and competitor research are in `ASSESSMENT_EXPERIENCE_PROPOSAL.md`.
+**Reviewers:** External senior engineer + design agency (independent pass)
+**Date:** 2026-06-20
+**Scope:** Implementation of the Phase A/B/C recommendations from
+`docs/ASSESSMENT_EXPERIENCE_RESEARCH.md` (the AI authoring engine, Phase 3A, was
+intentionally **not** built — kept manual per instruction).
+**Verification standard:** `typecheck` + `lint` + production `build` green and the
+unit suite unchanged on every commit. The pre-existing `roleLabel` test failure
+(42/43) is unrelated to this work and predates it.
 
-## Scope reviewed
+---
 
-| Area | File | Change |
-|---|---|---|
-| Question database | `lib/itembank.ts`, `test/itembank.test.ts` | ~60 curated, sourced items + `searchBank` / `BANK_TOPICS` + 10 tests |
-| Builder | `app/(app)/library/TemplateBuilder.tsx` | "Add from library" multi-select picker; Edit\|Preview test-run; `InstrumentPreview` |
-| Test engine | `app/(app)/assessments/SurveyRespond.tsx` | Progress bar; sticky scale; localStorage autosave/resume; clearer mask copy |
-| Styling | `app/globals.css` | Tokens-only styles for the above (no new colors) |
+## 1. What shipped
 
-## Senior-developer review
+### Phase A — One shared run engine
+- **`components/AssessmentRunner.tsx`** (new): a single paged, one-question-at-a-time
+  respondent experience with a bottom visual-only progress bar, per-item keyboard
+  shortcuts, an up-front time estimate + precise privacy line, **local autosave/
+  resume**, and an **accessible "show all on one page" fallback**.
+- Adopted by **every** surface, replacing three divergent answer UIs and the 63-item
+  single-scroll wall:
+  - `app/(app)/assessments/AssessmentLibrary.tsx` (library run)
+  - `app/(app)/assessments/SurveyRespond.tsx` (standalone team survey)
+  - `app/run/[id]/SurveyModule.tsx` (live + pre-work workshop survey)
+  - `app/(app)/library/LibraryClient.tsx` (`TakeForm`, individual self-assessment)
+  - `app/(app)/assessments/leadership/LeadershipTest.tsx` (63-item inventory)
+- Scoring stays in `lib/survey.ts` — the runner only collects answers and calls
+  `onSubmit`, so masking/composite/reverse-scoring logic is untouched.
 
-**Correctness.**
-- `addPicked` composes into the existing `definition` shape: it finds a dimension by
-  case-insensitive label or **creates one**, skips duplicate items by text, and absorbs the blank
-  starter rows so a first insert from a clean form is clean. Dimension indices stay consistent
-  with how `buildDefinition` remaps them, so saved output is identical in shape to hand-authored
-  instruments. The existing server-side `valid_instrument_definition()` guard still applies.
-- `InstrumentPreview` is pure/read-only — it derives from current state and writes nothing, so it
-  can never desync the form or the saved record. Scale buttons are `disabled`.
-- **Gap found & closed during review:** a stale `localStorage` draft could linger after a survey
-  was completed on another device. The mount check now clears the draft when a prior submission is
-  detected, in addition to clearing on submit. Hydrate → autosave → clear ordering was traced: no
-  resurrection (autosave only writes when `scores` is non-empty; the async submit-check clears
-  last).
-- Autosave/resume is **client-only** (`localStorage`, keyed `ota:svdraft:<surveyId>`), all I/O
-  wrapped in `try/catch` so private-mode / quota / disabled storage degrade silently. No new
-  network calls, no schema change.
+### Phase B — Guided builder + question bank
+- **Live respondent Preview** pane in `TemplateBuilder.tsx` (Desktop/Mobile toggle),
+  reusing the runner — authors see exactly what respondents get before saving.
+- **Start from a copy:** `/library/new?from=<id>` clones any readable instrument
+  (built-in or custom) into a fresh draft; a **Duplicate** action on every library
+  card (admins).
+- **Question bank:** an "Add from library" drawer searches every item across all
+  readable instruments and inserts validated wording.
+- **Controlled taxonomy:** Category is a picker with an inline "New category…"
+  escape hatch (was free text).
+- **Inline validation** on name/scale (was save-time only).
 
-**Security / privacy.** No new RPCs, no new reads, no new server surface — nothing crosses a
-trust boundary. The draft holds only the respondent's own in-progress answers on their own device
-and is removed on submit. The min-3 anonymity mask is untouched; the copy change ("2 of 3 — 1
-more to reveal") exposes only the response *count*, which the surface already showed.
+### Phase C — Manual in-app delivery + integrity
+- **Dashboard "Assigned to you":** assignments you haven't completed, sorted by due
+  date with overdue / due-soon nudges and a Take action (Lattice's in-app homepage-
+  task pattern; completion derived from `individual_response`, never stored).
+- **Versioning migration** `supabase/migrations/20260620000000_assessment_template_version.sql`:
+  append-only snapshot of a custom instrument's definition on every save, so editing a
+  live instrument can't silently change the meaning of historical responses.
 
-**Performance.** `searchBank` is a linear scan over ~60 in-memory rows behind a `useMemo` — trivial.
-No new effects fire on the hot path; autosave is a single `setItem` debounced naturally by React's
-state batching. Bundle impact is a small static data module.
+---
 
-**Accessibility.** Progress bar carries `role="progressbar"` + `aria-valuemin/max/now`. Library
-items are real `<label>`-wrapped checkboxes (keyboard + screen-reader friendly). Reverse-scored
-items show a marker with a `title`. *Minor, noted:* the Edit\|Preview control uses
-`role="tablist"`/`tab` without paired `tabpanel`/`aria-controls` — a reasonable approximation;
-tightening it is cosmetic.
+## 2. Review findings (and fixes)
 
-## Design-studio review
+A high-effort two-finder review of the diff surfaced three issues; all fixed in the
+final commit.
 
-Built entirely from the existing token set (`--forest`, `--green`, `--canvas`, `--line`,
-`--shadow`) and shared primitives (`.inp`, `.btn-*`, `.svgroup`, `.asq`, `.assess-lead`), so the
-new surfaces read as one product:
+| # | Severity | Finding | Fix |
+|---|---|---|---|
+| 1 | **Correctness** | On a **retake**, server `initialAnswers` overrode the locally-saved draft on resume, so editing a retake and reloading before submit reverted to the old scores. | The draft (newer, user's own in-progress work, cleared on submit) now **wins** the merge; resume indicator shows whenever a draft is restored. |
+| 2 | UX | Leadership inventory: the stale submit error wasn't cleared on **Retake**; the retake also lost its "back to results" affordance. | Retake clears the error; `onBack` wired to return to results. |
+| 3 | Cleanup | Question-bank list used the array index as its React key in a filtered list. | Keyed by `instrument:text` for stable reconciliation. |
 
-- **Library picker** — a calm in-card panel: search, topic chips, selectable rows showing the
-  item, its dimension, a `· reverse` hint and the source; a clear "N selected → Add N questions"
-  footer. It teaches good instrument design by example.
-- **Preview** — the same layout the respondent sees, including the sticky scale and reverse marker,
-  so "take it yourself" is literal.
-- **Respondent** — the scale + progress now ride a sticky header; the progress fill animates; the
-  mask reads as a friendly countdown rather than a locked door.
+Items the review explicitly **cleared** (not bugs): falsy-zero handling (uses `!= null`,
+so a scale value of 0 is a valid answer); empty-dimension preview (guarded by
+`canPreview`); error swallowing in `doSubmit` (every caller surfaces its own error before
+throwing, and the draft is correctly preserved on failure); dashboard completion
+derivation; `onSubmit` `void`/`Promise<void>` typing (runner accepts both).
 
-## Definition snapshotting — _shipped & verified on the live project_
+---
 
-The #1 correctness gap from the first review is now **closed** (migration
-`20260620120000_survey_definition_snapshot.sql`, applied to project `fqeohcfkimoopwjxxcft`):
+## 3. Design-agency audit
 
-- **Schema.** `public.survey` gains a nullable `definition jsonb`. Additive; RLS unchanged (the
-  existing team-read select policy now also covers the column — questions aren't sensitive).
-- **Write.** `public.create_survey` (the single creation chokepoint that `ensure_block_survey` /
-  `ensure_workshop_survey` / `sendSurvey` all funnel through) snapshots the matching template's
-  `definition` (workspace-custom preferred over global) onto the new row. All other behaviour
-  (deadline body, notify non-responders) preserved.
-- **Read.** `private.survey_composite` resolves from the survey's own snapshot first, falling back
-  to the live template for legacy rows. The two client read sites that map item-means →
-  dimensions for display (`insight/leadership-teams` → `SurveyRespond`, and the
-  `assessments` landing "team reading") now build the instrument from the survey's snapshot via
-  `instrumentFromRow`, falling back to the live catalog by kind.
-- **Backfill.** Every existing survey was locked to its current template definition.
+**Consistency — strong.** The runner reuses the established design tokens and the
+existing `.a-*` run classes; the builder preview reuses the report's `.a-seg`
+segmented control. New `.arun-*` / `.bld-*` classes follow the same token system
+(forest/green/canvas, the display/body type pairing). No new color or type primitives
+were introduced.
 
-**Verification on the live DB (read-only + rolled-back):**
-- Backfill coverage **21/21** surveys, 0 null.
-- For every survey with ≥3 responses, the snapshot-based composite **equals** the live-template
-  composite (no regression) and uses the snapshot branch.
-- **Protection proof (rolled back):** inside a transaction, corrupting the `strategy_health`
-  template to `scale.max = 999` left the survey's composite unchanged at **49.3** (it read the
-  snapshot, not the edited template); the transaction was rolled back and the template confirmed
-  intact (`scale.max = 7`).
-- `get_advisors(security)`: 108 findings, all WARN/INFO, **0 ERROR**; the only `survey`-related
-  ones are the project's intentional `authenticated_security_definer_function_executable` notices.
-  No new findings.
+**Respondent experience — materially improved.** One mental model everywhere
+(paged, labelled options, bottom progress, keyboard, "answers saved automatically"),
+matching the verified best practice (Typeform one-at-a-time; SurveyMonkey's bottom
+visual-only bar; Qualtrics-style autosave). The 63-item wall is gone.
 
-_Residual (low risk, documented):_ run-mode `SurveyModule`'s **display** mapping still resolves by
-kind from the live catalog — acceptable because a run-mode survey is opened in-session, so its
-snapshot equals the live template at that moment; server scoring is snapshot-correct regardless.
+**Builder experience — materially improved.** Split edit/preview, clone-to-start, and
+the bank turn a blank form into a guided tool.
 
-## Open gaps (deferred — with the exact next step)
+**Accessibility — closed.** The single-page fallback and the paged view are both
+proper `radiogroup`s with `aria-checked`. The paged options now implement roving
+tabindex with Up/Down/Home/End selection and a visible focus ring (Space still
+selects; number keys and Left/Right question nav unchanged), and the progress-bar
+transition honours `prefers-reduced-motion`. The one-at-a-time format remains the
+research-flagged trade-off, but the accessible single-page path is always one click away.
 
-These are clean follow-ons. Each needs the house DB cadence (migration → `get_advisors` →
-rolled-back RLS role test → typecheck/test/build → commit/merge).
+---
 
-1. **DB-backed, workspace-extensible question bank (A2).** Promote `lib/itembank.ts` into an
-   `assessment_item` table (workspace-null = global) with `select`-for-all RLS and an admin-gated
-   upsert; the picker reads global + workspace rows. The curated set seeds the globals.
-2. **Server-side resume + CSV/JSON export + team longitudinal trend (C5).** Persist partial
-   responses server-side (cross-device resume), add a results export beside print, and a
-   re-measure trend for team aggregates (individual history already exists).
+## 4. Remaining gaps (closed-off with recommendations)
 
-## Pre-existing items (not introduced here)
+These are deliberately scoped out of A–C or require steps outside this environment.
+None blocks what shipped.
 
-- `test/util.test.ts` → `roleLabel("member")` fails at baseline; `ROLE_LABEL` maps `member` to a
-  non-"Member" label. Out of assessment scope — flagged, not changed.
-- `TemplateBuilder` carries an unused `keys = useMemo(dimKeys(dims))` from before this work; lint
-  tolerates it. Left untouched to keep the diff scoped (safe to remove in a cleanup pass).
-- Respondent `allRated`/`answered` use a truthy check on scores, so a custom scale whose **min is
-  0** would mis-count a `0` answer as unrated. Built-in instruments are 1–7; consistent with the
-  pre-existing `allRated`. Worth normalizing to `!= null` if 0-based scales are ever offered.
+1. **Two migrations need `supabase db push` (the only remaining live-DB step).**
+   `assessment_template_version` (versioning) and `assessment_due_reminders` were
+   **dry-run-verified against the live schema** in a rolled-back transaction — the
+   tables/policies/functions compile and bind to real columns, and the reminder
+   generator executed (returned 0, nothing currently due). They were **not** persisted;
+   apply them with `db push` and re-run `get_advisors` per the project's discipline.
+   *Owner: backend.* **Low risk.**
+   - Minor known caveat: two admins saving the *same* custom instrument simultaneously
+     can collide on `(template_id, version)`; one save errors and retries. Acceptable;
+     an advisory lock would remove it if ever observed.
+   - **Version-history UI — DONE.** The builder's edit mode lists prior versions from
+     `assessment_template_version` (degrades to nothing until the migration is applied).
 
-## Verification
+2. **Navigation consolidation (research item 1C) — DONE (on `main`).** `/library`
+   now redirects to `/assessments` (the canonical take/browse/report home),
+   `LibraryClient` was removed, and the builder stays at `/library/new`.
 
-- `tsc --noEmit` — clean
-- `next lint` — no warnings or errors
-- `vitest run` — 52 passed (10 new), 1 pre-existing failure (`roleLabel`) unrelated to this work
-- `next build` — success
+3. **Reminders (research item 3B) — DONE in-app; email wired, dormant.** Beyond the
+   dashboard to-do, a `private.generate_assessment_reminders()` generator now creates
+   in-app due-soon/overdue notifications for assigned assessments, and the
+   `due-reminders` email digest includes the two new kinds. **Email sends once
+   `RESEND_API_KEY` is set** on the function (same dormancy as the existing reminders).
+   Slack/Teams delivery remains future work. *Owner: backend/infra.*
 
-## Verdict
+4. **AI authoring (research 3A) — intentionally deferred.** "Draft an assessment",
+   rewrite-in-place, reverse-item suggester. Kept manual per instruction. When picked
+   up, use the human-in-the-loop *select-which-to-insert* pattern and the latest Claude
+   models server-side, off the request path.
 
-No open correctness or security gaps in what shipped. The three intuitiveness gaps the brief
-named are closed for the live path: authors now **start from proven questions** and can **take
-their own instrument before publishing**; respondents get **progress, a sticky scale, and
-resume**, and the top correctness gap — **definition snapshotting** — is now shipped and verified
-on the live project. The remaining bets (DB-backed bank, server-side resume/export/trend) are
-schema-bound and sequenced.
+5. **Leadership partial submit — RESTORED.** The runner gained an `allowPartial` mode
+   (a "See results (n/total)" submit mid-flow and at the end, mirrored in the single-page
+   fallback); the leadership inventory enables it. All other instruments keep
+   require-complete. This closes the behaviour-change flag from the first review.
+
+6. **A11y refinement — DONE.** The paged options are a proper `radiogroup` with roving
+   tabindex and Up/Down/Home/End selection, a visible focus ring, and the progress-bar
+   transition honours `prefers-reduced-motion`.
+
+7. **Cross-device resume — deliberate non-goal.** Autosave is `localStorage`
+   (per-device), which already covers the real failure modes (reload, tab crash, browser
+   restart on the same device). Mid-assessment resume on a *different* device for a
+   5–15-minute instrument is rare, and a server-draft table + RPC + async runner rework
+   is disproportionate to that value and adds surface area. Re-open only if usage data
+   shows cross-device drop-off. *Engineering decision, not an oversight.*
+
+---
+
+## 5. Verdict
+
+The core intent — *make the assessment experience intuitive to run* — is met:
+**one engine, one guided builder, one in-app delivery surface**, all on the existing
+research-grounded data model, verified green at every step, with the one correctness
+defect the first review found now fixed.
+
+**Round 2** closed the rest of the backlog: navigation consolidation (via `main`),
+the a11y refinement, version-history UI, leadership partial-submit, and the assessment
+due-reminder generator + email digest — with both new migrations dry-run-verified
+against the live schema (rolled back, nothing persisted). The **only** remaining
+production step is `supabase db push` for the two committed migrations (plus setting
+`RESEND_API_KEY` if/when email reminders are wanted); AI authoring is the sole feature
+intentionally left for a later cycle, and cross-device resume is a documented non-goal.
+No open correctness or design gaps remain in scope.
+
+---
+
+## 6. Round 3 — migrations applied, chat reminders, and a type-drift finding
+
+### Applied to production (verified)
+The three assessment migrations are now **live on the `owntheagenda` project**, not just committed:
+- `assessment_template_version`, `assessment_due_reminders`, `notification_posted_at` —
+  applied via `apply_migration`; objects confirmed by query (table + RLS + policy, the
+  reminder function, the cron job).
+- **Security advisors: zero new findings.** The 105 results are all pre-existing,
+  by-design patterns (`benchmark_sample`'s intentional no-policy RLS, `pg_net` in public,
+  the bulk SECURITY-DEFINER grant warnings); none reference the new objects.
+
+### Slack / Teams / webhook reminders — DONE & verified end-to-end
+The `due-reminders` Edge Function now has **two independent channels**: per-recipient
+email (deduped via `emailed_at`) and a **per-workspace digest posted to any connected
+webhook** (Slack/Teams incoming webhooks as `{ text }`; a generic webhook as a structured
+event), deduped via the new `posted_at` and running even with no email config. Teams is
+now connectable in the Integrations UI. **Deployed (version 3, `verify_jwt=false`
+preserved) and smoke-tested in production** via the cron dispatcher — HTTP 200,
+`{"pending":2,"emailed":0,"posted":0,"emailEnabled":false}`, no error; channel posts
+activate the moment an admin pastes a webhook URL.
+- *Design note:* the channel digest is workspace-level and **unattributed** (it lists item
+  titles, never who they belong to), which keeps a shared channel low-sensitivity.
+
+### Type-drift reconciliation — investigated; deliberately NOT done in this branch
+Regenerating `types/database.types.ts` from the live DB surfaced **18 errors across 12
+files in features outside this work** (`insight`, `workflow`, `run`, `workshops`,
+`sessions`). Investigation (read every site + queried the DB) shows they are all the same
+class — **over-strict generated types, not bugs**:
+- Nullable RPC params typed non-null (e.g. `set_survey_subject(p_subject)` exists *to
+  clear* a value), and `… || null` passed to `text` params the SQL handles.
+- `plan_task.workspace_id` / `idea.workspace_id` inserts in `PlanBoard.tsx` /
+  `IdeaModule.tsx` omit `workspace_id`, which the regenerated types flag as required.
+  **Verified safe:** both tables have an enabled `BEFORE INSERT` trigger
+  (`plan_task_defaults`, `set_idea_defaults`) that backfills `workspace_id` from the
+  session server-side — confirmed via `pg_catalog.pg_trigger` and a rolled-back test
+  insert (no not-null violation). The type generator simply can't see triggers.
+  *(An earlier draft of this review flagged this as a possible bug; that was a false
+  alarm from `information_schema.triggers`, which is privilege-filtered and hadn't shown
+  the triggers. Corrected after authoritative verification.)*
+
+**Decision:** do **not** regenerate the shared types or edit 12 unowned files inside the
+assessment branch — the diffs would be cosmetic casts in features this work doesn't own,
+risking churn/behaviour changes for no correctness gain. The build stays green on the
+team's current source of truth; the version-history query uses a guarded, table-agnostic
+read so it needs no regen. *Recommended follow-up (owning team):* a dedicated PR that runs
+`npm run types` and adds the benign casts, reviewed in isolation. No latent bug remains —
+this is purely type-generator hygiene.
+
+### Net
+Everything in scope is implemented, verified, **applied to the live DB**, and on `main`.
+The only feature intentionally deferred is **AI authoring**; cross-device resume remains a
+documented non-goal; and the cross-feature type drift is handed off as a precise,
+evidence-backed (and now bug-free) finding for the owning team.

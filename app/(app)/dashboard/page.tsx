@@ -19,6 +19,34 @@ export default async function DashboardPage() {
     supabase.from("action_item").select("*", { count: "exact", head: true }).eq("workspace_id", wsId).eq("status", "open"),
   ]);
 
+  // Assessments assigned to me that I haven't completed yet — a personal to-do
+  // with a due-date nudge (delivered in-app, à la Lattice's homepage task).
+  // Completion is derived from individual_response, never stored, so it can't
+  // drift out of sync.
+  const { data: myAssignments } = await supabase
+    .from("assessment_assignment")
+    .select("template_key, note, due_at")
+    .eq("workspace_id", wsId)
+    .eq("assignee_user_id", ctx.userId);
+  const assignKeys = Array.from(new Set((myAssignments ?? []).map((a) => a.template_key as string)));
+  const [{ data: assignDone }, { data: assignTpls }] = assignKeys.length
+    ? await Promise.all([
+        supabase.from("individual_response").select("template_key").eq("workspace_id", wsId).eq("user_id", ctx.userId).in("template_key", assignKeys),
+        supabase.from("assessment_template").select("key, name").in("key", assignKeys),
+      ])
+    : [{ data: [] as { template_key: string }[] }, { data: [] as { key: string; name: string }[] }];
+  const doneKeys = new Set((assignDone ?? []).map((r) => r.template_key as string));
+  const tplName = new Map((assignTpls ?? []).map((t) => [t.key as string, t.name as string]));
+  const assignedTodo = (myAssignments ?? [])
+    .filter((a) => !doneKeys.has(a.template_key as string))
+    .map((a) => ({
+      key: a.template_key as string,
+      name: tplName.get(a.template_key as string) ?? (a.template_key as string),
+      note: (a.note as string | null) ?? null,
+      dueAt: (a.due_at as string | null) ?? null,
+    }))
+    .sort((x, y) => (x.dueAt ?? "9999").localeCompare(y.dueAt ?? "9999"));
+
   const { data: upcoming } = await supabase
     .from("workshop")
     .select("id, title, scheduled_at")
@@ -76,6 +104,38 @@ export default async function DashboardPage() {
           <div className="lab">Plan · {ctx.workspace.data_region.toUpperCase()}</div>
         </div>
       </div>
+
+      {assignedTodo.length ? (
+        <div style={{ marginBottom: 24 }}>
+          <div className="cat-head" style={{ fontSize: 16, marginTop: 8 }}>Assigned to you <span className="n">{assignedTodo.length}</span></div>
+          <div className="tbl-card">
+            <table className="tbl">
+              <tbody>
+                {assignedTodo.map((a) => {
+                  const due = a.dueAt ? new Date(a.dueAt) : null;
+                  const overdue = due ? due < new Date() : false;
+                  const soon = due ? !overdue && due.getTime() - Date.now() < 3 * 24 * 3600 * 1000 : false;
+                  return (
+                    <tr key={a.key}>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{a.name}</span>
+                        {a.note ? <span style={{ color: "var(--faint)", fontSize: 12 }}> · “{a.note}”</span> : null}
+                      </td>
+                      <td style={{ color: overdue ? "var(--rust)" : soon ? "var(--amber, var(--rust))" : "var(--muted)", width: 200 }}>
+                        {due ? due.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }) : "No due date"}
+                        {overdue ? " · overdue" : soon ? " · due soon" : ""}
+                      </td>
+                      <td className="r" style={{ width: 110 }}>
+                        <Link className="linkbtn" href="/assessments">Take ▸</Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
 
       {(upcoming ?? []).length ? (
         <div style={{ marginBottom: 24 }}>

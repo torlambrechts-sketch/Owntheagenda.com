@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ordinal } from "@/lib/util";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
+import { AssessmentRunner } from "@/components/AssessmentRunner";
 import {
   dimensionMeans,
   climateStrength,
@@ -49,7 +50,6 @@ export function SurveyModule({
   const supabase = useMemo(() => createClient(), []);
   const inst = instrument;
   const [surveyId, setSurveyId] = useState<string | null>(initialSurveyId);
-  const [scores, setScores] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,18 +105,16 @@ export function SurveyModule({
     setBusy(false);
     if (!error && data) setSurveyId(data as string);
   }
-  async function submit() {
+  async function submit(scores: Record<string, number>) {
     if (!surveyId) return;
-    setBusy(true);
-    await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores });
-    setBusy(false);
+    const { error } = await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores });
+    if (error) throw error;
     setSubmitted(true);
     loadResults(surveyId);
   }
 
   if (!inst) return <div className="assess-empty">Unknown instrument.</div>;
 
-  const allRated = inst.items.every((it) => scores[it.key]);
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
@@ -155,25 +153,14 @@ export function SurveyModule({
           <>
             {!submitted ? (
               <div className="assess-form">
-                <p className="assess-lead">{inst.scale.min} = {inst.scale.minLabel} · {inst.scale.max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
-                {inst.dimensions.map((d) => (
-                  <div key={d.key} className="svgroup">
-                    <div className="svgroup-h">{d.label}</div>
-                    {inst.items.filter((it) => it.dimension === d.key).map((it) => (
-                      <div className="asq" key={it.key}>
-                        <div className="asq-q"><span>{it.text}</span></div>
-                        <div className="asopts sv7">
-                          {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
-                            <button key={v} className={scores[it.key] === v ? "on" : ""} onClick={() => setScores((s) => ({ ...s, [it.key]: v }))}>{v}</button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                <div className="mactions">
-                  <button className="btn-prim" disabled={!allRated || busy} onClick={submit}>{busy ? "Submitting…" : "Submit my read"}</button>
-                </div>
+                <AssessmentRunner
+                  instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+                  draftKey={`otaa:block:${blockId}:${surveyId}`}
+                  privacyNote="Anonymous in aggregate — individual answers are never shown."
+                  estimateMins={2}
+                  submitLabel="Submit my read ›"
+                  onSubmit={submit}
+                />
               </div>
             ) : (
               <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
