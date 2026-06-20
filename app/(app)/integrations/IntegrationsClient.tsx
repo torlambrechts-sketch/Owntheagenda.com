@@ -17,7 +17,7 @@ type Provider = {
 const CATALOG: Provider[] = [
   { key: "slack", name: "Slack", blurb: "Post session readouts and reminders to a channel.", field: { key: "webhook_url", label: "Incoming webhook URL", placeholder: "https://hooks.slack.com/services/…" } },
   { key: "webhook", name: "Webhook", blurb: "Send session and action events to any HTTPS endpoint.", field: { key: "url", label: "Endpoint URL", placeholder: "https://…" } },
-  { key: "teams", name: "Microsoft Teams", blurb: "Share readouts and nudges in a Teams channel." },
+  { key: "teams", name: "Microsoft Teams", blurb: "Post reminders and readouts to a Teams channel.", field: { key: "webhook_url", label: "Incoming webhook URL", placeholder: "https://…webhook.office.com/…" } },
   { key: "google_calendar", name: "Google Calendar", blurb: "Put follow-ups and sessions on the calendar." },
   { key: "zoom", name: "Zoom", blurb: "Run live sessions over Zoom." },
   { key: "entra", name: "Microsoft Entra ID", blurb: "Single sign-on and directory sync." },
