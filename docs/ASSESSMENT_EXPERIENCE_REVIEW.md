@@ -190,28 +190,30 @@ activate the moment an admin pastes a webhook URL.
 ### Type-drift reconciliation — investigated; deliberately NOT done in this branch
 Regenerating `types/database.types.ts` from the live DB surfaced **18 errors across 12
 files in features outside this work** (`insight`, `workflow`, `run`, `workshops`,
-`sessions`). Investigation (read every site + queried the DB) shows two classes:
-1. **Over-strict types (benign):** nullable RPC params typed non-null (e.g.
-   `set_survey_subject(p_subject)` exists *to clear* a value), and `… || null` passed to
-   `text` params the SQL handles. Cosmetic; a cast would satisfy TS without changing
-   runtime.
-2. **A possible real latent bug (needs the owning team):** `plan_task.workspace_id` and
-   `idea.workspace_id` are **NOT NULL, no default, no trigger** (confirmed by DB query),
-   yet the client inserts in `PlanBoard.tsx` / `IdeaModule.tsx` / `RunClient.tsx` **omit
-   `workspace_id`**. The committed (lax) types hide this; the regenerated types flag it.
-   If those insert paths are live, they would fail at runtime — but the correct fix (where
-   should `workspace_id` come from?) requires domain knowledge of those features.
+`sessions`). Investigation (read every site + queried the DB) shows they are all the same
+class — **over-strict generated types, not bugs**:
+- Nullable RPC params typed non-null (e.g. `set_survey_subject(p_subject)` exists *to
+  clear* a value), and `… || null` passed to `text` params the SQL handles.
+- `plan_task.workspace_id` / `idea.workspace_id` inserts in `PlanBoard.tsx` /
+  `IdeaModule.tsx` omit `workspace_id`, which the regenerated types flag as required.
+  **Verified safe:** both tables have an enabled `BEFORE INSERT` trigger
+  (`plan_task_defaults`, `set_idea_defaults`) that backfills `workspace_id` from the
+  session server-side — confirmed via `pg_catalog.pg_trigger` and a rolled-back test
+  insert (no not-null violation). The type generator simply can't see triggers.
+  *(An earlier draft of this review flagged this as a possible bug; that was a false
+  alarm from `information_schema.triggers`, which is privilege-filtered and hadn't shown
+  the triggers. Corrected after authoritative verification.)*
 
-**Decision:** do **not** regenerate the shared types or blind-edit 12 unowned files inside
-the assessment branch — that would either mask the real bug with casts or risk behaviour
-changes in features this work doesn't own. The build stays green on the team's current
-source of truth; the version-history query uses a guarded, table-agnostic read so it needs
-no regen. *Recommended follow-up (owning team):* a dedicated PR that runs `npm run types`,
-fixes the `plan_task`/`idea` `workspace_id` inserts, and casts the benign RPC-param sites —
-reviewed in isolation. This is the responsible scoping, not an oversight.
+**Decision:** do **not** regenerate the shared types or edit 12 unowned files inside the
+assessment branch — the diffs would be cosmetic casts in features this work doesn't own,
+risking churn/behaviour changes for no correctness gain. The build stays green on the
+team's current source of truth; the version-history query uses a guarded, table-agnostic
+read so it needs no regen. *Recommended follow-up (owning team):* a dedicated PR that runs
+`npm run types` and adds the benign casts, reviewed in isolation. No latent bug remains —
+this is purely type-generator hygiene.
 
 ### Net
 Everything in scope is implemented, verified, **applied to the live DB**, and on `main`.
 The only feature intentionally deferred is **AI authoring**; cross-device resume remains a
-documented non-goal; and the cross-feature type-drift is handed off as a precise,
-evidence-backed finding for the owning team.
+documented non-goal; and the cross-feature type drift is handed off as a precise,
+evidence-backed (and now bug-free) finding for the owning team.
