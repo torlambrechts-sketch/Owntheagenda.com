@@ -39,11 +39,13 @@ const FULL_LOOP_STEPS: ComposerStep[] = [
 export function FlowComposer({
   teams,
   assessments,
+  templates,
   pending,
   onCreate,
 }: {
   teams: Named[];
   assessments: { key: string; name: string }[];
+  templates: { id: string; name: string }[];
   pending: boolean;
   onCreate: (
     title: string,
@@ -52,6 +54,7 @@ export function FlowComposer({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
+    workshopTemplate: string | null,
   ) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -60,6 +63,7 @@ export function FlowComposer({
   const [collectDays, setCollectDays] = useState(7);
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
   const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
+  const [workshopTemplate, setWorkshopTemplate] = useState("");
 
   function patch(i: number, p: Partial<ComposerStep>) {
     setSteps((s) => s.map((step, idx) => (idx === i ? { ...step, ...p } : step)));
@@ -174,6 +178,21 @@ export function FlowComposer({
                 </select>
                 <a className="fc-new" href="/assessments">+ Create new assessment</a>
               </>
+            ) : s.kind === "workshop" ? (
+              <>
+                <select
+                  className="inp sm"
+                  value={workshopTemplate}
+                  onChange={(e) => setWorkshopTemplate(e.target.value)}
+                  aria-label="Workshop template"
+                >
+                  <option value="">Pick when ready (build manually)</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <a className="fc-new" href="/library">+ Create new template</a>
+              </>
             ) : (
               <span className="fc-hint">{kindHint(s.kind)}</span>
             )}
@@ -192,7 +211,9 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays)}
+          onClick={() =>
+            onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays, workshopTemplate || null)
+          }
         >
           Create flow
         </button>

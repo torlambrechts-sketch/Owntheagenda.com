@@ -132,9 +132,10 @@ export function WorkflowClient({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
+    workshopTemplate: string | null,
   ) {
     run(
-      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays),
+      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays, workshopTemplate),
       () => flash("Flow created"),
     );
   }
@@ -333,7 +334,15 @@ export function WorkflowClient({
         </div>
       </div>
 
-      {canManage ? <FlowComposer teams={teams} assessments={assessments} pending={pending} onCreate={createComposed} /> : null}
+      {canManage ? (
+        <FlowComposer
+          teams={teams}
+          assessments={assessments}
+          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          pending={pending}
+          onCreate={createComposed}
+        />
+      ) : null}
 
       {canManage ? (
         <Plays
