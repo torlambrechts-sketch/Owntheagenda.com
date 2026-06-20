@@ -27,6 +27,10 @@ export type Database = {
           title: string
           status: string
           current_ord: number
+          kind: string
+          min_responses: number
+          play_key: string | null
+          auto_workshop_template: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -47,6 +51,7 @@ export type Database = {
           ref_table: string | null
           ref_id: string | null
           gate: string | null
+          config: Json
           scheduled_at: string | null
           completed_at: string | null
           created_at: string
@@ -1214,10 +1219,52 @@ export type Database = {
       }
       program_status: {
         Args: { p_program: string }
-        Returns: { step_id: string; live: string | null; ready: boolean }[]
+        Returns: { step_id: string; live: string | null; ready: boolean; done: number | null; target: number | null }[]
       }
       program_sync: {
         Args: { p_program: string }
+        Returns: undefined
+      }
+      create_flow: {
+        Args: { p_workspace: string; p_title: string; p_team?: string | null; p_min_responses?: number }
+        Returns: string
+      }
+      flow_remind: {
+        Args: { p_program: string }
+        Returns: number
+      }
+      start_play: {
+        Args: {
+          p_workspace: string
+          p_team: string
+          p_play_key: string
+          p_title: string
+          p_workshop_template_key: string
+          p_min_responses?: number
+        }
+        Returns: string
+      }
+      program_add_step: {
+        Args: { p_program: string; p_after_ord: number; p_kind: string; p_title: string }
+        Returns: string
+      }
+      program_remove_step: {
+        Args: { p_step: string }
+        Returns: undefined
+      }
+      program_move_step: {
+        Args: { p_step: string; p_dir: number }
+        Returns: undefined
+      }
+      program_set_branch: {
+        Args: {
+          p_step: string
+          p_dynamic: string
+          p_op: string
+          p_value: number
+          p_then_template: string
+          p_else_template: string
+        }
         Returns: undefined
       }
       program_start_pulse: {

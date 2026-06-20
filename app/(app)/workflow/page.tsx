@@ -13,13 +13,13 @@ export default async function WorkflowPage() {
   const [{ data: programs }, { data: teams }, { data: templates }] = await Promise.all([
     supabase
       .from("program")
-      .select("id, title, status, current_ord, team_id, created_at")
+      .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, created_at")
       .eq("workspace_id", wsId)
       .order("created_at", { ascending: false }),
     supabase.from("team").select("id, name").eq("workspace_id", wsId).is("deleted_at", null).order("name"),
     supabase
       .from("template")
-      .select("id, name, workspace_id")
+      .select("id, name, key, category, workspace_id")
       .or(`workspace_id.is.null,workspace_id.eq.${wsId}`)
       .order("name"),
   ]);
@@ -28,17 +28,18 @@ export default async function WorkflowPage() {
   const { data: steps } = ids.length
     ? await supabase
         .from("program_step")
-        .select("id, program_id, ord, kind, title, status, gate, scheduled_at, completed_at")
+        .select("id, program_id, ord, kind, title, status, gate, config, scheduled_at, completed_at")
         .in("program_id", ids)
         .order("ord", { ascending: true })
-    : { data: [] as { id: string; program_id: string; ord: number; kind: string; title: string; status: string; gate: string | null; scheduled_at: string | null; completed_at: string | null }[] };
+    : { data: [] as { id: string; program_id: string; ord: number; kind: string; title: string; status: string; gate: string | null; config: unknown; scheduled_at: string | null; completed_at: string | null }[] };
 
   // Live state (pulse responses, workshop status, re-pulse date) per linked step.
-  const live = new Map<string, { live: string | null; ready: boolean }>();
+  const live = new Map<string, { live: string | null; ready: boolean; done: number | null; target: number | null }>();
   await Promise.all(
     ids.map(async (pid) => {
       const { data } = await supabase.rpc("program_status", { p_program: pid });
-      for (const r of data ?? []) live.set(r.step_id, { live: r.live, ready: r.ready });
+      for (const r of data ?? [])
+        live.set(r.step_id, { live: r.live, ready: r.ready, done: r.done, target: r.target });
     }),
   );
 
@@ -53,10 +54,13 @@ export default async function WorkflowPage() {
       title: s.title,
       status: s.status,
       gate: s.gate,
+      config: (s.config ?? {}) as Record<string, unknown>,
       scheduledAt: s.scheduled_at,
       completedAt: s.completed_at,
       live: l?.live ?? null,
       ready: l?.ready ?? false,
+      done: l?.done ?? null,
+      target: l?.target ?? null,
     });
     byProgram.set(s.program_id, arr);
   }
@@ -67,6 +71,9 @@ export default async function WorkflowPage() {
     status: p.status,
     currentOrd: p.current_ord,
     teamId: p.team_id,
+    kind: p.kind,
+    playKey: p.play_key,
+    minResponses: p.min_responses,
     steps: byProgram.get(p.id) ?? [],
   }));
 
@@ -76,7 +83,7 @@ export default async function WorkflowPage() {
       canManage={isAdmin(ctx.role)}
       programs={view}
       teams={(teams ?? []).map((t) => ({ id: t.id, name: t.name }))}
-      templates={(templates ?? []).map((t) => ({ id: t.id, name: t.name }))}
+      templates={(templates ?? []).map((t) => ({ id: t.id, name: t.name, key: t.key, category: t.category }))}
     />
   );
 }
