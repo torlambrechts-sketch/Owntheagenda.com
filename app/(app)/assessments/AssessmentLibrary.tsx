@@ -271,92 +271,100 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             ))}
           </div>
         ) : null}
-        {/* templates on top */}
-        {personality.length ? (
-          <div className="a-group">
-            <div className="a-gt">Personality</div>
-            <div className="a-lib">{personality.map(card)}</div>
+        {/* templates first, in a box (like the workshop "Create" card) */}
+        <div className="wk-create">
+          <div className="cat-head wk-create-h">Start an assessment</div>
+          <div className="a-tplbody">
+            {personality.length ? (
+              <div className="a-group">
+                <div className="a-gt">Personality</div>
+                <div className="a-lib">{personality.map(card)}</div>
+              </div>
+            ) : null}
+            {team.length ? (
+              <div className="a-group">
+                <div className="a-gt">Team</div>
+                <div className="a-lib">{team.map(card)}</div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {team.length ? (
-          <div className="a-group">
-            <div className="a-gt">Team</div>
-            <div className="a-lib">{team.map(card)}</div>
-          </div>
-        ) : null}
-
-        {/* tabbed table */}
-        <div className="wtabs" style={{ marginTop: 24 }}>
-          <button className={`wtab${libTab === "assessments" ? " on" : ""}`} onClick={() => setLibTab("assessments")}>Assessments <span className="wtab-n">{catalog.length}</span></button>
-          <button className={`wtab${libTab === "sessions" ? " on" : ""}`} onClick={() => setLibTab("sessions")}>Sessions <span className="wtab-n">{sessions.length}</span></button>
-          <button className={`wtab${libTab === "responses" ? " on" : ""}`} onClick={() => setLibTab("responses")}>Responses <span className="wtab-n">{responses.length}</span></button>
         </div>
 
-        {libTab === "assessments" ? (
-          <div className="tbl-card">
-            <table className="tbl">
-              <thead>
-                <tr><th>Instrument</th><th style={{ width: 110 }}>Type</th><th style={{ width: 100 }}>Dimensions</th><th style={{ width: 80 }}>Time</th><th style={{ width: 140 }}>Your status</th><th style={{ width: 70 }} /></tr>
-              </thead>
-              <tbody>
-                {catalog.map((c) => (
-                  <tr key={c.key} onClick={() => openDetail(c)} style={{ cursor: "pointer" }}>
-                    <td><span style={{ fontWeight: 600 }}>{c.name}</span><small style={{ display: "block", color: "var(--muted)" }}>{c.category}</small></td>
-                    <td>{c.scope === "team" ? "Team" : "Personality"}</td>
-                    <td>{c.dimensions.length}</td>
-                    <td>{c.items.length ? `~${c.mins}m` : "—"}</td>
-                    <td>{c.completedByMe ? <span className="pill sm open">Completed</span> : c.assignedToMe ? <span className="pill sm draft">Assigned</span> : <span style={{ color: "var(--faint)" }}>Not taken</span>}</td>
-                    <td className="r"><span className="linkbtn">Open ›</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : libTab === "sessions" ? (
-          sessions.length ? (
-            <div className="tbl-card">
-              <table className="tbl">
-                <thead>
-                  <tr><th>Instrument</th><th>Team</th><th style={{ width: 100 }}>Status</th><th style={{ width: 110 }}>Respondents</th><th style={{ width: 140 }}>Run</th></tr>
-                </thead>
-                <tbody>
-                  {sessions.map((s) => (
-                    <tr key={s.id}>
-                      <td style={{ fontWeight: 600 }}>{s.instrument}</td>
-                      <td style={{ color: "var(--muted)" }}>{s.team ?? "—"}</td>
-                      <td><span className={`pill sm ${s.status === "open" ? "open" : "draft"}`}>{s.status}</span></td>
-                      <td>{s.respondents}</td>
-                      <td style={{ color: "var(--muted)" }}>{fmtDate(s.date)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : <div className="card empty">No assessment sessions yet. Open a team assessment to run one for your team.</div>
-        ) : (
-          responses.length ? (
-            <div className="tbl-card">
-              <table className="tbl">
-                <thead>
-                  <tr><th>Instrument</th><th style={{ width: 110 }}>Type</th><th style={{ width: 160 }}>Taken</th><th style={{ width: 130 }} /></tr>
-                </thead>
-                <tbody>
-                  {responses.map((r) => {
-                    const c = catalog.find((x) => x.key === r.key);
-                    return (
-                      <tr key={r.key} onClick={() => c && openDetail(c)} style={{ cursor: c ? "pointer" : "default" }}>
-                        <td style={{ fontWeight: 600 }}>{r.instrument}</td>
-                        <td>{r.scope === "team" ? "Team" : "Personality"}</td>
-                        <td style={{ color: "var(--muted)" }}>{fmtDate(r.takenAt)}</td>
-                        <td className="r">{c ? <span className="linkbtn">View report ›</span> : null}</td>
+        {/* tabbed table: green folder tabs + white panel */}
+        <nav className="otabband" aria-label="Assessment views">
+          <button className={`otabband-t${libTab === "assessments" ? " on" : ""}`} onClick={() => setLibTab("assessments")}>Assessments <span className="otabband-c">{catalog.length}</span></button>
+          <button className={`otabband-t${libTab === "sessions" ? " on" : ""}`} onClick={() => setLibTab("sessions")}>Sessions <span className="otabband-c">{sessions.length}</span></button>
+          <button className={`otabband-t${libTab === "responses" ? " on" : ""}`} onClick={() => setLibTab("responses")}>Responses <span className="otabband-c">{responses.length}</span></button>
+        </nav>
+        <div className="opanel">
+          <div className="opanel-body">
+            {libTab === "assessments" ? (
+              <div className="tbl-card">
+                <table className="tbl">
+                  <thead>
+                    <tr><th>Instrument</th><th style={{ width: 110 }}>Type</th><th style={{ width: 100 }}>Dimensions</th><th style={{ width: 80 }}>Time</th><th style={{ width: 140 }}>Your status</th><th style={{ width: 70 }} /></tr>
+                  </thead>
+                  <tbody>
+                    {catalog.map((c) => (
+                      <tr key={c.key} onClick={() => openDetail(c)} style={{ cursor: "pointer" }}>
+                        <td><span style={{ fontWeight: 600 }}>{c.name}</span><small style={{ display: "block", color: "var(--muted)" }}>{c.category}</small></td>
+                        <td>{c.scope === "team" ? "Team" : "Personality"}</td>
+                        <td>{c.dimensions.length}</td>
+                        <td>{c.items.length ? `~${c.mins}m` : "—"}</td>
+                        <td>{c.completedByMe ? <span className="pill sm open">Completed</span> : c.assignedToMe ? <span className="pill sm draft">Assigned</span> : <span style={{ color: "var(--faint)" }}>Not taken</span>}</td>
+                        <td className="r"><span className="linkbtn">Open ›</span></td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : <div className="card empty">You haven&rsquo;t completed any assessments yet.</div>
-        )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : libTab === "sessions" ? (
+              sessions.length ? (
+                <div className="tbl-card">
+                  <table className="tbl">
+                    <thead>
+                      <tr><th>Instrument</th><th>Team</th><th style={{ width: 100 }}>Status</th><th style={{ width: 110 }}>Respondents</th><th style={{ width: 140 }}>Run</th></tr>
+                    </thead>
+                    <tbody>
+                      {sessions.map((s) => (
+                        <tr key={s.id}>
+                          <td style={{ fontWeight: 600 }}>{s.instrument}</td>
+                          <td style={{ color: "var(--muted)" }}>{s.team ?? "—"}</td>
+                          <td><span className={`pill sm ${s.status === "open" ? "open" : "draft"}`}>{s.status}</span></td>
+                          <td>{s.respondents}</td>
+                          <td style={{ color: "var(--muted)" }}>{fmtDate(s.date)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div className="empty">No assessment sessions yet. Open a team assessment to run one for your team.</div>
+            ) : (
+              responses.length ? (
+                <div className="tbl-card">
+                  <table className="tbl">
+                    <thead>
+                      <tr><th>Instrument</th><th style={{ width: 110 }}>Type</th><th style={{ width: 160 }}>Taken</th><th style={{ width: 130 }} /></tr>
+                    </thead>
+                    <tbody>
+                      {responses.map((r) => {
+                        const c = catalog.find((x) => x.key === r.key);
+                        return (
+                          <tr key={r.key} onClick={() => c && openDetail(c)} style={{ cursor: c ? "pointer" : "default" }}>
+                            <td style={{ fontWeight: 600 }}>{r.instrument}</td>
+                            <td>{r.scope === "team" ? "Team" : "Personality"}</td>
+                            <td style={{ color: "var(--muted)" }}>{fmtDate(r.takenAt)}</td>
+                            <td className="r">{c ? <span className="linkbtn">View report ›</span> : null}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : <div className="empty">You haven&rsquo;t completed any assessments yet.</div>
+            )}
+          </div>
+        </div>
         <Toast toast={toast} />
       </>
     );
