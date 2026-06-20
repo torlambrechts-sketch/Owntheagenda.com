@@ -29,6 +29,7 @@ export function AssessmentRunner({
   onBack,
   submitLabel = "See my report ›",
   draftKey,
+  onChange,
   privacyNote,
   estimateMins,
   allowPartial = false,
@@ -41,6 +42,8 @@ export function AssessmentRunner({
   submitLabel?: string;
   /** localStorage key — when set, in-progress answers are saved and resumed. */
   draftKey?: string;
+  /** Optional: mirror in-progress answers elsewhere (e.g. server-side draft). */
+  onChange?: (answers: Record<string, number>) => void;
   privacyNote?: string;
   estimateMins?: number;
   /** Allow submitting before every item is answered (shows provisional progress). */
@@ -85,6 +88,14 @@ export function AssessmentRunner({
       if (Object.keys(answers).length) window.localStorage.setItem(draftKey, JSON.stringify(answers));
     } catch { /* storage full / unavailable — non-fatal */ }
   }, [answers, draftKey]);
+
+  // Optional external mirror (e.g. server-side draft for cross-device resume).
+  // Kept in a ref so a changing callback identity doesn't re-fire the effect.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => { onChangeRef.current = onChange; });
+  useEffect(() => {
+    if (Object.keys(answers).length) onChangeRef.current?.(answers);
+  }, [answers]);
 
   const answered = useMemo(() => items.filter((it) => answers[it.key] != null).length, [items, answers]);
   const pct = n ? Math.round((answered / n) * 100) : 0;

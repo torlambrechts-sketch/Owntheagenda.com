@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
 import { AssessmentRunner } from "@/components/AssessmentRunner";
@@ -47,6 +47,9 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   const supabase = useMemo(() => createClient(), []);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
+  const [ready, setReady] = useState(false);
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadResults = useCallback(async () => {
     if (!inst) return;
@@ -62,10 +65,26 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
         .eq("survey_id", survey.id)
         .eq("respondent_id", userId)
         .maybeSingle();
-      if (data) setSubmitted(true);
+      if (data) {
+        setSubmitted(true);
+      } else {
+        // Resume a server-side draft (cross-device): start where they left off.
+        const { data: draft } = await supabase.rpc("get_survey_draft", { p_survey: survey.id });
+        if (draft && typeof draft === "object") setInitialAnswers(draft as Record<string, number>);
+      }
+      setReady(true);
       loadResults();
     })();
   }, [supabase, survey.id, userId, loadResults]);
+
+  // Debounced mirror of in-progress answers to the server draft.
+  const saveDraft = useCallback((scores: Record<string, number>) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void supabase.rpc("save_survey_draft", { p_survey: survey.id, p_scores: scores });
+    }, 600);
+  }, [supabase, survey.id]);
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   async function submit(scores: Record<string, number>) {
     if (!inst) return;
@@ -76,6 +95,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   }
 
   if (!inst) return null;
+  if (!ready) return <div className="svcard"><div className="svcard-h"><b>{survey.name}</b><span className="src">{inst.name}</span></div></div>;
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
@@ -88,7 +108,9 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
       {!submitted ? (
         <AssessmentRunner
           instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+          initialAnswers={initialAnswers}
           draftKey={`otaa:survey:${survey.id}`}
+          onChange={saveDraft}
           privacyNote="Anonymous in aggregate — individual answers are never shown."
           submitLabel="Submit my read ›"
           onSubmit={submit}

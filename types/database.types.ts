@@ -1144,6 +1144,17 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      survey_response_draft: {
+        Row: {
+          survey_id: string
+          respondent_id: string
+          scores: Json
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       assessment_template: {
         Row: {
           id: string
@@ -1610,6 +1621,14 @@ export type Database = {
       submit_survey_response: {
         Args: { p_survey: string; p_scores: Json }
         Returns: undefined
+      }
+      save_survey_draft: {
+        Args: { p_survey: string; p_scores: Json }
+        Returns: undefined
+      }
+      get_survey_draft: {
+        Args: { p_survey: string }
+        Returns: Json
       }
       submit_individual_response: {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }
