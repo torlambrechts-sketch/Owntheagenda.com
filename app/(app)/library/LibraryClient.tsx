@@ -111,10 +111,11 @@ export function LibraryClient({
   }
 
   const manage = (t: LibTemplate) =>
-    isAdmin && t.custom ? (
+    isAdmin ? (
       <div className="cardmanage">
-        <Link href={`/library/new?id=${t.id}`} className="linkbtn">Edit</Link>
-        <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => removeTpl(t)}>Delete</button>
+        <Link href={`/library/new?from=${t.id}`} className="linkbtn">Duplicate</Link>
+        {t.custom ? <Link href={`/library/new?id=${t.id}`} className="linkbtn">Edit</Link> : null}
+        {t.custom ? <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => removeTpl(t)}>Delete</button> : null}
       </div>
     ) : null;
 
