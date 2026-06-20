@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { saveTemplate } from "./actions";
+import { ITEM_BANK, BANK_TOPICS, searchBank, type BankItem } from "@/lib/itembank";
 
 type Dim = { label: string; blurb: string };
 type Item = { text: string; dim: number; reverse?: boolean };
@@ -69,8 +70,14 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
     return k ? keyToIdx.get(k) ?? 0 : 0;
   });
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libQuery, setLibQuery] = useState("");
+  const [libTopic, setLibTopic] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
 
   const keys = useMemo(() => dimKeys(dims), [dims]);
+  const libResults = useMemo(() => searchBank(libQuery, libTopic), [libQuery, libTopic]);
 
   function setDim(i: number, patch: Partial<Dim>) {
     setDims((d) => d.map((x, j) => (j === i ? { ...x, ...patch } : x)));
@@ -83,6 +90,38 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
     // re-point items off the removed dimension
     setItems((it) => it.map((x) => ({ ...x, dim: x.dim === i ? 0 : x.dim > i ? x.dim - 1 : x.dim })));
     setStrengthIdx((s) => (s === i ? 0 : s > i ? s - 1 : s));
+  }
+
+  function togglePick(id: string) {
+    setPicked((p) => {
+      const next = new Set(p);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // Insert the picked library items, creating a dimension per item's suggested
+  // label when one doesn't already exist. Drops the blank starter rows so the
+  // first insert from a clean form lands cleanly. Skips duplicates by text.
+  function addPicked() {
+    const selected: BankItem[] = ITEM_BANK.filter((i) => picked.has(i.id));
+    if (!selected.length) { setShowLibrary(false); return; }
+    const baseDims = dims.some((d) => d.label.trim()) ? [...dims] : [];
+    const baseItems = items.some((it) => it.text.trim()) ? [...items] : [];
+    const seen = new Set(baseItems.map((it) => it.text.trim().toLowerCase()));
+    const findDim = (label: string) =>
+      baseDims.findIndex((d) => d.label.trim().toLowerCase() === label.trim().toLowerCase());
+    for (const bi of selected) {
+      if (seen.has(bi.text.trim().toLowerCase())) continue;
+      let di = findDim(bi.dimension);
+      if (di < 0) { baseDims.push({ label: bi.dimension, blurb: "" }); di = baseDims.length - 1; }
+      baseItems.push({ text: bi.text, dim: di, reverse: bi.reverse });
+      seen.add(bi.text.trim().toLowerCase());
+    }
+    setDims(baseDims);
+    setItems(baseItems);
+    setPicked(new Set());
+    setShowLibrary(false);
   }
 
   function validate(): string | null {
@@ -157,6 +196,20 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
       <h1 className="page-title" style={{ marginTop: 6 }}>{existing ? "Edit assessment" : "New assessment"}</h1>
       <p className="page-sub">Custom instruments work everywhere a built-in does — the picker, the library and any survey block.</p>
 
+      <div className="qseg" role="tablist" aria-label="Edit or preview" style={{ marginBottom: 16 }}>
+        <button className={!preview ? "on" : ""} onClick={() => setPreview(false)} role="tab" aria-selected={!preview}>Edit</button>
+        <button className={preview ? "on" : ""} onClick={() => setPreview(true)} role="tab" aria-selected={preview}>Preview</button>
+      </div>
+
+      {preview ? (
+        <InstrumentPreview
+          name={name}
+          scale={{ min: Math.round(scaleMin), max: Math.round(scaleMax), minLabel, maxLabel }}
+          dims={dims}
+          items={items}
+        />
+      ) : (
+      <>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="cat-head" style={{ marginTop: 0, fontSize: 15 }}>Basics</div>
         <div className="field">
@@ -249,14 +302,90 @@ export function TemplateBuilder({ existing }: { existing: ExistingTemplate | nul
             <button className="rowdel" onClick={() => setItems((x) => x.filter((_, j) => j !== i))} disabled={items.length === 1} aria-label="Remove question">✕</button>
           </div>
         ))}
-        <button className="btn-ghost" style={{ flex: "none", marginTop: 8 }} onClick={() => setItems((x) => [...x, { text: "", dim: namedDims[0]?.i ?? 0 }])}>+ Add question</button>
+        <div className="builder-actions">
+          <button className="btn-ghost" style={{ flex: "none" }} onClick={() => setItems((x) => [...x, { text: "", dim: namedDims[0]?.i ?? 0 }])}>+ Add question</button>
+          <button className="btn-ghost" style={{ flex: "none" }} onClick={() => { setShowLibrary((s) => !s); setPicked(new Set()); }} aria-expanded={showLibrary}>{showLibrary ? "Close library" : "+ Add from library"}</button>
+        </div>
+        {showLibrary ? (
+          <div className="qlib">
+            <p className="page-sub" style={{ marginTop: 0 }}>Proven items you can drop in and edit. Each lands under its suggested dimension — created if it doesn’t exist yet.</p>
+            <input className="inp" value={libQuery} onChange={(e) => setLibQuery(e.target.value)} placeholder="Search the question library…" aria-label="Search question library" />
+            <div className="qlib-topics">
+              <button className={libTopic === null ? "on" : ""} onClick={() => setLibTopic(null)}>All</button>
+              {BANK_TOPICS.map((t) => (
+                <button key={t} className={libTopic === t ? "on" : ""} onClick={() => setLibTopic(t)}>{t}</button>
+              ))}
+            </div>
+            <div className="qlib-list">
+              {libResults.length === 0 ? <div className="qlib-empty">No questions match.</div> : null}
+              {libResults.map((bi) => (
+                <label key={bi.id} className={`qlib-item${picked.has(bi.id) ? " on" : ""}`}>
+                  <input type="checkbox" checked={picked.has(bi.id)} onChange={() => togglePick(bi.id)} />
+                  <span className="qlib-text">{bi.text}</span>
+                  <span className="qlib-meta">{bi.dimension}{bi.reverse ? " · reverse" : ""} · {bi.source}</span>
+                </label>
+              ))}
+            </div>
+            <div className="qlib-foot">
+              <span className="qlib-count">{picked.size} selected</span>
+              <button className="btn-prim sm" disabled={picked.size === 0} onClick={addPicked}>Add {picked.size || ""} {picked.size === 1 ? "question" : "questions"}</button>
+            </div>
+          </div>
+        ) : null}
       </div>
+      </>
+      )}
 
       {error ? <div className="formerr">{error}</div> : null}
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <Link href="/assessments" className="btn-ghost" style={{ flex: "none" }}>Cancel</Link>
         <button className="btn-prim" disabled={pending} onClick={save}>{pending ? "Saving…" : existing ? "Save changes" : "Create assessment"}</button>
       </div>
+    </div>
+  );
+}
+
+// Read-only respondent-eye view of the instrument as it's being built — a quick
+// "take it yourself" sanity check before saving. Mirrors the SurveyRespond
+// layout so what the author sees here is what the team will see.
+function InstrumentPreview({
+  name,
+  scale,
+  dims,
+  items,
+}: {
+  name: string;
+  scale: { min: number; max: number; minLabel: string; maxLabel: string };
+  dims: Dim[];
+  items: Item[];
+}) {
+  const named = dims.map((d, i) => ({ ...d, i })).filter((d) => d.label.trim());
+  const has = named.length > 0 && items.some((it) => it.text.trim());
+  const opts =
+    Number.isFinite(scale.max) && Number.isFinite(scale.min) && scale.max > scale.min
+      ? Array.from({ length: scale.max - scale.min + 1 }, (_, k) => scale.min + k)
+      : [];
+  return (
+    <div className="svcard">
+      <div className="svcard-h"><b>{name.trim() || "Untitled assessment"}</b><span className="src">Preview</span></div>
+      {!has ? (
+        <p className="assess-lead">Add a dimension and a question to see the respondent preview.</p>
+      ) : (
+        <>
+          <p className="assess-lead qprev-scale">{scale.min} = {scale.minLabel || "low"} · {scale.max} = {scale.maxLabel || "high"}. Anonymous in aggregate.</p>
+          {named.map((d) => (
+            <div className="svgroup" key={d.i}>
+              <div className="svgroup-h">{d.label}</div>
+              {items.filter((it) => it.dim === d.i && it.text.trim()).map((it, j) => (
+                <div className="asq" key={j}>
+                  <div className="asq-q"><span>{it.text}{it.reverse ? <em className="qprev-rev" title="Reverse-scored: a high answer counts as low on this dimension"> ⇄</em> : null}</span></div>
+                  <div className="asopts sv7">{opts.map((v) => <button key={v} disabled>{v}</button>)}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }

@@ -47,6 +47,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
   const [busy, setBusy] = useState(false);
+  const draftKey = `ota:svdraft:${survey.id}`;
 
   const loadResults = useCallback(async () => {
     if (!inst) return;
@@ -67,6 +68,21 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
     })();
   }, [supabase, survey.id, userId, loadResults]);
 
+  // Resume an unfinished read after a refresh / navigation (client-only draft).
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(draftKey);
+      if (raw) setScores(JSON.parse(raw));
+    } catch { /* ignore unreadable / disabled storage */ }
+  }, [draftKey]);
+
+  // Autosave the in-progress read so a closed tab doesn't lose it.
+  useEffect(() => {
+    try {
+      if (Object.keys(scores).length) window.localStorage.setItem(draftKey, JSON.stringify(scores));
+    } catch { /* ignore quota / disabled storage */ }
+  }, [scores, draftKey]);
+
   async function submit() {
     if (!inst) return;
     setBusy(true);
@@ -74,10 +90,13 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
     setBusy(false);
     setSubmitted(true);
     loadResults();
+    try { window.localStorage.removeItem(draftKey); } catch { /* ignore */ }
   }
 
   if (!inst) return null;
   const allRated = inst.items.every((it) => scores[it.key]);
+  const answered = inst.items.filter((it) => scores[it.key]).length;
+  const total = inst.items.length;
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
@@ -89,7 +108,13 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
       <div className="svcard-h"><b>{survey.name}</b><span className="src">{inst.name}</span></div>
       {!submitted ? (
         <>
-          <p className="assess-lead">{inst.scale.min} = {inst.scale.minLabel} · {max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
+          <div className="svrespond-head">
+            <p className="assess-lead" style={{ margin: 0 }}>{inst.scale.min} = {inst.scale.minLabel} · {max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
+            <div className="svprog" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={answered}>
+              <div className="svprog-bar"><div className="svprog-fill" style={{ width: `${total ? Math.round((answered / total) * 100) : 0}%` }} /></div>
+              <span className="svprog-lab">{answered} of {total} answered</span>
+            </div>
+          </div>
           {inst.dimensions.map((d) => (
             <div key={d.key} className="svgroup">
               <div className="svgroup-h">{d.label}</div>
@@ -113,7 +138,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
           <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "10px 0 0" }}>
             <div className="aa-h">
               Team reading
-              {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
+              {respondents < 3 ? <span className="aa-mask">· {respondents} of 3 — {3 - respondents} more to reveal</span> : null}
               {strength ? <span className={`svchip ${strength.tone}`}>{strength.label} on {strengthLabel}</span> : null}
             </div>
             {results && !results.masked && results.composite != null ? (

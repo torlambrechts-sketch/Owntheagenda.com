@@ -1508,3 +1508,34 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 @media (prefers-reduced-motion:reduce){
   .sw,.scrim,.toast{transition:none}
 }
+
+/* Assessment builder — preview toggle, question library, sticky scale */
+.qseg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.qseg button{border:none;background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;padding:7px 16px;cursor:pointer}
+.qseg button+button{border-left:1px solid var(--line-2)}
+.qseg button.on{background:var(--forest);color:#fff}
+.builder-actions{display:flex;gap:8px;margin-top:8px}
+.qlib{border:1px solid var(--line-2);border-radius:10px;background:var(--canvas-2);padding:12px;margin-top:10px}
+.qlib .inp{margin-bottom:8px}
+.qlib-topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.qlib-topics button{border:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-size:11px;font-weight:600;border-radius:20px;padding:4px 10px;cursor:pointer}
+.qlib-topics button.on{background:var(--forest);color:#fff;border-color:var(--forest)}
+.qlib-list{max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:4px}
+.qlib-empty{font-size:12.5px;color:var(--faint);padding:10px 2px}
+.qlib-item{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"cb text" "cb meta";gap:1px 10px;align-items:start;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:9px 11px;cursor:pointer}
+.qlib-item:hover{border-color:var(--line-2)}
+.qlib-item.on{border-color:var(--green);box-shadow:0 0 0 1px var(--green) inset}
+.qlib-item input{grid-area:cb;margin-top:2px;cursor:pointer}
+.qlib-text{grid-area:text;font-size:13px;color:var(--ink)}
+.qlib-meta{grid-area:meta;font-size:11px;color:var(--faint)}
+.qlib-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.qlib-count{font-size:12px;color:var(--muted);font-weight:600}
+.qprev-scale{position:sticky;top:0;background:var(--surface);padding:8px 0;z-index:1;border-bottom:1px solid var(--line)}
+.qprev-rev{font-style:normal;color:var(--green);font-weight:700}
+
+/* Survey respondent — sticky scale + progress */
+.svrespond-head{position:sticky;top:0;z-index:1;background:var(--surface);padding:8px 0 10px;margin-bottom:4px;border-bottom:1px solid var(--line)}
+.svprog{display:flex;align-items:center;gap:10px;margin-top:8px}
+.svprog-bar{flex:1;height:6px;background:var(--canvas-2);border-radius:6px;overflow:hidden}
+.svprog-fill{height:100%;background:var(--green);border-radius:6px;transition:width .2s ease}
+.svprog-lab{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap}
