@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY, initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
 import { buildFromTemplate, deleteWorkshop, quickStart } from "./actions";
+import { SessionsTable, type SessionRow } from "./SessionsTable";
+import { CanvasGallery, type GalleryItem } from "./CanvasGallery";
+
+type WkTab = "workshops" | "sessions" | "canvas";
 
 const QUICK_MODULES = [
   { kind: "canvas", label: "Canvas", blurb: "Freeform board — notes, shapes, connectors" },
@@ -81,6 +85,9 @@ export function WorkshopsClient({
   recommendation,
   surveyInsts = [],
   scienceByCategory = {},
+  sessions = [],
+  canvasItems = [],
+  initialTab = "workshops",
 }: {
   teamId: string;
   canManage: boolean;
@@ -89,8 +96,12 @@ export function WorkshopsClient({
   recommendation: Recommendation | null;
   surveyInsts?: { kind: string; name: string }[];
   scienceByCategory?: Record<string, string>;
+  sessions?: SessionRow[];
+  canvasItems?: GalleryItem[];
+  initialTab?: WkTab;
 }) {
   const router = useRouter();
+  const [tab, setTab] = useState<WkTab>(initialTab);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -163,6 +174,14 @@ export function WorkshopsClient({
 
   return (
     <>
+      <div className="wtabs">
+        <button className={`wtab${tab === "workshops" ? " on" : ""}`} onClick={() => setTab("workshops")}>Workshops <span className="wtab-n">{workshops.length}</span></button>
+        <button className={`wtab${tab === "sessions" ? " on" : ""}`} onClick={() => setTab("sessions")}>Sessions <span className="wtab-n">{sessions.length}</span></button>
+        <button className={`wtab${tab === "canvas" ? " on" : ""}`} onClick={() => setTab("canvas")}>Canvas <span className="wtab-n">{canvasItems.length}</span></button>
+      </div>
+
+      {tab === "workshops" ? (
+      <>
       {recommendation ? (
         <div className="rec">
           <div className="rec-l">
@@ -308,6 +327,12 @@ export function WorkshopsClient({
             </div>
           ) : null}
         </>
+      )}
+      </>
+      ) : tab === "sessions" ? (
+        sessions.length ? <SessionsTable rows={sessions} /> : <div className="empty">No sessions yet — start a workshop to run your first.</div>
+      ) : (
+        <CanvasGallery items={canvasItems} />
       )}
 
       <SideWindow

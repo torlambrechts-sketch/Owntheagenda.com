@@ -503,6 +503,12 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .cat-head .n{font-size:11px;font-weight:700;color:var(--faint);background:var(--canvas-2);border-radius:20px;padding:2px 9px;font-family:var(--font-ui)}
 
 /* ===== Workshops home ===== */
+.wtabs{display:inline-flex;gap:4px;background:var(--canvas-2);border:1px solid var(--line);border-radius:11px;padding:4px;margin:6px 0 4px}
+.wtab{border:none;background:none;border-radius:8px;padding:7px 15px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.wtab:hover{color:var(--ink)}
+.wtab-n{font-size:10.5px;font-weight:700;color:var(--faint);background:var(--surface);border-radius:20px;padding:1px 7px;min-width:18px;text-align:center}
+.wtab.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+.wtab.on .wtab-n{color:var(--green)}
 .wk-create{margin-top:18px;min-width:0}
 /* one row that scales to the page width (1fr columns); scrolls only when too narrow */
 .wk-strip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(150px,1fr);gap:13px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}

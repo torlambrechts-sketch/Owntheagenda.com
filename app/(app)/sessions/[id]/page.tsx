@@ -153,7 +153,7 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
 
   return (
     <div>
-      <Link href="/sessions" className="linkbtn" style={{ fontSize: 12 }}>‹ Sessions</Link>
+      <Link href="/workshops?tab=sessions" className="linkbtn" style={{ fontSize: 12 }}>‹ Sessions</Link>
 
       <div className="readout-head">
         <div>

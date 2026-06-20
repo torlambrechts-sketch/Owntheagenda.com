@@ -3,10 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin, timeAgo } from "@/lib/util";
 import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
 import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation } from "./WorkshopsClient";
+import { type SessionRow } from "./SessionsTable";
+import { type GalleryItem } from "./CanvasGallery";
+import type { CanvasObj } from "@/components/CanvasStatic";
 
-export default async function WorkshopsPage() {
+const TABS = ["workshops", "sessions", "canvas"] as const;
+type Tab = (typeof TABS)[number];
+
+export default async function WorkshopsPage({ searchParams }: { searchParams: { tab?: string } }) {
   const ctx = await requireSession();
   const supabase = createClient();
+  const wsId = ctx.workspace.id;
+  const initialTab: Tab = TABS.includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : "workshops";
 
   const { data: teams } = await supabase
     .from("team")
@@ -127,6 +135,96 @@ export default async function WorkshopsPage() {
     if (tk) scienceByCategory[tk.slice("workshop:".length)] = a.slug;
   }
 
+  // ----- Sessions tab (workspace-wide live-run history) -----
+  const { data: sessionRows } = await supabase
+    .from("session")
+    .select("id, workshop_id, status, started_at, ended_at")
+    .eq("workspace_id", wsId)
+    .order("started_at", { ascending: false })
+    .limit(100);
+  const sList = sessionRows ?? [];
+  const sWkIds = Array.from(new Set(sList.map((s) => s.workshop_id)));
+  const { data: sWks } = sWkIds.length
+    ? await supabase.from("workshop").select("id, title, team_id").in("id", sWkIds)
+    : { data: [] as { id: string; title: string; team_id: string }[] };
+  const sWkById = new Map((sWks ?? []).map((w) => [w.id, w]));
+  const sTeamIds = Array.from(new Set((sWks ?? []).map((w) => w.team_id)));
+  const { data: sTeams } = sTeamIds.length
+    ? await supabase.from("team").select("id, name").in("id", sTeamIds)
+    : { data: [] as { id: string; name: string }[] };
+  const sTeamById = new Map((sTeams ?? []).map((t) => [t.id, t.name]));
+  const sids = sList.map((s) => s.id);
+  const { data: parts } = sids.length
+    ? await supabase.from("participant").select("session_id").in("session_id", sids)
+    : { data: [] as { session_id: string }[] };
+  const partCount = new Map<string, number>();
+  for (const p of parts ?? []) partCount.set(p.session_id, (partCount.get(p.session_id) ?? 0) + 1);
+  const { data: acts } = sids.length
+    ? await supabase.from("action_item").select("session_id").in("session_id", sids)
+    : { data: [] as { session_id: string | null }[] };
+  const actCount = new Map<string, number>();
+  for (const a of acts ?? []) if (a.session_id) actCount.set(a.session_id, (actCount.get(a.session_id) ?? 0) + 1);
+  const { data: fus } = sids.length
+    ? await supabase.from("follow_up").select("source_session_id, kind, scheduled_at, status").in("source_session_id", sids).neq("status", "skipped").order("scheduled_at", { ascending: true })
+    : { data: [] as { source_session_id: string | null; kind: string; scheduled_at: string | null; status: string }[] };
+  const nextBySession = new Map<string, { kind: string; at: string | null; status: string }>();
+  for (const f of fus ?? []) {
+    if (!f.source_session_id) continue;
+    const cur = nextBySession.get(f.source_session_id);
+    if (!cur) nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+    else if (cur.status !== "planned" && f.status === "planned") nextBySession.set(f.source_session_id, { kind: f.kind, at: f.scheduled_at, status: f.status });
+  }
+  const sessions: SessionRow[] = sList.map((s) => {
+    const wk = sWkById.get(s.workshop_id);
+    return {
+      id: s.id,
+      workshopId: s.workshop_id,
+      title: wk?.title ?? "Workshop",
+      team: wk ? sTeamById.get(wk.team_id) ?? null : null,
+      startedAt: s.started_at,
+      people: partCount.get(s.id) ?? 0,
+      actions: actCount.get(s.id) ?? 0,
+      status: s.status,
+      nextStep: nextBySession.get(s.id) ?? null,
+    };
+  });
+
+  // ----- Canvas tab (workspace-wide saved canvases) -----
+  const { data: snaps } = await supabase
+    .from("canvas_snapshot")
+    .select("id, title, workshop_id, block_ord, object_count, created_at, data")
+    .eq("workspace_id", wsId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const cList = snaps ?? [];
+  const cWkIds = Array.from(new Set(cList.map((s) => s.workshop_id)));
+  const { data: cWks } = cWkIds.length
+    ? await supabase.from("workshop").select("id, title, team_id").in("id", cWkIds)
+    : { data: [] as { id: string; title: string; team_id: string }[] };
+  const cWkById = new Map((cWks ?? []).map((w) => [w.id, w]));
+  const cTeamIds = Array.from(new Set((cWks ?? []).map((w) => w.team_id)));
+  const { data: cTeams } = cTeamIds.length
+    ? await supabase.from("team").select("id, name, lead_user_id").in("id", cTeamIds)
+    : { data: [] as { id: string; name: string; lead_user_id: string | null }[] };
+  const cTeamById = new Map((cTeams ?? []).map((t) => [t.id, t]));
+  const admin = isAdmin(ctx.role);
+  const canvasItems: GalleryItem[] = cList.map((s) => {
+    const wk = cWkById.get(s.workshop_id);
+    const tm = wk ? cTeamById.get(wk.team_id) : null;
+    return {
+      id: s.id,
+      title: s.title,
+      workshopId: s.workshop_id,
+      workshopTitle: wk?.title ?? "Workshop",
+      team: tm?.name ?? null,
+      blockOrd: s.block_ord,
+      objectCount: s.object_count,
+      createdAt: s.created_at,
+      manageable: admin || tm?.lead_user_id === ctx.userId,
+      data: (s.data ?? []) as unknown as CanvasObj[],
+    };
+  });
+
   return (
     <div>
       <h1 className="page-title">Workshops</h1>
@@ -142,6 +240,9 @@ export default async function WorkshopsPage() {
           recommendation={recommendation}
           surveyInsts={surveyInsts}
           scienceByCategory={scienceByCategory}
+          sessions={sessions}
+          canvasItems={canvasItems}
+          initialTab={initialTab}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>
