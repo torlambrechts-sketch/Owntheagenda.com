@@ -27,6 +27,14 @@ const DEFAULT_STEPS: ComposerStep[] = [
   { kind: "launch", title: "Collect responses" },
   { kind: "workshop", title: "Run workshop" },
 ];
+const FULL_LOOP_STEPS: ComposerStep[] = [
+  { kind: "assessment", title: "Create assessment" },
+  { kind: "launch", title: "Collect responses" },
+  { kind: "interpret", title: "Interpret results" },
+  { kind: "workshop", title: "Run workshop" },
+  { kind: "commit", title: "Run and commit" },
+  { kind: "repulse", title: "Track and re-pulse" },
+];
 
 export function FlowComposer({
   teams,
@@ -72,6 +80,11 @@ export function FlowComposer({
       <div className="fc-head">
         <div className="cat-head" style={{ marginBottom: 0 }}>Build a flow</div>
         <p className="fc-sub">Compose the steps, then create it. Each step is an action the flow runs in order.</p>
+        <div className="fc-presets">
+          <span className="fc-presets-l">Start from</span>
+          <button className="chip" onClick={() => setSteps(DEFAULT_STEPS)}>Quick flow · 3 steps</button>
+          <button className="chip" onClick={() => setSteps(FULL_LOOP_STEPS)}>Full operating loop · 6 steps</button>
+        </div>
       </div>
 
       <div className="fc-meta">

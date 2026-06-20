@@ -144,7 +144,19 @@ function FlowRows({
 }) {
   return (
     <>
-      <tr className={`flow-row${open ? " open" : ""}`} onClick={onToggle}>
+      <tr
+        className={`flow-row${open ? " open" : ""}`}
+        onClick={onToggle}
+        role="button"
+        tabIndex={0}
+        aria-expanded={open}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle();
+          }
+        }}
+      >
         <td>
           <span className="flow-cell">
             <span className="flow-title">{title}</span>

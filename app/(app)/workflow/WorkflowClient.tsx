@@ -4,7 +4,6 @@ import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  createProgram,
   createFlowSteps,
   startPlay,
   remindNonResponders,
@@ -287,21 +286,11 @@ export function WorkflowClient({
           <h1 className="page-title">Flows</h1>
           <p className="page-sub">
             Run an assessment, wait for responses, then run the workshop on the
-            results — as one tracked Flow. Build one below, or launch a Play to
-            start in one click.
+            results — as one tracked Flow. Build one below (use the full
+            operating loop preset for commitments and re-measurement), or
+            launch a Play to start in one click.
           </p>
         </div>
-        {canManage ? (
-          <button
-            className="btn-sec"
-            disabled={pending}
-            onClick={() =>
-              run(() => createProgram(workspaceId, "New program", teams[0]?.id ?? null), () => flash("Program created"))
-            }
-          >
-            New program (full loop)
-          </button>
-        ) : null}
       </div>
 
       {canManage ? <FlowComposer teams={teams} pending={pending} onCreate={createComposed} /> : null}
