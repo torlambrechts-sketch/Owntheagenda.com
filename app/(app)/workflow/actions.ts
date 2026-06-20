@@ -42,6 +42,7 @@ export async function createFlowSteps(
   teamId: string | null,
   minResponses: number,
   steps: { kind: string; title: string }[],
+  assessmentKind: string | null,
 ) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("create_flow_steps", {
@@ -50,10 +51,21 @@ export async function createFlowSteps(
     p_team: teamId,
     p_min_responses: minResponses,
     p_steps: steps,
+    p_assessment_kind: assessmentKind,
   });
   if (error) return { error: error.message };
   revalidatePath("/workflow");
   return { id: data as string };
+}
+
+// Start the flow's assessment — an instrument survey if one was chosen,
+// otherwise the generic team pulse.
+export async function startAssessment(programId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("program_start_assessment", { p_program: programId });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
 }
 
 // Launch a Play — a one-click Flow with the workshop pre-selected.

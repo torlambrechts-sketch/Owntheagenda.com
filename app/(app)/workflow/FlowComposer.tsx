@@ -38,17 +38,26 @@ const FULL_LOOP_STEPS: ComposerStep[] = [
 
 export function FlowComposer({
   teams,
+  assessments,
   pending,
   onCreate,
 }: {
   teams: Named[];
+  assessments: { key: string; name: string }[];
   pending: boolean;
-  onCreate: (title: string, teamId: string | null, minResponses: number, steps: ComposerStep[]) => void;
+  onCreate: (
+    title: string,
+    teamId: string | null,
+    minResponses: number,
+    steps: ComposerStep[],
+    assessmentKind: string | null,
+  ) => void;
 }) {
   const [title, setTitle] = useState("");
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [minResp, setMinResp] = useState(4);
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
+  const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
 
   function patch(i: number, p: Partial<ComposerStep>) {
     setSteps((s) => s.map((step, idx) => (idx === i ? { ...step, ...p } : step)));
@@ -136,7 +145,24 @@ export function FlowComposer({
               placeholder={kindLabel(s.kind)}
               onChange={(e) => patch(i, { title: e.target.value })}
             />
-            <span className="fc-hint">{kindHint(s.kind)}</span>
+            {s.kind === "assessment" ? (
+              <>
+                <select
+                  className="inp sm"
+                  value={assessmentKind}
+                  onChange={(e) => setAssessmentKind(e.target.value)}
+                  aria-label="Assessment instrument"
+                >
+                  <option value="">Team pulse (default)</option>
+                  {assessments.map((a) => (
+                    <option key={a.key} value={a.key}>{a.name}</option>
+                  ))}
+                </select>
+                <a className="fc-new" href="/assessments">+ Create new assessment</a>
+              </>
+            ) : (
+              <span className="fc-hint">{kindHint(s.kind)}</span>
+            )}
           </div>
         ))}
         <button type="button" className="fc-add" onClick={add}>
@@ -152,7 +178,7 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps)}
+          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null)}
         >
           Create flow
         </button>
