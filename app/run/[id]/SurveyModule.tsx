@@ -21,6 +21,8 @@ import {
 
 type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
+type CommentRow = { dimension: string; text: string; author: string };
+type Comments = { masked: boolean; respondents: number; comments: CommentRow[] };
 
 export function SurveyModule({
   blockId,
@@ -53,6 +55,7 @@ export function SurveyModule({
   const [surveyId, setSurveyId] = useState<string | null>(initialSurveyId);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
+  const [comments, setComments] = useState<Comments | null>(null);
   const [busy, setBusy] = useState(false);
   const [snapInst, setSnapInst] = useState<SurveyInstrument | null>(null);
   const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
@@ -69,6 +72,13 @@ export function SurveyModule({
       if (data) setResults(data as unknown as Results);
     },
     [supabase, inst],
+  );
+  const loadComments = useCallback(
+    async (sid: string) => {
+      const { data } = await supabase.rpc("survey_comments", { p_survey: sid });
+      if (data) setComments(data as unknown as Comments);
+    },
+    [supabase],
   );
   const loadMine = useCallback(
     async (sid: string) => {
@@ -91,8 +101,8 @@ export function SurveyModule({
   }, [blockId, supabase]);
 
   useEffect(() => {
-    if (surveyId) { loadResults(surveyId); loadMine(surveyId); }
-  }, [surveyId, loadResults, loadMine]);
+    if (surveyId) { loadResults(surveyId); loadMine(surveyId); loadComments(surveyId); }
+  }, [surveyId, loadResults, loadMine, loadComments]);
 
   // Resolve the instrument from the bound survey's snapshot definition (falls
   // back to the catalog instrument for legacy rows / non-team readers).
@@ -133,7 +143,7 @@ export function SurveyModule({
         if (sid && sid !== surveyId) setSurveyId(sid);
       })
       .subscribe();
-    const poll = setInterval(() => { if (surveyId) loadResults(surveyId); }, 6000);
+    const poll = setInterval(() => { if (surveyId) { loadResults(surveyId); loadComments(surveyId); } }, 6000);
     return () => { supabase.removeChannel(ch); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockId, surveyId]);
@@ -150,6 +160,7 @@ export function SurveyModule({
     if (error) throw error;
     setSubmitted(true);
     loadResults(surveyId);
+    loadComments(surveyId);
   }
 
   if (!inst) return <div className="assess-empty">Unknown instrument.</div>;
@@ -250,6 +261,17 @@ export function SurveyModule({
                   composite={results?.composite ?? null}
                   dims={dims.map((d) => ({ key: d.key, label: d.label, mean: d.mean }))}
                 />
+              ) : null}
+              {comments && !comments.masked && comments.comments.length > 0 ? (
+                <div className="aa-comments">
+                  <div className="aa-comments-h">In their own words <span className="n">{comments.comments.length}</span></div>
+                  {comments.comments.map((c, i) => (
+                    <div className="cmtrow" key={`cmt-${i}`}>
+                      <span className="cmttext">“{c.text}”</span>
+                      <span className="cmtauthor">— {c.author}</span>
+                    </div>
+                  ))}
+                </div>
               ) : null}
             </div>
           </>
