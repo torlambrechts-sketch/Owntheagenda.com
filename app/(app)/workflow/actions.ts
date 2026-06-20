@@ -76,6 +76,7 @@ export async function startPlay(
   title: string,
   workshopTemplateKey: string,
   minResponses: number,
+  assessmentKind: string | null,
 ) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("start_play", {
@@ -85,6 +86,7 @@ export async function startPlay(
     p_title: title,
     p_workshop_template_key: workshopTemplateKey,
     p_min_responses: minResponses,
+    p_assessment_kind: assessmentKind,
   });
   if (error) return { error: error.message };
   revalidatePath("/workflow");

@@ -1250,6 +1250,7 @@ export type Database = {
           p_title: string
           p_workshop_template_key: string
           p_min_responses?: number
+          p_assessment_kind?: string | null
         }
         Returns: string
       }

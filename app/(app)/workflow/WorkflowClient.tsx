@@ -320,7 +320,7 @@ export function WorkflowClient({
         <Plays
           teams={teams}
           pending={pending}
-          onLaunch={(pk, name, tk, n, tid) => run(() => startPlay(workspaceId, tid, pk, name, tk, n))}
+          onLaunch={(pk, name, tk, n, ak, tid) => run(() => startPlay(workspaceId, tid, pk, name, tk, n, ak))}
         />
       ) : null}
 
