@@ -33,6 +33,7 @@ export type Database = {
           auto_workshop_template: string | null
           assessment_kind: string | null
           collect_days: number
+          due_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string

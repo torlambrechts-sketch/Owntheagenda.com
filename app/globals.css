@@ -1660,3 +1660,14 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .flow-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--green);font-size:12px;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
 .flow-check.on{background:var(--open-bg);border-color:var(--green)}
 .flow-check:disabled{cursor:default;opacity:.6}
+
+/* ---- Flow due column + commitments collapse ----------------------- */
+.flow-due{font-size:12px;color:var(--muted);white-space:nowrap}
+.flow-due.overdue{color:var(--rust);font-weight:700}
+.flow-due-flag{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--rust)}
+.flow-sub-meta.overdue{color:var(--rust);font-weight:600}
+.flow-commit-toggle{cursor:pointer}
+.flow-commit-head{padding-left:24px;font-size:12px;font-weight:600;color:var(--muted)}
+.flow-commit-head .flow-chev.xs{font-size:10px;transition:transform .15s}
+.flow-commit-head .flow-chev.xs.open{transform:rotate(180deg);color:var(--green)}
+.flow-commit-done{margin-left:8px;font-size:11px;color:var(--faint);font-weight:600}
