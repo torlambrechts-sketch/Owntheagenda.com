@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
 import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { ResultsExport } from "@/components/ResultsExport";
 import { ordinal } from "@/lib/util";
 import {
   dimensionMeans,
@@ -121,6 +122,16 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
                 </div>
               );
             }) : null}
+            {dims ? (
+              <ResultsExport
+                surveyName={survey.name}
+                instrumentName={inst.name}
+                scaleMax={max}
+                respondents={respondents}
+                composite={results?.composite ?? null}
+                dims={dims.map((d) => ({ key: d.key, label: d.label, mean: d.mean }))}
+              />
+            ) : null}
           </div>
         </>
       )}
