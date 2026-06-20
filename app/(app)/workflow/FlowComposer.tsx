@@ -54,12 +54,14 @@ export function FlowComposer({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
+    anonymity: string,
   ) => void;
 }) {
   const [title, setTitle] = useState("");
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [minResp, setMinResp] = useState(4);
   const [collectDays, setCollectDays] = useState(7);
+  const [anonymity, setAnonymity] = useState("anonymous");
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
   const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
 
@@ -137,6 +139,13 @@ export function FlowComposer({
           />
           days
         </label>
+        <label className="fc-thr" title="Anonymous: responses are never tied to a person. Attributed: each response is linked to the respondent's name.">
+          Responses
+          <select className="inp sm" value={anonymity} onChange={(e) => setAnonymity(e.target.value)}>
+            <option value="anonymous">Anonymous</option>
+            <option value="attributed">Attributed</option>
+          </select>
+        </label>
       </div>
 
       <div className="fc-strip">
@@ -209,7 +218,7 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays)}
+          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays, anonymity)}
         >
           Create flow
         </button>

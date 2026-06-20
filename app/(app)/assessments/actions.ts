@@ -9,6 +9,7 @@ export async function sendSurvey(
   teamId: string,
   kind: string,
   dueAt: string | null,
+  anonymity: string = "anonymous",
 ): Promise<{ error?: string; id?: string }> {
   const supabase = createClient();
   const { data: tpl } = await supabase
@@ -23,6 +24,7 @@ export async function sendSurvey(
     p_team: teamId,
     p_kind: kind,
     p_name: name,
+    p_anonymity: anonymity === "attributed" ? "attributed" : "anonymous",
     ...(due && !isNaN(due.getTime()) ? { p_due: due.toISOString() } : {}),
   });
   if (error) return { error: error.message };

@@ -132,9 +132,10 @@ export function WorkflowClient({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
+    anonymity: string,
   ) {
     run(
-      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays),
+      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays, anonymity),
       () => flash("Flow created"),
     );
   }
