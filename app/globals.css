@@ -255,6 +255,20 @@ button { font-family:inherit; }
 .a-lopt.on .a-lr{border-color:var(--green);background:var(--green)}
 .a-lopt.on .a-lr::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
 .a-runnav{display:flex;align-items:center;gap:12px}.a-runnav .sp{flex:1}
+/* shared AssessmentRunner */
+.a-runtop{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.a-runtop-h{font-family:var(--font-display);font-size:18px;font-weight:600;flex:1;display:flex;flex-direction:column}
+.a-runtop-sub{font-family:var(--font-body,inherit);font-size:12px;font-weight:400;color:var(--muted)}
+.arun-allbtn{background:none;border:none;color:var(--green);font-size:12px;font-weight:600;cursor:pointer;flex:none}
+.arun-allbtn:hover{text-decoration:underline}
+.arun-intro{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:14px}
+.arun-priv{color:var(--green)}
+.arun-resumed{background:var(--open-bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--green);margin-bottom:14px}
+.a-lopt{position:relative}
+.arun-kbd{margin-left:auto;width:18px;height:18px;border-radius:4px;border:1px solid var(--line-2);font-size:11px;font-weight:700;color:var(--faint);display:inline-flex;align-items:center;justify-content:center}
+.a-lopt.on .arun-kbd{border-color:var(--green);color:var(--green)}
+.arun-progress-bottom{margin:2px 0 16px}
+.arun-count{font-size:12.5px;color:var(--muted);margin-right:auto;align-self:center}
 /* report */
 .a-report{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:24px 26px;max-width:880px}
 .a-rephead{display:flex;align-items:flex-start;gap:14px;margin-bottom:6px}

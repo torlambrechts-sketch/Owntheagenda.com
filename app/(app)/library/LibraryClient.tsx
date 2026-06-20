@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { individualDimensionMeans, compositeScore, type SurveyInstrument } from "@/lib/survey";
+import { AssessmentRunner } from "@/components/AssessmentRunner";
 import { useTableControls } from "@/components/TableControls";
 import { sendSurvey } from "../assessments/actions";
 import { submitIndividual, setShared, deleteTemplate } from "./actions";
@@ -237,20 +238,16 @@ export function LibraryClient({
             ) : (
               <TakeForm
                 inst={instruments[panel.tpl.key] ?? null}
-                pending={pending}
-                onSubmit={(scores) =>
-                  startTransition(async () => {
-                    const key = panel.tpl.key;
-                    const res = await submitIndividual(key, scores);
-                    if (res.error) flash(res.error);
-                    else {
-                      setResults((r) => ({ ...r, [key]: { key, scores, shared: r[key]?.shared ?? false } }));
-                      flash("Your read is saved — private to you");
-                      setPanel(null);
-                      router.refresh();
-                    }
-                  })
-                }
+                templateKey={panel.tpl.key}
+                onSubmit={async (scores) => {
+                  const key = panel.tpl.key;
+                  const res = await submitIndividual(key, scores);
+                  if (res.error) { flash(res.error); throw new Error(res.error); }
+                  setResults((r) => ({ ...r, [key]: { key, scores, shared: r[key]?.shared ?? false } }));
+                  flash("Your read is saved — private to you");
+                  setPanel(null);
+                  router.refresh();
+                }}
               />
             )}
           </div>
@@ -428,38 +425,23 @@ function LaunchForm({
 
 function TakeForm({
   inst,
-  pending,
+  templateKey,
   onSubmit,
 }: {
   inst: SurveyInstrument | null;
-  pending: boolean;
+  templateKey: string;
   onSubmit: (scores: Record<string, number>) => void;
 }) {
-  const [scores, setScores] = useState<Record<string, number>>({});
   if (!inst) return <p className="assess-lead">This instrument isn’t available right now.</p>;
-  const max = inst.scale.max;
-  const allRated = inst.items.every((it) => scores[it.key]);
   return (
     <div className="libpanel-body">
-      <p className="assess-lead">{inst.scale.min} = {inst.scale.minLabel} · {max} = {inst.scale.maxLabel}. Private to you.</p>
-      {inst.dimensions.map((d) => (
-        <div key={d.key} className="svgroup">
-          <div className="svgroup-h">{d.label}</div>
-          {inst.items.filter((it) => it.dimension === d.key).map((it) => (
-            <div className="asq" key={it.key}>
-              <div className="asq-q"><span>{it.text}</span></div>
-              <div className="asopts sv7">
-                {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
-                  <button key={v} className={scores[it.key] === v ? "on" : ""} onClick={() => setScores((s) => ({ ...s, [it.key]: v }))}>{v}</button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ))}
-      <div className="mactions">
-        <button className="btn-prim" disabled={!allRated || pending} onClick={() => onSubmit(scores)}>{pending ? "Saving…" : "Save my read"}</button>
-      </div>
+      <AssessmentRunner
+        instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+        draftKey={`otaa:lib:${templateKey}`}
+        privacyNote="Private to you."
+        submitLabel="Save my read ›"
+        onSubmit={onSubmit}
+      />
     </div>
   );
 }
