@@ -556,12 +556,18 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .wcard-new:hover{background:var(--forest-2,#33493c);border-color:var(--forest)}
 .wcard-ring{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.5);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .wcard-nl{font-weight:700;font-size:13px}
-.wcard-more{border:1px dashed var(--line-2);border-radius:11px;background:var(--canvas);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--muted);text-align:center;transition:border-color .15s,color .15s,background .15s}
+.wcard-more{border:1px dashed var(--line-2);border-radius:11px;background:var(--canvas);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-decoration:none;color:var(--muted);text-align:center;transition:border-color .15s,color .15s,background .15s;font-family:inherit;cursor:pointer;width:100%}
 .wcard-more:hover{border-color:var(--green);color:var(--green);background:var(--surface)}
 .wcard-more .wcard-ring{border-color:currentColor;width:42px;height:42px}
 .wcard-more .wcard-nl{color:var(--ink)}
 .wcard-more:hover .wcard-nl{color:var(--green)}
 .wcard-more-sub{font-size:11px;color:var(--faint)}
+/* "All templates" browse panel (workshop "More templates") */
+.browse-list{display:flex;flex-direction:column;gap:6px}
+.browse-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);cursor:pointer;font-family:inherit;text-align:left;transition:border-color .15s,background .15s}
+.browse-row:hover{border-color:var(--green);background:var(--canvas)}
+.browse-nm{font-size:13.5px;font-weight:600;color:var(--ink)}
+.browse-meta{font-size:12px;color:var(--muted);white-space:nowrap}
 
 .wk-controls{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-wrap:wrap}
 .wk-seg{display:flex;gap:3px;background:var(--canvas-2);border-radius:9px;padding:3px}
