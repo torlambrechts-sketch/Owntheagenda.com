@@ -145,6 +145,11 @@ export function FlowBuilder({
             <div className="fb-node-h">
               <span className="fb-kind">{s.kind}</span>
               <strong className="fb-title">{s.title}</strong>
+              {s.kind === "branch" && !(s.config && s.config.then_template) ? (
+                <span className="fb-warn" title="Configure the condition or the flow will skip this branch">
+                  Needs condition
+                </span>
+              ) : null}
               <span className={`wfx-tag ${s.status}`}>{s.status}</span>
               <div className="fb-node-ctl">
                 <button className="linkbtn xs" disabled={pending || i === 0} onClick={() => onMove(s.id, -1)} aria-label="Move up">
