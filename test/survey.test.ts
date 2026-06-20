@@ -10,6 +10,7 @@ import {
   climateStrength,
   strengthItemKeys,
   instrumentFromRow,
+  surveyFocus,
 } from "@/lib/survey";
 
 describe("PSYCH_SAFETY_BANG", () => {
@@ -106,5 +107,40 @@ describe("instrumentFromRow", () => {
     expect(instrumentFromRow({ key: "x", name: "X", definition: null })).toBeNull();
     expect(instrumentFromRow({ key: "x", name: "X", definition: {} })).toBeNull();
     expect(instrumentFromRow({ key: "x", name: "X", definition: { scale: def.scale, dimensions: [], items: [] } })).toBeNull();
+  });
+});
+
+describe("surveyFocus", () => {
+  it("names the weakest dimension when there's a meaningful spread", () => {
+    const { focus, even } = surveyFocus([
+      { key: "safety", label: "Safety", mean: 3.1 },
+      { key: "integration", label: "Integration", mean: 5.4 },
+    ]);
+    expect(even).toBe(false);
+    expect(focus.map((d) => d.key)).toEqual(["safety"]);
+  });
+  it("groups near-lowest dimensions within 0.3", () => {
+    const { focus } = surveyFocus([
+      { key: "a", label: "A", mean: 3.0 },
+      { key: "b", label: "B", mean: 3.2 },
+      { key: "c", label: "C", mean: 5.0 },
+    ]);
+    expect(focus.map((d) => d.key).sort()).toEqual(["a", "b"]);
+  });
+  it("flags even when the team scores flat across dimensions", () => {
+    const { focus, even } = surveyFocus([
+      { key: "a", label: "A", mean: 4.9 },
+      { key: "b", label: "B", mean: 5.1 },
+    ]);
+    expect(even).toBe(true);
+    expect(focus).toHaveLength(0);
+  });
+  it("returns nothing actionable with fewer than two scored dimensions", () => {
+    const { focus, even } = surveyFocus([
+      { key: "a", label: "A", mean: 3.0 },
+      { key: "b", label: "B", mean: null },
+    ]);
+    expect(focus).toHaveLength(0);
+    expect(even).toBe(false);
   });
 });

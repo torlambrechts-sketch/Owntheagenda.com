@@ -10,6 +10,7 @@ import {
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
+  surveyFocus,
   instrumentFromRow,
   type ItemStat,
   type SurveyInstrument,
@@ -170,6 +171,7 @@ export function SurveyModule({
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
   const max = inst.scale.max;
   const respondents = results?.respondents ?? 0;
+  const focus = dims ? surveyFocus(dims) : null;
 
   return (
     <div className="assesswrap">
@@ -234,6 +236,17 @@ export function SurveyModule({
                   {results.benchmark?.ready && results.benchmark.percentile != null ? (
                     <span className="svc-bench" title={`vs ${results.benchmark.pool_n} teams who've run this`}>{ordinal(results.benchmark.percentile)} pct</span>
                   ) : null}
+                </div>
+              ) : null}
+              {focus && (focus.focus.length > 0 || focus.even) ? (
+                <div className={`aa-focus${focus.even ? " even" : ""}`}>
+                  {focus.even ? (
+                    <span>The team scores evenly here — no single area stands out. Use the session to deepen the whole picture.</span>
+                  ) : (
+                    <span>
+                      <b>Where to focus:</b> {focus.focus.map((d) => d.label).join(" & ")} — the team&apos;s weakest read. Spend the session here.
+                    </span>
+                  )}
                 </div>
               ) : null}
               {dims ? <QuadrantPlot inst={inst} dims={dims} /> : null}

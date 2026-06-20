@@ -145,6 +145,28 @@ export function climateStrength(sd: number | null): { label: string; tone: "alig
   return { label: "Split", tone: "split" };
 }
 
+// Deficit → focus: from the per-dimension means, name where the team should
+// spend the workshop. Returns the weakest dimension(s) (the lowest, plus any
+// within 0.3 of it) when there's a meaningful spread; flags `even` when the
+// team scores flat across dimensions (nothing stands out to target). This is
+// the facilitation-layer answer to "assemble the session around the deficit"
+// without a curated remedy-block library.
+export function surveyFocus(
+  dims: { key: string; label: string; mean: number | null }[],
+  threshold = 0.4,
+): { focus: { key: string; label: string; mean: number }[]; even: boolean } {
+  const scored = dims.filter(
+    (d): d is { key: string; label: string; mean: number } => typeof d.mean === "number",
+  );
+  if (scored.length < 2) return { focus: [], even: false };
+  const means = scored.map((d) => d.mean);
+  const lo = Math.min(...means);
+  const hi = Math.max(...means);
+  if (hi - lo < threshold) return { focus: [], even: true };
+  const sorted = [...scored].sort((a, b) => a.mean - b.mean);
+  return { focus: sorted.filter((d) => d.mean <= lo + 0.3), even: false };
+}
+
 export function strengthItemKeys(inst: SurveyInstrument): string[] {
   return inst.items.filter((it) => it.dimension === inst.strengthDimension).map((it) => it.key);
 }
