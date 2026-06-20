@@ -1704,3 +1704,7 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .strend-delta.up{color:var(--green)}
 .strend-delta.down{color:var(--rust)}
 .strend-delta.flat{color:var(--faint)}
+
+/* Builder soft guardrails */
+.bwarn{font-size:11px;color:var(--amber,#A8862F);margin-top:3px}
+.fieldwarn{font-size:11.5px;color:var(--amber,#A8862F);margin:4px 0 0}

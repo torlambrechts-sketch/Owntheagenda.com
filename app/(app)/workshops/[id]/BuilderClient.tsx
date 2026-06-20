@@ -285,6 +285,17 @@ export function BuilderClient({
     [ids[i], ids[j]] = [ids[j], ids[i]];
     run(() => reorderBlocks(workshop.id, ids), "Reordered");
   }
+  function duplicate(b: BlockRow) {
+    run(() => addBlock({
+      workshopId: workshop.id,
+      title: `${b.title} (copy)`,
+      activityType: b.activityType,
+      duration: b.duration,
+      prompt: b.prompt ?? null,
+      linkedDynamic: b.linkedDynamic ?? null,
+      config: (b.config ?? {}) as Record<string, unknown>,
+    }), "Duplicated");
+  }
   async function saveTitle() {
     const res = await updateWorkshopTitle(workshop.id, wsTitle);
     if (res.error) flash(res.error);
@@ -433,6 +444,9 @@ export function BuilderClient({
                       <button className="icon-btn" title="Edit" onClick={() => openEdit(b)}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                       </button>
+                      <button className="icon-btn" title="Duplicate" disabled={pending} onClick={() => duplicate(b)}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
+                      </button>
                       <button className="icon-btn danger" title="Delete" disabled={pending}
                         onClick={() => { if (confirm("Delete this step?")) run(() => deleteBlock(workshop.id, b.id), "Step removed"); }}>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
@@ -448,6 +462,9 @@ export function BuilderClient({
                 ) : null}
                 {cfgHint ? (
                   <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 2 }}>{cfgHint}</div>
+                ) : null}
+                {b.activityType === "vote" && (b.config?.options?.length ?? 0) === 0 ? (
+                  <div className="bwarn">⚠ No options yet — add options so the team can vote (or seed them live in the run).</div>
                 ) : null}
                 {b.prompt ? <div className="desc">{b.prompt}</div> : null}
               </div>
@@ -513,6 +530,9 @@ export function BuilderClient({
             <div className="field">
               <label>Options to vote on <span className="opt">(one per line)</span></label>
               <textarea className="inp" rows={4} value={optionsText} onChange={(e) => setOptionsText(e.target.value)} placeholder={"Option A\nOption B\nOption C"} />
+              {!optionsText.trim() ? (
+                <p className="fieldwarn">⚠ Add at least one option — otherwise you’ll need to seed options live during the run.</p>
+              ) : null}
             </div>
             <div className="field">
               <label>Votes per person</label>
