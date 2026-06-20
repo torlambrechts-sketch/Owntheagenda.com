@@ -90,8 +90,10 @@ export default async function TemplateBuilderPage({
   // returns an error we ignore rather than throw).
   let versions: TemplateVersion[] = [];
   if (existing) {
-    // The table isn't in the generated types until the migration is applied, so
-    // this query is untyped and guarded — it returns [] until then.
+    // assessment_template_version isn't in the repo's generated types (the
+    // committed types/database.types.ts is intentionally not regenerated here to
+    // avoid pulling in unrelated schema drift), so this query is untyped and
+    // guarded.
     const { data: vrows, error: vErr } = await (supabase as unknown as {
       from: (t: string) => {
         select: (c: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => { limit: (n: number) => Promise<{ data: TemplateVersion[] | null; error: unknown }> } } };
