@@ -1264,7 +1264,7 @@ export type Database = {
         Returns: string
       }
       create_flow_steps: {
-        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number }
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number; p_workshop_template?: string | null }
         Returns: string
       }
       set_flow_task: {

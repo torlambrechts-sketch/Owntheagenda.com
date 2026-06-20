@@ -44,6 +44,7 @@ export async function createFlowSteps(
   steps: { kind: string; title: string }[],
   assessmentKind: string | null,
   collectDays: number,
+  workshopTemplate: string | null,
 ) {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("create_flow_steps", {
@@ -54,6 +55,7 @@ export async function createFlowSteps(
     p_steps: steps,
     p_assessment_kind: assessmentKind,
     p_collect_days: collectDays,
+    p_workshop_template: workshopTemplate,
   });
   if (error) return { error: error.message };
   revalidatePath("/workflow");
