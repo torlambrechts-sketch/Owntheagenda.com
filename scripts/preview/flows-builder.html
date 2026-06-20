@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1180">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../app/globals.css">
+<style>
+  :root{ --font-inter:"Inter"; --font-playfair:"Playfair Display"; }
+  body{ background:var(--canvas); }
+  .cat-head{ font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); margin:0 0 12px; }
+  .wrap{ max-width:1000px; margin:0 auto; padding:32px 30px 60px; }
+  .sec{ font-family:var(--font-playfair); font-size:18px; font-weight:600; margin:0 0 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== Plays expanded ===== -->
+  <div class="plays">
+    <button class="plays-head">
+      <span class="plays-title">Plays</span>
+      <span class="plays-sub">One-click recipes — assess, then auto-run the right workshop</span>
+      <span class="plays-chev">▴</span>
+    </button>
+    <div class="plays-grid">
+      <div class="play-card">
+        <h4>Psychological Safety Tune-up</h4>
+        <p class="play-blurb">Pulse the team on safety and behavioural integration, then run a health workshop on what the responses surface.</p>
+        <div class="play-meta"><span class="pill sm open">Team Health Monitor</span><span class="play-thr">4+ responses</span></div>
+        <div class="play-launch"><select class="inp sm"><option>Leadership Team</option></select><button class="btn-prim sm">Launch</button></div>
+      </div>
+      <div class="play-card">
+        <h4>Team Effectiveness Sprint</h4>
+        <p class="play-blurb">Measure how the team performs and decides, then run a Start / Stop / Continue retro to commit to changes.</p>
+        <div class="play-meta"><span class="pill sm open">Start / Stop / Continue</span><span class="play-thr">4+ responses</span></div>
+        <div class="play-launch"><select class="inp sm"><option>Leadership Team</option></select><button class="btn-prim sm">Launch</button></div>
+      </div>
+      <div class="play-card">
+        <h4>Clear-the-Air Retro</h4>
+        <p class="play-blurb">Surface trust and conflict norms with a quick pulse, then sail the Sailboat retro to name what holds the team back.</p>
+        <div class="play-meta"><span class="pill sm open">Sailboat retrospective</span><span class="play-thr">4+ responses</span></div>
+        <div class="play-launch"><select class="inp sm"><option>Leadership Team</option></select><button class="btn-prim sm">Launch</button></div>
+      </div>
+      <div class="play-card">
+        <h4>Role Clarity Reset</h4>
+        <p class="play-blurb">Check role clarity and decision rights, then prioritise the fixes on an Impact / Effort matrix.</p>
+        <div class="play-meta"><span class="pill sm open">Impact / Effort matrix</span><span class="play-thr">4+ responses</span></div>
+        <div class="play-launch"><select class="inp sm"><option>Leadership Team</option></select><button class="btn-prim sm">Launch</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Builder edit mode ===== -->
+  <div style="margin-top:34px" class="sec">Edit steps — Branching Flow</div>
+  <div class="tbl-card" style="padding:18px 20px">
+    <div class="fb">
+      <div class="fb-list">
+        <div class="fb-node done">
+          <div class="fb-node-h">
+            <span class="fb-kind">assessment</span>
+            <strong class="fb-title">Create assessment</strong>
+            <span class="wfx-tag done">done</span>
+            <div class="fb-node-ctl"><button class="linkbtn xs">↑</button><button class="linkbtn xs">↓</button><button class="linkbtn xs danger">✕</button></div>
+          </div>
+        </div>
+        <div class="fb-node active">
+          <div class="fb-node-h">
+            <span class="fb-kind">launch</span>
+            <strong class="fb-title">Collect responses</strong>
+            <span class="wfx-tag active">active</span>
+            <div class="fb-node-ctl"><button class="linkbtn xs">↑</button><button class="linkbtn xs">↓</button><button class="linkbtn xs danger">✕</button></div>
+          </div>
+        </div>
+        <div class="fb-node">
+          <div class="fb-node-h">
+            <span class="fb-kind">branch</span>
+            <strong class="fb-title">Route by safety</strong>
+            <span class="fb-warn">Needs condition</span>
+            <span class="wfx-tag">pending</span>
+            <div class="fb-node-ctl"><button class="linkbtn xs">↑</button><button class="linkbtn xs">↓</button><button class="linkbtn xs danger">✕</button></div>
+          </div>
+          <div class="fb-branch">
+            <div class="fb-cond-row">
+              <span>If</span>
+              <select class="inp sm"><option>Psychological safety</option></select>
+              <select class="inp sm"><option>is below</option></select>
+              <input class="inp sm fb-val" type="number" value="3">
+            </div>
+            <label class="fb-pick">Then run<select class="inp sm"><option>Sailboat retrospective</option></select></label>
+            <label class="fb-pick">Otherwise<select class="inp sm"><option>SWOT Analysis</option></select></label>
+            <button class="btn-prim sm">Save condition</button>
+          </div>
+        </div>
+        <div class="fb-node">
+          <div class="fb-node-h">
+            <span class="fb-kind">workshop</span>
+            <strong class="fb-title">Run workshop</strong>
+            <span class="wfx-tag">pending</span>
+            <div class="fb-node-ctl"><button class="linkbtn xs">↑</button><button class="linkbtn xs">↓</button><button class="linkbtn xs danger">✕</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="fb-add">
+        <select class="inp sm"><option>Workshop</option></select>
+        <button class="btn-sec sm">+ Add step</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
