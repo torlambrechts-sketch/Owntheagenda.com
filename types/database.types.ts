@@ -31,6 +31,7 @@ export type Database = {
           min_responses: number
           play_key: string | null
           auto_workshop_template: string | null
+          assessment_kind: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1230,7 +1231,11 @@ export type Database = {
         Returns: string
       }
       create_flow_steps: {
-        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json }
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null }
+        Returns: string
+      }
+      program_start_assessment: {
+        Args: { p_program: string }
         Returns: string
       }
       flow_remind: {

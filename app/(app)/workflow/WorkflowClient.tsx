@@ -8,7 +8,7 @@ import {
   startPlay,
   remindNonResponders,
   setProgramStep,
-  startPulse,
+  startAssessment,
   buildWorkshop,
   scheduleRepulse,
   syncProgram,
@@ -47,9 +47,11 @@ export type ProgramView = {
   kind: string;
   playKey: string | null;
   minResponses: number;
+  assessmentKind: string | null;
   steps: StepView[];
 };
 export type Template = { id: string; name: string; key: string | null; category: string };
+export type Instrument = { key: string; name: string };
 type Named = { id: string; name: string };
 
 const STEP_LINK: Record<string, { href: string; label: string }> = {
@@ -73,12 +75,14 @@ export function WorkflowClient({
   programs,
   teams,
   templates,
+  assessments,
 }: {
   workspaceId: string;
   canManage: boolean;
   programs: ProgramView[];
   teams: Named[];
   templates: Template[];
+  assessments: Instrument[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -103,9 +107,19 @@ export function WorkflowClient({
     });
   }
 
-  function createComposed(title: string, teamId: string | null, minResponses: number, steps: ComposerStep[]) {
-    run(() => createFlowSteps(workspaceId, title, teamId, minResponses, steps), () => flash("Flow created"));
+  function createComposed(
+    title: string,
+    teamId: string | null,
+    minResponses: number,
+    steps: ComposerStep[],
+    assessmentKind: string | null,
+  ) {
+    run(
+      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind),
+      () => flash("Flow created"),
+    );
   }
+  const instrumentName = (k: string | null) => (k ? assessments.find((a) => a.key === k)?.name ?? k : null);
 
   // Render a single flow's run surface (stage cards + inline builder) for the
   // expanded table row. Keeps all the contextual run actions in one place.
@@ -193,13 +207,20 @@ export function WorkflowClient({
                   )}
 
                   {canManage && isActive && s.kind === "assessment" ? (
-                    <button
-                      className="btn-prim sm"
-                      disabled={pending || !hasTeam}
-                      onClick={() => run(() => startPulse(p.id))}
-                    >
-                      Start pulse
-                    </button>
+                    <div className="wfx-spawn">
+                      {instrumentName(p.assessmentKind) ? (
+                        <span className="wfx-instr">{instrumentName(p.assessmentKind)}</span>
+                      ) : (
+                        <span className="wfx-instr muted">Team pulse</span>
+                      )}
+                      <button
+                        className="btn-prim sm"
+                        disabled={pending || !hasTeam}
+                        onClick={() => run(() => startAssessment(p.id))}
+                      >
+                        Start assessment
+                      </button>
+                    </div>
                   ) : null}
                   {canManage && isActive && s.kind === "workshop" ? (
                     <div className="wfx-spawn">
@@ -293,7 +314,7 @@ export function WorkflowClient({
         </div>
       </div>
 
-      {canManage ? <FlowComposer teams={teams} pending={pending} onCreate={createComposed} /> : null}
+      {canManage ? <FlowComposer teams={teams} assessments={assessments} pending={pending} onCreate={createComposed} /> : null}
 
       {canManage ? (
         <Plays

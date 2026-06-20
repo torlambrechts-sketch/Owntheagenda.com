@@ -10,16 +10,22 @@ export default async function WorkflowPage() {
   const supabase = createClient();
   const wsId = ctx.workspace.id;
 
-  const [{ data: programs }, { data: teams }, { data: templates }] = await Promise.all([
+  const [{ data: programs }, { data: teams }, { data: templates }, { data: instruments }] = await Promise.all([
     supabase
       .from("program")
-      .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, created_at")
+      .select("id, title, status, current_ord, team_id, kind, min_responses, play_key, assessment_kind, created_at")
       .eq("workspace_id", wsId)
       .order("created_at", { ascending: false }),
     supabase.from("team").select("id, name").eq("workspace_id", wsId).is("deleted_at", null).order("name"),
     supabase
       .from("template")
       .select("id, name, key, category, workspace_id")
+      .or(`workspace_id.is.null,workspace_id.eq.${wsId}`)
+      .order("name"),
+    supabase
+      .from("assessment_template")
+      .select("key, name, scope, workspace_id")
+      .eq("scope", "team")
       .or(`workspace_id.is.null,workspace_id.eq.${wsId}`)
       .order("name"),
   ]);
@@ -74,6 +80,7 @@ export default async function WorkflowPage() {
     kind: p.kind,
     playKey: p.play_key,
     minResponses: p.min_responses,
+    assessmentKind: p.assessment_kind,
     steps: byProgram.get(p.id) ?? [],
   }));
 
@@ -84,6 +91,7 @@ export default async function WorkflowPage() {
       programs={view}
       teams={(teams ?? []).map((t) => ({ id: t.id, name: t.name }))}
       templates={(templates ?? []).map((t) => ({ id: t.id, name: t.name, key: t.key, category: t.category }))}
+      assessments={(instruments ?? []).map((a) => ({ key: a.key as string, name: a.name as string }))}
     />
   );
 }
