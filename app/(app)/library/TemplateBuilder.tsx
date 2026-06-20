@@ -397,8 +397,8 @@ export function TemplateBuilder({
               <input className="inp" placeholder="Search validated questions…" value={bankQ} onChange={(e) => setBankQ(e.target.value)} autoFocus />
               <p className="page-sub" style={{ marginTop: 6 }}>{bankResults.length} {bankResults.length === 1 ? "match" : "matches"} from your readable instruments. Adding inserts the wording into a new question you can edit and map to a dimension.</p>
               <div className="bank-list">
-                {bankResults.map((b, i) => (
-                  <div className="bank-row" key={i}>
+                {bankResults.map((b) => (
+                  <div className="bank-row" key={`${b.instrument}:${b.text}`}>
                     <div className="bank-text">
                       <span>{b.text}</span>
                       <small>{b.instrument}{b.dimension ? ` · ${b.dimension}` : ""}{b.source ? ` · ${b.source}` : ""}</small>

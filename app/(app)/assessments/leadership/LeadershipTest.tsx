@@ -51,7 +51,7 @@ export function LeadershipTest({
       <div>
         <ScoreReadout data={results} />
         <div style={{ marginTop: 16 }}>
-          <button className="btn-sec" onClick={() => setTaking(true)}>Retake</button>
+          <button className="btn-sec" onClick={() => { setErr(null); setTaking(true); }}>Retake</button>
         </div>
         <p className="org-note" style={{ marginTop: 10 }}>
           Reverse-worded items are inverted before scoring.
@@ -72,6 +72,7 @@ export function LeadershipTest({
         estimateMins={15}
         privacyNote={teamId ? "Saved privately — only the anonymised team aggregate is shared with leads." : "Shown to you and not saved."}
         submitLabel="See results ›"
+        onBack={results ? () => setTaking(false) : undefined}
         onSubmit={submit}
       />
     </div>

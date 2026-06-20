@@ -55,8 +55,11 @@ export function AssessmentRunner({
   const [resumed, setResumed] = useState(false);
   const hydrated = useRef(false);
 
-  // Resume any locally-saved draft once on mount. Server-provided initial
-  // answers (e.g. a retake's prior scores) take precedence over the draft.
+  // Resume any locally-saved draft once on mount. A draft is the respondent's
+  // own in-progress work and is strictly newer than server-provided initial
+  // answers (a retake's prior scores), so it WINS the merge — otherwise an
+  // edited-then-reloaded retake would silently revert to the old scores. The
+  // draft is cleared on successful submit, so it only exists mid-attempt.
   useEffect(() => {
     if (hydrated.current) return;
     hydrated.current = true;
@@ -66,11 +69,11 @@ export function AssessmentRunner({
       if (!raw) return;
       const saved = JSON.parse(raw) as Record<string, number>;
       if (saved && typeof saved === "object" && Object.keys(saved).length) {
-        setAnswers((cur) => ({ ...saved, ...cur }));
-        if (!initialAnswers || !Object.keys(initialAnswers).length) setResumed(true);
+        setAnswers((cur) => ({ ...cur, ...saved }));
+        setResumed(true);
       }
     } catch { /* ignore malformed draft */ }
-  }, [draftKey, initialAnswers]);
+  }, [draftKey]);
 
   // Persist on every change while answering.
   useEffect(() => {
