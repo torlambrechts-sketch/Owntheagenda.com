@@ -34,6 +34,7 @@ export type Database = {
           assessment_kind: string | null
           collect_days: number
           due_at: string | null
+          assessment_anonymity: string
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1124,6 +1125,7 @@ export type Database = {
           due_at: string | null
           subject_user_id: string | null
           definition: Json | null
+          anonymity: string
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1264,7 +1266,7 @@ export type Database = {
         Returns: string
       }
       create_flow_steps: {
-        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number }
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number; p_workshop_template?: string | null; p_anonymity?: string }
         Returns: string
       }
       set_flow_task: {
@@ -1611,7 +1613,7 @@ export type Database = {
         Returns: string
       }
       create_survey: {
-        Args: { p_team: string; p_kind: string; p_name: string; p_due?: string }
+        Args: { p_team: string; p_kind: string; p_name: string; p_due?: string; p_anonymity?: string }
         Returns: Database["public"]["Tables"]["survey"]["Row"]
       }
       remind_survey: {

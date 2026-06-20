@@ -28,6 +28,7 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState(templates[0]?.key ?? "");
   const [due, setDue] = useState("");
+  const [anon, setAnon] = useState("anonymous");
   const [openRoster, setOpenRoster] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -46,7 +47,7 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
 
   function send() {
     startTransition(async () => {
-      const res = await sendSurvey(teamId, kind, due || null);
+      const res = await sendSurvey(teamId, kind, due || null, anon);
       if (res.error) flash(res.error);
       else {
         flash("Assessment sent to the team");
@@ -77,7 +78,8 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="cat-head" style={{ marginTop: 0 }}>Send an assessment</div>
       <p className="page-sub" style={{ marginTop: 0 }}>
-        Sends an anonymous survey to the team. Set a due date to schedule it ahead of a workshop.
+        Sends a survey to the team. Choose whether responses are anonymous or attributed to each person.
+        Set a due date to schedule it ahead of a workshop.
       </p>
       <div className="two" style={{ alignItems: "end" }}>
         <div className="field">
@@ -92,6 +94,13 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
           <label>Due date <span className="opt">(optional)</span></label>
           <input className="inp" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         </div>
+      </div>
+      <div className="field" style={{ marginTop: 10 }}>
+        <label>Responses</label>
+        <select className="inp" value={anon} onChange={(e) => setAnon(e.target.value)}>
+          <option value="anonymous">Anonymous — never tied to a person</option>
+          <option value="attributed">Attributed — linked to each respondent&apos;s name</option>
+        </select>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button className="btn-prim" disabled={pending || !kind} onClick={send}>Send to team ▸</button>

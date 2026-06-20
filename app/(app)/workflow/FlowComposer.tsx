@@ -8,7 +8,7 @@ import { useState } from "react";
 // strip used on Workshops and Assessments.
 
 type Named = { id: string; name: string };
-export type ComposerStep = { kind: string; title: string };
+export type ComposerStep = { kind: string; title: string; template?: string };
 
 const STEP_KINDS: { value: string; label: string; hint: string }[] = [
   { value: "assessment", label: "Assessment", hint: "Open the pulse" },
@@ -39,11 +39,13 @@ const FULL_LOOP_STEPS: ComposerStep[] = [
 export function FlowComposer({
   teams,
   assessments,
+  templates,
   pending,
   onCreate,
 }: {
   teams: Named[];
   assessments: { key: string; name: string }[];
+  templates: { id: string; name: string }[];
   pending: boolean;
   onCreate: (
     title: string,
@@ -52,12 +54,14 @@ export function FlowComposer({
     steps: ComposerStep[],
     assessmentKind: string | null,
     collectDays: number,
+    anonymity: string,
   ) => void;
 }) {
   const [title, setTitle] = useState("");
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [minResp, setMinResp] = useState(4);
   const [collectDays, setCollectDays] = useState(7);
+  const [anonymity, setAnonymity] = useState("anonymous");
   const [steps, setSteps] = useState<ComposerStep[]>(DEFAULT_STEPS);
   const [assessmentKind, setAssessmentKind] = useState(assessments[0]?.key ?? "");
 
@@ -135,6 +139,13 @@ export function FlowComposer({
           />
           days
         </label>
+        <label className="fc-thr" title="Anonymous: responses are never tied to a person. Attributed: each response is linked to the respondent's name.">
+          Responses
+          <select className="inp sm" value={anonymity} onChange={(e) => setAnonymity(e.target.value)}>
+            <option value="anonymous">Anonymous</option>
+            <option value="attributed">Attributed</option>
+          </select>
+        </label>
       </div>
 
       <div className="fc-strip">
@@ -174,6 +185,21 @@ export function FlowComposer({
                 </select>
                 <a className="fc-new" href="/assessments">+ Create new assessment</a>
               </>
+            ) : s.kind === "workshop" ? (
+              <>
+                <select
+                  className="inp sm"
+                  value={s.template ?? ""}
+                  onChange={(e) => patch(i, { template: e.target.value || undefined })}
+                  aria-label="Workshop template"
+                >
+                  <option value="">Pick when ready (build manually)</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+                <a className="fc-new" href="/library">+ Create new template</a>
+              </>
             ) : (
               <span className="fc-hint">{kindHint(s.kind)}</span>
             )}
@@ -192,7 +218,7 @@ export function FlowComposer({
         <button
           className="btn-prim"
           disabled={!canCreate}
-          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays)}
+          onClick={() => onCreate(title.trim(), teamId || null, minResp, steps, assessmentKind || null, collectDays, anonymity)}
         >
           Create flow
         </button>
