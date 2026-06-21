@@ -5,13 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { OrgShell } from "@/components/OrgShell";
 
 // Workspace activity — a read-only accountability log for admins, surfaced from
-// the existing append-only audit_log (admin-only via RLS). Captures the
-// assessment, workshop, membership and workspace lifecycle events written by
-// the SECURITY DEFINER helpers across the app.
+// the existing append-only audit_log (admin-only via RLS). Filterable by date
+// range, event category and actor — all server-side via querystring (no client
+// JS): the filter bar is a plain GET form.
 
 const ACTION_LABEL: Record<string, string> = {
   "assessment.opened": "Assessment opened",
   "assessment.closed": "Assessment closed",
+  "assessment.reminded": "Assessment reminder sent",
   "workshop.created": "Workshop created",
   "workshop.quickstarted": "Workshop quick-started",
   "workshop.scheduled": "Workshop scheduled",
@@ -27,7 +28,23 @@ const ACTION_LABEL: Record<string, string> = {
   "invitation.accepted": "Invitation accepted",
 };
 
-// Tone the dot by the entity the event touches.
+const RANGES: { key: string; label: string; days: number | null }[] = [
+  { key: "7", label: "Last 7 days", days: 7 },
+  { key: "30", label: "Last 30 days", days: 30 },
+  { key: "90", label: "Last 90 days", days: 90 },
+  { key: "all", label: "All time", days: null },
+];
+
+// Event categories → the action prefixes they cover (PostgREST `like` filters).
+const CATEGORIES: { key: string; label: string; likes: string[] }[] = [
+  { key: "all", label: "All events", likes: [] },
+  { key: "assessment", label: "Assessments", likes: ["assessment.%"] },
+  { key: "workshop", label: "Workshops & sessions", likes: ["workshop.%", "session.%"] },
+  { key: "pulse", label: "Pulses", likes: ["pulse.%"] },
+  { key: "member", label: "Members", likes: ["member.%", "membership.%", "invitation.%"] },
+  { key: "workspace", label: "Workspace", likes: ["workspace.%"] },
+];
+
 function dotColor(entityType: string | null): string {
   switch (entityType) {
     case "survey": return "var(--role)";
@@ -51,33 +68,42 @@ function dayKey(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" });
 }
 
-const RANGES: { key: string; label: string; days: number | null }[] = [
-  { key: "7", label: "7 days", days: 7 },
-  { key: "30", label: "30 days", days: 30 },
-  { key: "90", label: "90 days", days: 90 },
-  { key: "all", label: "All time", days: null },
-];
-
 export default async function OrganizationActivityPage({
   searchParams,
 }: {
-  searchParams: { range?: string };
+  searchParams: { range?: string; type?: string; actor?: string };
 }) {
   const ctx = await requireSession();
   if (!isAdmin(ctx.role)) redirect("/dashboard");
   const supabase = createClient();
 
   const range = RANGES.find((r) => r.key === searchParams.range) ?? RANGES[1]; // default 30 days
+  const category = CATEGORIES.find((c) => c.key === searchParams.type) ?? CATEGORIES[0];
+  const actorFilter = searchParams.actor && searchParams.actor !== "all" ? searchParams.actor : null;
+
+  // Active workspace members for the actor dropdown.
+  const { data: mem } = await supabase
+    .from("membership")
+    .select("user_id")
+    .eq("workspace_id", ctx.workspace.id)
+    .eq("status", "active");
+  const memberIds = (mem ?? []).map((m) => m.user_id as string);
+  const { data: memberProfs } = memberIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", memberIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const members = (memberProfs ?? [])
+    .map((p) => ({ id: p.id, name: p.full_name || p.display_name || p.email || "Member" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   let q = supabase
     .from("audit_log")
     .select("id, action, actor_id, entity_type, metadata, created_at")
     .eq("workspace_id", ctx.workspace.id)
     .order("created_at", { ascending: false })
     .limit(200);
-  if (range.days != null) {
-    const since = new Date(Date.now() - range.days * 86400000).toISOString();
-    q = q.gte("created_at", since);
-  }
+  if (range.days != null) q = q.gte("created_at", new Date(Date.now() - range.days * 86400000).toISOString());
+  if (category.likes.length) q = q.or(category.likes.map((l) => `action.like.${l}`).join(","));
+  if (actorFilter) q = q.eq("actor_id", actorFilter);
   const { data: events } = await q;
   const rows = events ?? [];
 
@@ -96,15 +122,38 @@ export default async function OrganizationActivityPage({
     else groups.push({ day, items: [e] });
   }
 
+  const filtered = category.key !== "all" || actorFilter;
+
   return (
     <OrgShell active="activity" isAdmin subtitle="An accountability log of assessment, workshop and membership events across the workspace.">
-      <div className="orgact-filters">
-        {RANGES.map((r) => (
-          <a key={r.key} href={`/organization/activity?range=${r.key}`} className={`orgact-pill${r.key === range.key ? " on" : ""}`}>{r.label}</a>
-        ))}
-      </div>
+      <form className="orgact-bar" method="get">
+        <label className="orgact-f">
+          <span>Range</span>
+          <select className="inp sm" name="range" defaultValue={range.key}>
+            {RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+        </label>
+        <label className="orgact-f">
+          <span>Event</span>
+          <select className="inp sm" name="type" defaultValue={category.key}>
+            {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+          </select>
+        </label>
+        <label className="orgact-f">
+          <span>Person</span>
+          <select className="inp sm" name="actor" defaultValue={actorFilter ?? "all"}>
+            <option value="all">Everyone</option>
+            {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </select>
+        </label>
+        <button className="btn-sec" type="submit">Apply</button>
+      </form>
+
       {rows.length === 0 ? (
-        <div className="empty">No activity in the last {range.label.toLowerCase()}. Events appear here as assessments and workshops are run.</div>
+        <div className="empty">
+          No {filtered ? "matching " : ""}activity in {range.days == null ? "the log" : range.label.toLowerCase()}.
+          {filtered ? <> <a className="linkbtn" href="/organization/activity">Clear filters</a></> : " Events appear here as assessments and workshops are run."}
+        </div>
       ) : (
         <div className="orgact">
           {groups.map((g) => (
@@ -112,9 +161,10 @@ export default async function OrganizationActivityPage({
               <div className="orgact-day">{g.day}</div>
               {g.items.map((e) => {
                 const actor = e.actor_id ? nameById.get(e.actor_id as string) ?? "Someone" : "System";
-                const n = (e.metadata as { measures?: number } | null)?.measures;
-                const suffix = e.action === "session.completed" && typeof n === "number"
-                  ? ` · ${n} ${n === 1 ? "measure" : "measures"}` : "";
+                const meta = e.metadata as { measures?: number; pending?: number } | null;
+                let suffix = "";
+                if (e.action === "session.completed" && typeof meta?.measures === "number") suffix = ` · ${meta.measures} ${meta.measures === 1 ? "measure" : "measures"}`;
+                else if ((e.action === "assessment.reminded" || e.action === "pulse.reminded") && typeof meta?.pending === "number") suffix = ` · ${meta.pending} pending`;
                 return (
                   <div className="orgact-row" key={e.id}>
                     <span className="av sm" aria-hidden style={{ background: dotColor(e.entity_type as string | null) }}>{initials(actor)}</span>
