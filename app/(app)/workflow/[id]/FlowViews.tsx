@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
-import { reorderSteps, addStep, removeStep, setBranch } from "../actions";
+import { reorderSteps, addStep, removeStep, setBranch, moveStep } from "../actions";
+import { DYN, dynLabel, opLabel } from "../dynamics";
 
 export type FlowStep = {
   id: string;
@@ -40,16 +41,7 @@ const KIND: Record<string, { label: string; tone: string }> = {
 };
 // Kinds that can be added on the canvas (mirrors program_add_step's allow-list).
 const ADDABLE = ["assessment", "launch", "interpret", "score", "workshop", "commit", "report", "repulse", "branch", "custom"] as const;
-const DYN: Record<string, string> = {
-  psych_safety: "Psychological safety",
-  trust: "Trust",
-  conflict_norms: "Conflict norms",
-  role_clarity: "Role clarity",
-  decision_rights: "Decision rights",
-};
 function kindOf(k: string) { return KIND[k] ?? { label: k, tone: "var(--muted)" }; }
-function dynLabel(d: string | null) { return d ? DYN[d] ?? d : "the reading"; }
-function opLabel(op: string | null) { return op === "gte" ? "at or above" : "below"; }
 function stepPill(s: string) {
   return s === "active" ? { l: "Active", c: "open" }
     : s === "done" ? { l: "Done", c: "internal" }
@@ -252,7 +244,7 @@ export function FlowViews({
         <div className="a-ovcard">
           {canEdit ? (
             <div className="flowmap-hint">
-              {saving ? "Saving order…" : err ? <span style={{ color: "var(--rust)" }}>{err}</span> : "Drag a node to reorder the flow."}
+              {saving ? "Saving…" : err ? <span style={{ color: "var(--rust)" }}>{err}</span> : "Drag a node, or use the ↑ ↓ buttons, to reorder. Add or remove steps below."}
             </div>
           ) : null}
           <div className="flowmap">
@@ -277,6 +269,12 @@ export function FlowViews({
                     <span className={`pill sm ${p.c}`}>{p.l}</span>
                     {canEdit ? (
                       <span className="flowmap-acts">
+                        <button className="flowmap-act" draggable={false} title="Move up" disabled={i === 0 || saving}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); run(moveStep(s.id, -1)); }}>↑</button>
+                        <button className="flowmap-act" draggable={false} title="Move down" disabled={i === steps.length - 1 || saving}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onClick={(e) => { e.stopPropagation(); run(moveStep(s.id, 1)); }}>↓</button>
                         {s.kind === "branch" ? (
                           <button className="flowmap-act" draggable={false} title="Edit routing"
                             onMouseDown={(e) => e.stopPropagation()}

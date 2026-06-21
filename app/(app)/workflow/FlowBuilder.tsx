@@ -2,25 +2,19 @@
 
 import { useState } from "react";
 import type { ProgramView, StepView, Template } from "./WorkflowClient";
+import { DYNAMICS, dynLabel } from "./dynamics";
 
 // The visual node editor for a Flow: add / remove / reorder steps and
 // configure a branch node that routes to one of two workshop templates based
 // on a pulse dynamic. Backed by the program_add_step / _remove_step /
-// _move_step / _set_branch RPCs.
+// _move_step / _set_branch RPCs. Branch-condition vocabulary lives in ./dynamics
+// (shared with the canvas Map editor).
 
-const DYNAMICS: { value: string; label: string }[] = [
-  { value: "psych_safety", label: "Psychological safety" },
-  { value: "trust", label: "Trust" },
-  { value: "conflict_norms", label: "Conflict norms" },
-  { value: "role_clarity", label: "Role clarity" },
-  { value: "decision_rights", label: "Decision rights" },
-];
 const ADDABLE: { value: string; label: string }[] = [
   { value: "workshop", label: "Workshop" },
   { value: "branch", label: "Branch (route by result)" },
   { value: "custom", label: "Custom step" },
 ];
-const dynLabel = (v?: string) => DYNAMICS.find((d) => d.value === v)?.label ?? v ?? "—";
 
 function BranchConfig({
   step,

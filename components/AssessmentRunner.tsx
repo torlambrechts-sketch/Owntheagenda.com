@@ -99,6 +99,7 @@ export function AssessmentRunner({
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
   const hydrated = useRef(false);
+  const digitRef = useRef<{ v: number; t: number } | null>(null);
 
   // Resume any locally-saved draft once on mount. A draft is the respondent's
   // own in-progress work and is strictly newer than server-provided initial
@@ -188,8 +189,17 @@ export function AssessmentRunner({
       const it = items[idx];
       if (!it) return;
       if (itemType(it) === "likert" && /^[0-9]$/.test(e.key)) {
-        const v = Number(e.key);
-        if (v >= min && v <= max) { setAnswer(it.key, v); e.preventDefault(); }
+        const d = Number(e.key);
+        // Buffer consecutive digits so two-digit values (e.g. 10 on a 0–10
+        // scale) are reachable from the keyboard, not just the mouse.
+        const now = Date.now();
+        const prev = digitRef.current;
+        let v = d;
+        if (prev && now - prev.t < 900) {
+          const combined = prev.v * 10 + d;
+          if (combined <= max) v = combined;
+        }
+        if (v >= min && v <= max) { setAnswer(it.key, v); digitRef.current = { v, t: now }; e.preventDefault(); }
         return;
       }
       if (e.key === "ArrowLeft") { setIdx((i) => Math.max(0, i - 1)); e.preventDefault(); }
@@ -203,6 +213,9 @@ export function AssessmentRunner({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showAll, items, idx, n, min, max, answers, allRated, setAnswer, doSubmit]);
+
+  // A fresh question starts a fresh digit buffer.
+  useEffect(() => { digitRef.current = null; }, [idx]);
 
   const intro = (
     <div className="arun-intro">
