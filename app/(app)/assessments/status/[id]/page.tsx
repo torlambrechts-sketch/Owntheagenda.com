@@ -16,7 +16,7 @@ export default async function AssessmentStatusPage({ params }: { params: { id: s
 
   const { data: survey } = await supabase
     .from("survey")
-    .select("id, name, status, team_id, workspace_id, kind, definition, opened_at, due_at, anonymity")
+    .select("id, name, status, team_id, workspace_id, kind, definition, opened_at, due_at, anonymity, share_token")
     .eq("id", params.id)
     .maybeSingle();
   if (!survey || survey.workspace_id !== ctx.workspace.id) notFound();
@@ -64,6 +64,8 @@ export default async function AssessmentStatusPage({ params }: { params: { id: s
     teamName: team?.name ?? null,
     openedAt: survey.opened_at as string | null,
     dueAt: survey.due_at as string | null,
+    anonymity: (survey.anonymity as string) ?? "anonymous",
+    shareToken: (survey.share_token as string | null) ?? null,
     invited,
     responded,
     masked: detail?.masked ?? true,

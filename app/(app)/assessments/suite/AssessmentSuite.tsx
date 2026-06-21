@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { initials } from "@/lib/util";
 import { loadAssessmentDetail, type AssessmentDetail, type SectionScore } from "./actions";
+import { NewAssessment } from "./NewAssessment";
 
 export type SuiteRow = {
   id: string;
@@ -41,8 +42,9 @@ function fmtDateTime(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function AssessmentSuite({ rows, kpis, isAdmin = false }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean }) {
+export function AssessmentSuite({ rows, kpis, isAdmin = false, teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
   const [view, setView] = useState<View>("overview");
+  const [newOpen, setNewOpen] = useState(false);
   const [active, setActive] = useState<SuiteRow | null>(null);
   const [tab, setTab] = useState<DetailTab>("info");
   const [detail, setDetail] = useState<AssessmentDetail | null>(null);
@@ -117,7 +119,8 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           </div>
           <div className="a-pr">
             <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
-            {isAdmin ? <Link className="btn-prim" href="/builder">＋ Build assessment</Link> : null}
+            {isAdmin ? <Link className="btn-sec" href="/builder">Build assessment</Link> : null}
+            {isAdmin ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
         </div>
 
@@ -181,6 +184,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           )}
         </div>
         {loading ? <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div> : null}
+        {newOpen ? <NewAssessment teams={teams} templates={templates} onClose={() => setNewOpen(false)} /> : null}
       </>
     );
   }

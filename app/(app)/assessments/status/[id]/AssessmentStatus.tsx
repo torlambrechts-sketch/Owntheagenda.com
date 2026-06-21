@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { remindSurvey, closeSurvey, setSurveyPaused } from "../../actions";
+import { remindSurvey, closeSurvey, setSurveyPaused, setSurveyShare } from "../../actions";
 
 export type StatusData = {
   surveyId: string;
@@ -13,6 +13,8 @@ export type StatusData = {
   teamName: string | null;
   openedAt: string | null;
   dueAt: string | null;
+  anonymity: string;
+  shareToken: string | null;
   invited: number;
   responded: number;
   masked: boolean;
@@ -89,6 +91,9 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
   const [status, setStatus] = useState(data.status);
+  const [shareToken, setShareToken] = useState(data.shareToken);
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
   const closed = status === "closed";
   const paused = status === "paused";
 
@@ -114,6 +119,19 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
       if (res.error) flash(res.error);
       else { setStatus("closed"); flash("Assessment closed"); router.refresh(); }
     });
+  }
+  function toggleShare() {
+    const on = !shareToken;
+    startTransition(async () => {
+      const res = await setSurveyShare(data.surveyId, on);
+      if (res.error) flash(res.error);
+      else { setShareToken(res.token ?? null); flash(on ? "Public link is live" : "Public link revoked"); }
+    });
+  }
+  function copyLink() {
+    if (!shareToken) return;
+    void navigator.clipboard?.writeText(`${origin}/survey/${shareToken}`);
+    flash("Link copied");
   }
   function togglePause() {
     startTransition(async () => {
@@ -195,6 +213,25 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
             <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}><Ring pct={rate} /></div>
             <div className="ast-ring-sub">{responded} of {data.invited} responded · target ≥ 75%</div>
           </div>
+
+          {!closed ? (
+            <div className="a-ovcard">
+              <div className="ast-eyebrow" style={{ marginBottom: 10 }}>Distribute</div>
+              <div className="ast-dist-row">Team members can take it from their dashboard{paused ? " once resumed" : ""}.</div>
+              {data.anonymity === "anonymous" ? (
+                shareToken ? (
+                  <>
+                    <div className="ast-link"><input className="inp" readOnly value={`${origin}/survey/${shareToken}`} onFocus={(e) => e.target.select()} /><button className="btn-sec sm" onClick={copyLink}>Copy</button></div>
+                    <button className="linkbtn xs" style={{ marginTop: 8 }} disabled={pending} onClick={toggleShare}>Revoke public link</button>
+                  </>
+                ) : (
+                  <button className="btn-sec sm" style={{ marginTop: 8, width: "100%", justifyContent: "center" }} disabled={pending} onClick={toggleShare}>🔗 Create a public link</button>
+                )
+              ) : (
+                <div className="ast-dist-note">This is an attributed assessment — there is no anonymous public link. Members respond in-app.</div>
+              )}
+            </div>
+          ) : null}
 
           {data.triggered.length ? (
             <div className="ast-trigger">

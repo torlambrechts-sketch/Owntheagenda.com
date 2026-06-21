@@ -26,6 +26,15 @@ export default async function AssessmentSuitePage() {
   const instruments = await resolveInstruments();
   const instNameByKind = new Map(Object.values(instruments).map((i) => [i.kind, i.name]));
 
+  // Team-scoped instruments that can be started for a team (the "New assessment" picker).
+  const { data: tmplRows } = await supabase
+    .from("assessment_template")
+    .select("key, name")
+    .eq("scope", "team")
+    .or(`workspace_id.is.null,workspace_id.eq.${ctx.workspace.id}`)
+    .order("name");
+  const templates = (tmplRows ?? []).map((t) => ({ key: t.key as string, name: t.name as string }));
+
   // One cheap pass over every survey across the caller's teams. No per-survey
   // scoring here — that is resolved lazily when a row is opened.
   const { data: surveyRows } = teamIds.length
@@ -82,5 +91,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={isAdmin(ctx.role)} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={isAdmin(ctx.role)} teams={teamList.map((t) => ({ id: t.id as string, name: t.name as string }))} templates={templates} />;
 }
