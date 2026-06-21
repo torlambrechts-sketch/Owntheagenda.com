@@ -280,6 +280,56 @@ export function BuilderClient({
       default: return "Reflect and discuss; advance when everyone’s ready.";
     }
   }
+  // A compact visual mock of the module as participants will see it — reflects
+  // the columns / options / mode being configured right now.
+  function modulePreview() {
+    const lanes = lanesText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const opts = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const b = Math.max(1, Math.min(5, Number(budget) || 3));
+    if (activity === "feedback" || activity === "retrospective") {
+      const cols = lanes.length ? lanes : activity === "retrospective" ? ["Start", "Stop", "Continue"] : ["Notes"];
+      return (
+        <div className="prev-cols">
+          {cols.map((c, i) => (
+            <div className="prev-col" key={i}><div className="prev-col-h">{c}</div><span className="prev-card mini" /><span className="prev-card mini" /></div>
+          ))}
+        </div>
+      );
+    }
+    if (activity === "vote") {
+      const o = opts.length ? opts : ["Option A", "Option B", "Option C"];
+      return (
+        <div className="prev-rows">
+          {o.slice(0, 4).map((x, i) => (
+            <div className="prev-row" key={i}><span>{x}</span><span className="prev-dots">{"●".repeat(b)}</span></div>
+          ))}
+        </div>
+      );
+    }
+    if (activity === "brainstorm" || activity === "hmw") {
+      return (
+        <div className="prev-cards">
+          <div className="prev-card">An idea… <span className="prev-dots">{"●".repeat(b)}</span></div>
+          <div className="prev-card">Another idea…</div>
+        </div>
+      );
+    }
+    if (activity === "checkin") {
+      return <div className="prev-readyrow">{capture ? <span className="prev-card mini wide" /> : <span className="prev-chip">✓ I’m ready</span>}</div>;
+    }
+    if (activity === "canvas") {
+      return <div className="prev-canvas"><span /><span /><span /></div>;
+    }
+    if (activity === "outcome") {
+      return (
+        <div className="prev-rows">
+          <div className="prev-row"><span>Decision recorded…</span></div>
+          <div className="prev-row"><span>☑ Action · owner · due</span></div>
+        </div>
+      );
+    }
+    return null;
+  }
   async function saveBlock() {
     setError(null);
     const payload = {
@@ -639,6 +689,7 @@ export function BuilderClient({
             <h3>{title || "Untitled step"}</h3>
             {prompt ? <div className="prev-prompt">{prompt}</div> : null}
             <div className="prev-hint">{previewHint()}</div>
+            {modulePreview()}
           </div>
         </div>
       </SideWindow>

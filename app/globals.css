@@ -915,6 +915,20 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .prevstage h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:6px 0 10px;color:#fff}
 .prevstage .prev-prompt{font-size:14px;line-height:1.5;color:rgba(255,255,255,.92);background:rgba(255,255,255,.07);border-radius:9px;padding:12px 14px;border-left:3px solid var(--green);margin-bottom:10px;white-space:pre-wrap}
 .prevstage .prev-hint{font-size:12px;color:rgba(255,255,255,.62)}
+.prevstage .prev-cols{display:flex;gap:8px;margin-top:12px}
+.prevstage .prev-col{flex:1;min-width:0;background:rgba(255,255,255,.06);border-radius:9px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.prevstage .prev-col-h{font-size:10px;font-weight:700;color:rgba(255,255,255,.78);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prevstage .prev-card{background:rgba(255,255,255,.12);border-radius:7px;color:#fff;font-size:12px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.prevstage .prev-card.mini{height:18px;padding:0}
+.prevstage .prev-card.mini.wide{width:100%}
+.prevstage .prev-cards{display:flex;flex-direction:column;gap:7px;margin-top:12px}
+.prevstage .prev-rows{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.prevstage .prev-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,.07);border-radius:8px;padding:9px 11px;font-size:12.5px;color:rgba(255,255,255,.92)}
+.prevstage .prev-dots{color:var(--green);font-size:9px;letter-spacing:1px;flex:none}
+.prevstage .prev-readyrow{margin-top:12px}
+.prevstage .prev-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(127,208,163,.18);color:#a7e0c0;border-radius:999px;padding:6px 13px;font-size:12px;font-weight:600}
+.prevstage .prev-canvas{display:flex;gap:8px;margin-top:12px}
+.prevstage .prev-canvas span{width:46px;height:34px;border-radius:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14)}
 .runrail{display:flex;align-items:center;gap:6px;padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;flex:none;scrollbar-width:thin}
 .runrail-step{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:5px 12px 5px 6px;font-family:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
 .runrail-step:disabled{cursor:default}
