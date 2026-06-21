@@ -23,7 +23,16 @@ Status legend: ✅ done · 🟡 partial · ⛔ missing. Percentages are rough ef
 - ✅ **Favicon** — `app/icon.svg` (the gold mark) wired as the app icon.
 - ✅ **Branch dynamics dedup** — shared `workflow/dynamics.ts` (markup stays local).
 
+## Implemented since (round 2)
+
+- ✅ **New workshop modules — Retrospective + How-might-we** — authorable + runnable end-to-end (enum + allow-lists, builder phase/hint/config/preview, run dispatch reusing IdeaModule, session readout, types). Reuse the proven Feedback/Brainstorm renderers, so no new real-time code.
+- ✅ **Module live-preview** — the builder inspector renders a compact visual mock of each module reflecting the live config.
+- ✅ **Generic Likert scales** — the Assessment Builder authors any `a–b` range (presets 1–4…0–10 + preserves loaded exotic scales); editing no longer normalises an exotic scale.
+
 ### Known residual limitations (from the post-implementation review)
+- 1–10 assessment scales still show generic "Strongly disagree/agree" anchors (the builder has no custom-anchor field yet) — a separate, small feature.
+- A retrospective/how-might-we block created via the live-add/quick-start RPCs lands with empty config (→ a single "Notes" lane for retro), the same as every other live-added module; unreachable from the shipped UI (the builder always sets full config, and neither type is in the quick-start palette).
+- Remaining large items unchanged: free-form flow canvas; further new module *types* needing bespoke renderers (mind map, affinity, ranking); app-wide table-row a11y sweep.
 - The Assessment Builder only authors three Likert scales (1–5 / 1–7 / 0–10); editing a template stored with an exotic scale (e.g. 1–6) normalises it to 1–5 on save. Acceptable while the builder's scale model is fixed; revisit if arbitrary scales are needed.
 - Likert keyboard entry can't reach the max of a 0–10 scale (single-digit only) — pre-existing; mouse/keyboard-arrow selection works.
 - `FlowViews.BranchEditor` duplicates `FlowBuilder.BranchConfig` (same `program_set_branch` contract + dynamics list). Candidate for a shared component; left as-is to avoid churn across two working surfaces.

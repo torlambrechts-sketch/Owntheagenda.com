@@ -490,11 +490,11 @@ export function BuilderClient({
           const act = ACTIVITY[b.activityType] ?? { label: b.activityType, cls: "" };
           const ph = phaseOf(b.activityType);
           const cfgHint =
-            b.activityType === "feedback"
+            b.activityType === "feedback" || b.activityType === "retrospective"
               ? `${b.config?.lanes?.length ?? 0} columns`
               : b.activityType === "vote"
                 ? `${b.config?.options?.length ?? 0} options · ${b.config?.budget ?? 3} dots each`
-                : b.activityType === "brainstorm"
+                : b.activityType === "brainstorm" || b.activityType === "hmw"
                   ? `${b.config?.budget ?? 3} dots each${b.config?.silent ? " · silent" : ""}${b.config?.prework ? " · pre-work" : ""}`
                   : null;
           return (
@@ -592,6 +592,8 @@ export function BuilderClient({
               setActivity(a);
               if (a === "retrospective" && !lanesText.trim()) setLanesText("Start\nStop\nContinue");
               if (a === "hmw" && !prompt.trim()) setPrompt("How might we …");
+              // Don't carry the auto-filled HMW framing into a different module.
+              else if (a !== "hmw" && prompt.trim() === "How might we …") setPrompt("");
             }}>
               {ACT_PHASES.map((p) => (
                 <optgroup key={p.label} label={p.label}>
