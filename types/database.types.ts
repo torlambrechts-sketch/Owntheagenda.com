@@ -1659,7 +1659,7 @@ export type Database = {
         Returns: Json
       }
       submit_individual_response: {
-        Args: { p_workspace: string; p_template_key: string; p_scores: Json }
+        Args: { p_workspace: string; p_template_key: string; p_scores: Json; p_answers?: Json }
         Returns: undefined
       }
       individual_norms: {

@@ -115,7 +115,9 @@ export function FlowViews({
     });
   }
   function doAdd(kind: string, title: string) {
-    const afterOrd = steps.length ? steps[steps.length - 1].ord : 0;
+    // Append after the highest ord — robust to an optimistic drag-reorder whose
+    // local `.ord` values haven't been refreshed yet.
+    const afterOrd = steps.length ? Math.max(...steps.map((s) => s.ord)) : 0;
     setAdding(false);
     run(addStep(programId, afterOrd, kind, title));
   }

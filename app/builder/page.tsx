@@ -59,10 +59,17 @@ function parseDefinition(name: string, definition: unknown): { doc: Doc; thresho
   const baseScale = scaleToStr(def.scale);
   const dims = def.dimensions ?? [];
   const items = def.items ?? [];
-  const sections = dims.map((d) => ({
+  const known = new Set(dims.map((d) => d.key));
+  // Items whose dimension matches no section would otherwise be silently lost on
+  // an edit→save round-trip; collect them into an extra section instead.
+  const orphans = items.filter((it) => !known.has(it.dimension));
+  const groups = orphans.length
+    ? [...dims, { key: "__orphans__", label: "Other questions" }]
+    : dims;
+  const sections = groups.map((d) => ({
     id: "s_" + d.key,
     name: d.label || d.key,
-    questions: items.filter((it) => it.dimension === d.key).map((it) => {
+    questions: (d.key === "__orphans__" ? orphans : items.filter((it) => it.dimension === d.key)).map((it) => {
       const type = (["likert", "single", "multi", "text"].includes(it.type ?? "") ? it.type : "likert") as QType;
       return {
         id: "q_" + it.key,

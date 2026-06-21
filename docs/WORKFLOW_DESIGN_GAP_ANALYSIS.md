@@ -11,6 +11,19 @@ Design files in scope:
 
 Status legend: ✅ done · 🟡 partial · ⛔ missing. Percentages are rough effort estimates.
 
+## Implemented since this analysis (2026-06-21)
+
+- ✅ **Flow node kinds `score` + `report`** — constraint + `program_add_step`, rendered in FlowViews.
+- ✅ **On-canvas flow editing** — add / delete step + inline branch-routing editor on the `/workflow/[id]` Map (admins), via the existing add/remove/branch RPCs.
+- ✅ **In-place template editing** — `/builder?id=` loads an existing definition into the three-pane editor and saves in place; gallery lists "Your assessments".
+- ✅ **Non-Likert question types end-to-end** — the shared runner renders single/multi/text, optional questions gate on *required* items, and answers persist (team + individual paths) in a dedicated `answers` jsonb while `scores` stays numeric (scoring untouched). Replaces the earlier "Publish guard" P2.
+- 🟡 **Workshop builder** — module picker now phase-grouped (Open/Diverge/Converge/Decide/Close). Full agenda-canvas redesign + new module types remain deferred (each needs a run-side renderer).
+
+### Known residual limitations (from the post-implementation review)
+- The Assessment Builder only authors three Likert scales (1–5 / 1–7 / 0–10); editing a template stored with an exotic scale (e.g. 1–6) normalises it to 1–5 on save. Acceptable while the builder's scale model is fixed; revisit if arbitrary scales are needed.
+- Likert keyboard entry can't reach the max of a 0–10 scale (single-digit only) — pre-existing; mouse/keyboard-arrow selection works.
+- `FlowViews.BranchEditor` duplicates `FlowBuilder.BranchConfig` (same `program_set_branch` contract + dynamics list). Candidate for a shared component; left as-is to avoid churn across two working surfaces.
+
 ---
 
 ## 1. Flow overview (list) — ~85% 🟡

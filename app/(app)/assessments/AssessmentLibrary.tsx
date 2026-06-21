@@ -9,7 +9,7 @@ import { toCsv, downloadText, fileSlug } from "@/lib/exporting";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
 export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
-export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean };
+export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean; type?: "likert" | "single" | "multi" | "text"; options?: string[]; required?: boolean };
 export type CatalogItem = {
   key: string;
   name: string;
@@ -161,7 +161,7 @@ export function AssessmentLibrary({
     // (single/multi/text) ride along in p_answers for the team path.
     const { error } = active.scope === "team" && active.openSurveyId
       ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: scores, p_answers: answers })
-      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: scores });
+      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: scores, p_answers: answers });
     if (error) { flash(error.message); throw error; }
     setSample(false); setTeamMode(false); setScores(scoreFrom(active, scores)); setMode("candidate"); setExp(new Set());
     go("report");

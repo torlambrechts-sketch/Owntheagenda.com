@@ -139,8 +139,10 @@ export function AssessmentRunner({
   const answered = useMemo(() => items.filter((it) => isAnswered(answers[it.key])).length, [items, answers]);
   const pct = n ? Math.round((answered / n) * 100) : 0;
   // Submission gates on *required* items (non-Likert questions can be optional).
+  // When every item is optional, still require at least one answer so a wholly
+  // blank response can't be submitted.
   const requiredItems = useMemo(() => items.filter((it) => it.required !== false), [items]);
-  const allRated = n > 0 && requiredItems.every((it) => isAnswered(answers[it.key]));
+  const allRated = n > 0 && requiredItems.every((it) => isAnswered(answers[it.key])) && (requiredItems.length > 0 || answered > 0);
 
   const opts = useMemo(() => {
     const out: number[] = [];
