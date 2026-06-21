@@ -12,10 +12,13 @@ import { saveTemplate } from "../actions";
 // threshold persist as additive fields in the instrument definition (existing
 // readers treat items as Likert by default).
 
-type QType = "likert" | "single" | "multi" | "text";
-type Question = { id: string; text: string; type: QType; required: boolean; reverse: boolean; scale: string; options: string[] };
-type Section = { id: string; name: string; questions: Question[] };
-type Doc = { title: string; sections: Section[] };
+export type QType = "likert" | "single" | "multi" | "text";
+export type Question = { id: string; text: string; type: QType; required: boolean; reverse: boolean; scale: string; options: string[] };
+export type Section = { id: string; name: string; questions: Question[] };
+export type Doc = { title: string; sections: Section[] };
+// When editing an existing template, the route hands the parsed doc + the
+// persisted metadata to preserve on save.
+export type EditSeed = { id: string; doc: Doc; threshold: number; agg: string; category: string; scope: string; description: string; source: string };
 
 const TYPES: Record<QType, { label: string; accent: string }> = {
   likert: { label: "Likert", accent: "var(--role)" },
@@ -83,17 +86,17 @@ function blankDoc(): Doc {
   return { title: "Untitled assessment", sections: [{ id: rid("s"), name: "Section 1", questions: [q("Your first question", "likert", true, false)] }] };
 }
 
-export function AssessmentBuilder() {
+export function AssessmentBuilder({ edit, existing = [] }: { edit?: EditSeed; existing?: { id: string; name: string; category: string }[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [view, setView] = useState<"gallery" | "editor">("gallery");
+  const [view, setView] = useState<"gallery" | "editor">(edit ? "editor" : "gallery");
   const [cat, setCat] = useState("All");
-  const [doc, setDoc] = useState<Doc | null>(null);
+  const [doc, setDoc] = useState<Doc | null>(edit?.doc ?? null);
   const [curSection, setCurSection] = useState(0);
   const [selQ, setSelQ] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [threshold, setThreshold] = useState(3.0);
-  const [agg, setAgg] = useState("Section mean");
+  const [threshold, setThreshold] = useState(edit?.threshold ?? 3.0);
+  const [agg, setAgg] = useState(edit?.agg ?? "Section mean");
   const [saved, setSaved] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -103,7 +106,7 @@ export function AssessmentBuilder() {
   function update(fn: (d: Doc) => void) { setDoc((prev) => { if (!prev) return prev; const d = clone(prev); fn(d); return d; }); markDirty(); }
 
   function open(d: Doc) { setDoc(d); setCurSection(0); setSelQ(null); setSaved(true); setView("editor"); }
-  function back() { setView("gallery"); setPreviewOpen(false); }
+  function back() { if (edit) { router.push("/assessments/library"); return; } setView("gallery"); setPreviewOpen(false); }
 
   const cs = doc?.sections[curSection];
   const sel = cs?.questions.find((x) => x.id === selQ) ?? null;
@@ -146,9 +149,17 @@ export function AssessmentBuilder() {
     if (!doc.title.trim()) { setError("Give the assessment a name."); return; }
     if (!def.dimensions.length || !def.items.length) { setError("Add at least one section with a question."); return; }
     startTransition(async () => {
-      const res = await saveTemplate({ id: null, name: doc.title.trim(), category: "custom", scope: "team", description: "", source: "", definition: def });
+      const res = await saveTemplate({
+        id: edit?.id ?? null,
+        name: doc.title.trim(),
+        category: edit?.category ?? "custom",
+        scope: edit?.scope ?? "team",
+        description: edit?.description ?? "",
+        source: edit?.source ?? "",
+        definition: def,
+      });
       if (res.error) { setError(res.error); return; }
-      flash("Published — your assessment is in the library");
+      flash(edit ? "Saved — your changes are live" : "Published — your assessment is in the library");
       setTimeout(() => router.push("/assessments/library"), 700);
     });
   }
@@ -172,6 +183,24 @@ export function AssessmentBuilder() {
                 Pick a starting point or build blank. Every template ships with sections, scoring and a threshold that can trigger a follow-up workshop. You can edit everything after.
               </p>
             </div>
+            {existing.length ? (
+              <div style={{ marginBottom: 26 }}>
+                <div className="ab-insp-lbl" style={{ marginBottom: 10 }}>Your assessments</div>
+                <div className="ab-grid">
+                  {existing.map((t) => (
+                    <button key={t.id} className="ab-card" onClick={() => router.push(`/builder?id=${t.id}`)}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
+                        <span className="ab-card-ic"><Icon n="doc" /></span>
+                        <span className="pill sm internal">Edit</span>
+                      </div>
+                      <span className="ab-card-nm">{t.name}</span>
+                      <span className="ab-card-desc">Workspace assessment · {t.category}</span>
+                      <span className="ab-card-meta"><span>Open in the builder →</span></span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <div className="ab-cats">
               {CATS.map((c) => (
                 <button key={c} className={`ab-cat${cat === c ? " on" : ""}`} onClick={() => setCat(c)}>
