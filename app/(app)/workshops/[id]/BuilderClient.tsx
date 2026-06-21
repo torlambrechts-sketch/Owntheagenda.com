@@ -51,7 +51,15 @@ const DYN: [Dyn, string][] = [
   ["role_clarity", "Role clarity"],
   ["decision_rights", "Decision rights"],
 ];
-const ACTS: Activity[] = ["canvas", "brainstorm", "vote", "feedback", "discuss", "checkin", "outcome"];
+// Group the runnable activities into the design's facilitation phases (Open →
+// Diverge → Converge → Decide → Close) so the picker reads as a phased library.
+const ACT_PHASES: { label: string; acts: Activity[] }[] = [
+  { label: "Open", acts: ["checkin"] },
+  { label: "Diverge", acts: ["brainstorm", "canvas"] },
+  { label: "Converge", acts: ["vote", "feedback"] },
+  { label: "Decide", acts: ["outcome"] },
+  { label: "Close", acts: ["discuss"] },
+];
 // Short helper text shown under the activity picker per module.
 const ACT_HINT: Partial<Record<Activity, string>> = {
   canvas: "Free-form sticky-note board.",
@@ -506,8 +514,12 @@ export function BuilderClient({
           <div className="field">
             <label>Activity type</label>
             <select className="inp" value={activity} onChange={(e) => setActivity(e.target.value as Activity)}>
-              {ACTS.map((a) => (
-                <option key={a} value={a}>{ACTIVITY[a].label}</option>
+              {ACT_PHASES.map((p) => (
+                <optgroup key={p.label} label={p.label}>
+                  {p.acts.map((a) => (
+                    <option key={a} value={a}>{ACTIVITY[a].label}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </div>
