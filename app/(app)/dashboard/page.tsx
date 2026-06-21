@@ -126,7 +126,7 @@ export default async function DashboardPage() {
                         {overdue ? " · overdue" : soon ? " · due soon" : ""}
                       </td>
                       <td className="r" style={{ width: 110 }}>
-                        <Link className="linkbtn" href="/assessments">Take ▸</Link>
+                        <Link className="linkbtn" href="/assessments/library">Take ▸</Link>
                       </td>
                     </tr>
                   );
