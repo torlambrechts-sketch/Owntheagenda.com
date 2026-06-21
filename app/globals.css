@@ -290,6 +290,32 @@ button { font-family:inherit; }
 .arun-next-n{flex:none;width:28px;height:28px;border-radius:8px;background:var(--open-bg);color:var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
 .arun-next-t{font-size:13px;font-weight:600;color:var(--ink)}
 .arun-next-s{font-size:12px;color:var(--muted)}
+/* section-paged taking engine */
+.arun-anon{margin-left:auto;font-size:12px;color:var(--muted)}
+.arun-secbar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.arun-secbar-track{flex:1;height:7px;border-radius:999px;background:var(--canvas-2);overflow:hidden}
+.arun-secbar-track span{display:block;height:100%;border-radius:999px;background:var(--forest);transition:width .3s}
+.arun-secpct{font-size:12px;font-weight:700;color:var(--forest);font-variant-numeric:tabular-nums}
+.arun-dots{display:flex;gap:5px;margin-bottom:22px}
+.arun-dots span{flex:1;height:4px;border-radius:999px;background:var(--line-2)}
+.arun-dots span.on{background:var(--forest)}
+.arun-sechead{margin-bottom:16px}
+.arun-seceyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--green)}
+.arun-secname{font-family:var(--font-display);font-size:21px;font-weight:600;color:var(--ink);margin:4px 0 0}
+.arun-qcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:18px 20px;margin-bottom:12px}
+.arun-qhead{display:flex;align-items:flex-start;gap:10px;margin-bottom:15px}
+.arun-qn{font-size:13px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;margin-top:1px}
+.arun-qtext{font-size:15px;color:var(--ink);line-height:1.45;flex:1}
+.arun-req{color:var(--green)}
+.arun-lrow{display:flex;gap:8px}
+.arun-lbtn{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;border:1.5px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 4px 9px;cursor:pointer;font-family:inherit}
+.arun-lbtn:hover{border-color:var(--green)}
+.arun-lbtn.on{border-color:var(--forest);background:var(--forest)}
+.arun-lbtn-n{font-size:17px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.arun-lbtn.on .arun-lbtn-n{color:#fff}
+.arun-lbtn-l{font-size:10px;font-weight:600;color:var(--faint);line-height:1.15;text-align:center;min-height:24px}
+.arun-lbtn.on .arun-lbtn-l{color:rgba(255,255,255,.8)}
+.arun-savenote{text-align:center;margin-top:13px;font-size:12px;color:var(--faint)}
 /* assessment run-status view */
 .ast-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
 .ast-kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:15px 17px}

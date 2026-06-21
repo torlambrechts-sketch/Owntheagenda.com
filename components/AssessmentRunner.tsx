@@ -94,6 +94,7 @@ export function AssessmentRunner({
   welcome,
   done,
   onStageChange,
+  paging = "item",
 }: {
   instrument: RunnerInstrument;
   initialAnswers?: Record<string, AnswerValue>;
@@ -117,6 +118,9 @@ export function AssessmentRunner({
   /** Notifies the caller which stage is showing, so sibling content (e.g. a
    *  comment box) can be hidden outside the question stage. */
   onStageChange?: (stage: "welcome" | "questions" | "done") => void;
+  /** "item" = one question at a time (default); "section" = one dimension per
+   *  page with a section header + progress dots (the design's taking engine). */
+  paging?: "item" | "section";
 }) {
   const items = instrument.items;
   const n = items.length;
@@ -129,6 +133,7 @@ export function AssessmentRunner({
   const [resumed, setResumed] = useState(false);
   const [started, setStarted] = useState(!welcome);
   const [submitted, setSubmitted] = useState(false);
+  const [sec, setSec] = useState(0);
   const hydrated = useRef(false);
   const digitRef = useRef<{ v: number; t: number } | null>(null);
 
@@ -214,7 +219,7 @@ export function AssessmentRunner({
   // Keyboard: digit keys pick a value (Likert only), ← / → and Enter navigate.
   // Disabled in the single-page fallback and while typing in a field.
   useEffect(() => {
-    if (showAll) return;
+    if (showAll || paging === "section") return;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
@@ -244,7 +249,7 @@ export function AssessmentRunner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [showAll, items, idx, n, min, max, answers, allRated, setAnswer, doSubmit]);
+  }, [showAll, paging, items, idx, n, min, max, answers, allRated, setAnswer, doSubmit]);
 
   // A fresh question starts a fresh digit buffer.
   useEffect(() => { digitRef.current = null; }, [idx]);
@@ -341,6 +346,67 @@ export function AssessmentRunner({
           <button className="btn-prim arun-start" onClick={() => setStarted(true)}>{welcome.startLabel ?? "Start assessment"} ›</button>
           {welcome.footnote ? <div className="arun-foot">{welcome.footnote}</div> : null}
         </div>
+      </div>
+    );
+  }
+
+  // ---- section-paged (opt-in: one dimension per page) ----
+  if (paging === "section" && started && !showAll) {
+    const dims = instrument.dimensions?.length ? instrument.dimensions : [];
+    let groups = dims.map((d) => ({ name: d.label, its: items.filter((it) => it.dimension === d.key) })).filter((g) => g.its.length);
+    const grouped = new Set(groups.flatMap((g) => g.its.map((it) => it.key)));
+    const orphans = items.filter((it) => !grouped.has(it.key));
+    if (orphans.length) groups = [...groups, { name: dims.length ? "Other" : instrument.name, its: orphans }];
+    if (!groups.length) groups = [{ name: instrument.name, its: items }];
+    const si = Math.min(sec, groups.length - 1);
+    const cur = groups[si];
+    let baseNum = 0; for (let i = 0; i < si; i++) baseNum += groups[i].its.length;
+    const lastSec = si >= groups.length - 1;
+    const sectionBlocked = cur.its.some((it) => it.required !== false && !isAnswered(answers[it.key]));
+    return (
+      <div className="a-run">
+        <div className="a-runtop">
+          {onBack && si === 0 ? <button className="a-back" onClick={onBack} aria-label="Back">‹</button> : null}
+          <div className="a-runtop-h">{instrument.name}</div>
+          <span className="arun-anon">{privacyNote ? "🔒 Anonymous" : ""}</span>
+        </div>
+        <div className="arun-secbar">
+          <span className="arun-secbar-track"><span style={{ width: `${pct}%` }} /></span>
+          <span className="arun-secpct">{pct}%</span>
+        </div>
+        <div className="arun-dots">{groups.map((_, i) => <span key={i} className={i <= si ? "on" : ""} />)}</div>
+        <div className="arun-sechead"><div className="arun-seceyebrow">Section {si + 1} of {groups.length}</div><h2 className="arun-secname">{cur.name}</h2></div>
+        {cur.its.map((it, i) => {
+          const t = itemType(it);
+          const required = it.required !== false;
+          return (
+            <div className="arun-qcard" key={it.key}>
+              <div className="arun-qhead"><span className="arun-qn">{baseNum + i + 1}</span><div className="arun-qtext">{it.text}{required ? <span className="arun-req"> *</span> : null}</div></div>
+              {t === "likert" ? (
+                <div className="arun-lrow" role="radiogroup" aria-label={it.text}>
+                  {opts.map((v) => {
+                    const on = answers[it.key] === v; const lbl = pointLabel(v, min, max, minLabel, maxLabel);
+                    return (
+                      <button key={v} type="button" role="radio" aria-checked={on} aria-label={optLabel(v)}
+                        className={`arun-lbtn${on ? " on" : ""}`} onClick={() => setAnswer(it.key, v)}>
+                        <span className="arun-lbtn-n">{v}</span><span className="arun-lbtn-l">{lbl}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : choiceInput(it)}
+            </div>
+          );
+        })}
+        <div className="a-runnav">
+          <button className="btn-sec" onClick={() => si === 0 ? (welcome ? setStarted(false) : undefined) : setSec(si - 1)} disabled={si === 0 && !welcome}>‹ Back</button>
+          <div className="sp" />
+          <button className="btn-prim" disabled={busy || sectionBlocked || (lastSec && !allRated)}
+            onClick={() => { if (lastSec) void doSubmit(); else setSec(si + 1); }}>
+            {busy ? "Saving…" : lastSec ? submitLabel : "Continue ›"}
+          </button>
+        </div>
+        <div className="arun-savenote">✓ Progress saved automatically</div>
       </div>
     );
   }

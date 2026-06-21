@@ -128,6 +128,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
             onChange={saveDraft}
             privacyNote="Anonymous in aggregate — individual answers are never shown."
             submitLabel="Submit my read ›"
+            paging="section"
             onSubmit={submit}
             onStageChange={setStage}
             welcome={{

@@ -34,6 +34,7 @@ export function PublicSurveyForm({ token, instrument }: { token: string; instrum
         instrument={{ name: instrument.name, scale: instrument.scale, dimensions: instrument.dimensions, items: instrument.items }}
         privacyNote="Fully anonymous — your answers are never tied to you."
         submitLabel="Submit my read ›"
+        paging="section"
         onSubmit={submit}
         onStageChange={setStage}
         welcome={{
