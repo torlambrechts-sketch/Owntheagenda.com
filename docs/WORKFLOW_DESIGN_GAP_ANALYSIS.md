@@ -1,0 +1,128 @@
+# Workflow / Flow design — gap analysis & later actions
+
+Compares the Claude Design handoff (`Assessment and workshop flow builder`) workflow
+surfaces against the current implementation, and parks the deferred recommendations
+from earlier review rounds as a backlog.
+
+Design files in scope:
+- `Flow Builder.dc.html` / `Flow Builder Table.dc.html` — flow **overview** (list) + **detail** (builder).
+- `Workflow Builder.dc.html` — workshop **agenda builder** (module library → agenda canvas → inspector → Run/Publish).
+- The **runner** = the live run experience.
+
+Status legend: ✅ done · 🟡 partial · ⛔ missing. Percentages are rough effort estimates.
+
+---
+
+## 1. Flow overview (list) — ~85% 🟡
+
+Design: a list of flows (name, scope, status, steps, owner, edited) with search + status filters.
+
+Implemented (`app/(app)/workflow/page.tsx`, `FlowsTable.tsx`, `Plays.tsx`, `FlowComposer.tsx`):
+- ✅ Tabbed status filters (All / Ongoing / Completed / Archived), expandable rows, per-flow tasks.
+- ✅ One-click Plays grid + quick FlowComposer (presets, step strip).
+- ✅ "Views" link into the per-flow detail.
+
+Gaps:
+- ⛔ Design's explicit **"scope"** column and the exact card/table layout of the list view.
+- 🟡 No dedicated full-page flow **gallery**; creation is the inline composer.
+
+## 2. Flow detail / builder — ~60% 🟡
+
+Design: one canvas editor with sub-views **Canvas / Outline / Timeline / Table**, node types
+`start / survey / score / branch / report / task / workshop`, on-canvas add-node, branch-condition
+editing, node inspector, and **Preview run**.
+
+Implemented (`app/(app)/workflow/[id]/page.tsx`, `FlowViews.tsx`; editing in `FlowBuilder.tsx`):
+- ✅ **Outline / Timeline / Table / Map** views over a flow's steps.
+- ✅ **Preview run** (plain-language).
+- ✅ **Drag-to-reorder** nodes on the Map (`program_reorder_steps` RPC).
+- ✅ Branch routing visualised (condition + then/else templates).
+
+Gaps:
+- ⛔ **On-canvas editing in the detail view**: add node, edit title/config, edit branch condition all
+  live on the Map. Today add/remove/branch editing lives in `FlowBuilder` on the list page, not the detail.
+- ⛔ Node kinds **`score`** and **`report`** are not modelled (app uses `interpret`/`commit`/`repulse`).
+- 🟡 **Free-form canvas** (x/y node positions, hand-drawn connectors). App Map is auto-laid-out vertical
+  + drag-reorder — deliberate, since the flow engine is sequence-based.
+
+## 3. Workshop agenda builder (`Workflow Builder.dc.html`) — ~50% 🟡
+
+Design: three panes — **Module library** (phases Input/Diverge/Converge/Decide/Close, ~18 modules each
+with an icon + blurb + default duration) → **Agenda canvas** (time-rail timeline with start times,
+up/down reorder, delete) → **Inspector** (title/duration/facilitator + per-module **settings schema** +
+**live preview**), with **Run** + Publish and a workflow-summary (per-phase counts/minutes).
+
+Implemented (`app/(app)/workshops/[id]/BuilderClient.tsx`, `WorkshopsClient.tsx`):
+- ✅ Add / edit / reorder / delete modules; objective; schedule; assessment binding; Start session.
+- ✅ Workshop overview (`/workshops/[id]/overview`) — read-only hub (separate work).
+
+Gaps:
+- ⛔ **Phase-grouped module library** (Input/Diverge/Converge/Decide/Close). App `QUICK_MODULES` is a
+  flat set of 8 (canvas/brainstorm/vote/discuss/feedback/checkin/outcome/manual).
+- ⛔ Richer module set: mind map, How-might-we, affinity grouping, ranking, research/sources, pre-read
+  document, retrospective, output summary, sign-off — not authorable as distinct modules.
+- ⛔ **Time-rail agenda canvas** with computed start times in the builder.
+- ⛔ Inspector **per-module settings schema** (e.g. brainstorm: prompt/anon/silent-timer; voting:
+  dots/anon; decision: method) + **live preview** panel.
+- 🟡 Layout differs (app builder is not the 3-pane library/canvas/inspector).
+
+## 4. Runner — ~90% ✅ (richer than the design)
+
+Design: a "Run" entry executing the workflow; simpler than the app.
+
+Implemented (`app/run/[id]/*`):
+- ✅ Real-time run: canvas, idea/brainstorm, vote, decisions (DACI), plan board, survey/assess modules,
+  run-of-show, timer, **presentational module rail** (added this session), end-session + sign-off.
+
+Gaps:
+- 🟡 Design-only modules not represented in the run: mind map, HMW, affinity, ranking, retrospective.
+- 🟡 The design's literal module-rail visual (Results→Whiteboard→Discussion→Voting→Output→Next-steps)
+  vs. the app's richer, different module set.
+
+---
+
+## Later actions (consolidated backlog)
+
+Carried from this and earlier review rounds. Priority: **P1** high-value/low-risk · **P2** medium · **P3** large/uncertain.
+
+### Assessments
+- **P1 — Non-Likert question types end-to-end.** The Assessment Builder authors Likert/single/multi/text,
+  but the run (`SurveyModule`) renders every item as Likert. Add response collection + scoring for
+  single/multi/text so the builder's full type palette is runnable. *(Builder: done; run/scoring: open.)*
+- **P2 — In-place template editing in the new builder.** `/builder` is create-focused; editing an
+  existing template still uses the form at `/library/new?id=`. Load an existing definition into the
+  three-pane builder.
+- **P3 — Participant "Competence / Certificates".** The design's Participant screen has a certs section;
+  no data model exists. Needs a `certificate`/`competence` schema before it can be built.
+
+### Flow / workflow
+- **P1 — On-canvas flow editing in the detail view.** Add-node, edit title/config, and branch-condition
+  editing directly on `/workflow/[id]` (Map), folding in what `FlowBuilder` does on the list page.
+- **P2 — Workshop agenda builder redesign.** Adopt the `Workflow Builder` three-pane layout:
+  phase-grouped module library, time-rail agenda canvas, inspector with per-module settings schema +
+  live preview. Expand the module set (mind map, HMW, affinity, ranking, retro, output, sign-off).
+- **P2 — Flow node kinds `score` + `report`.** Model and render them (today: `interpret`/`commit`).
+- **P3 — Free-form flow canvas.** x/y node positioning + hand-drawn connectors (needs a graph lib;
+  lower value while the engine is sequence-based).
+- **P3 — Keyboard-accessible reorder on the Map.** Drag is pointer-only; keep parity with the up/down
+  reorder in `FlowBuilder`.
+
+### Run / runner
+- **P3 — Additional run modules.** Mind map, HMW, affinity grouping, ranking, retrospective as
+  first-class run modules.
+
+### Branding / polish
+- **P3 — Wire the gold `FaviconMark` into `<head>` / web manifest.** Variant exists in `components/Logo.tsx`;
+  not adopted as the app icon.
+
+### Cross-cutting
+- **P3 — Table-row click a11y.** Several tables use `<tr onClick>` (app-wide pattern). Convert to
+  focusable links/buttons in one pass rather than per-surface.
+- **P2 — Non-Likert run rendering guard.** Until the P1 above lands, consider gating Publish or flagging
+  when an assessment contains single/multi/text questions, so they don't silently render as Likert.
+
+---
+
+*Generated as a living backlog — update statuses as items land. The design system itself
+(Klarert/NewAMU forest+cream) and the Norwegian HMS/ROS domain remain intentionally not adopted per
+the "adapt to current app, no ROS" decision.*
