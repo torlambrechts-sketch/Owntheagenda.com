@@ -8,7 +8,7 @@ import { initials } from "@/lib/util";
 // (logo + name + plan / member / team counts) above an underline tab bar
 // shared by Organization, Teams, Members and Integrations. Counts are
 // resolved here so every tab gets them without plumbing through each page.
-type TabKey = "organization" | "teams" | "members" | "integrations";
+type TabKey = "organization" | "teams" | "members" | "integrations" | "activity";
 
 const PLAN_LABEL: Record<string, string> = { free: "Free", pro: "Pro", enterprise: "Enterprise" };
 
@@ -47,6 +47,9 @@ export async function OrgShell({
     ) },
     ...(isAdmin ? [{ key: "integrations" as TabKey, label: "Integrations", href: "/integrations", count: (integ as { count: number | null }).count ?? 0, icon: (
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v6" /></svg>
+    ) }] : []),
+    ...(isAdmin ? [{ key: "activity" as TabKey, label: "Activity", href: "/organization/activity", icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M3 12h4l3 8 4-16 3 8h4" /></svg>
     ) }] : []),
   ];
 
