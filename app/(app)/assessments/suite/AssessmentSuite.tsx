@@ -40,7 +40,7 @@ function fmtDateTime(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function AssessmentSuite({ rows, kpis }: { rows: SuiteRow[]; kpis: Kpi[] }) {
+export function AssessmentSuite({ rows, kpis, isAdmin = false }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean }) {
   const [view, setView] = useState<View>("overview");
   const [active, setActive] = useState<SuiteRow | null>(null);
   const [tab, setTab] = useState<DetailTab>("info");
@@ -116,6 +116,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           </div>
           <div className="a-pr">
             <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
+            {isAdmin ? <Link className="btn-prim" href="/builder">＋ Build assessment</Link> : null}
           </div>
         </div>
 

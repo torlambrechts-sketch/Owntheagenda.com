@@ -322,12 +322,12 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
           <div className="wk-strip">
             {[...personality, ...team].map(card)}
             {isAdmin ? (
-              <Link className="wcard-more" href="/library/new">
+              <Link className="wcard-more" href="/builder">
                 <span className="wcard-ring">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
                 </span>
-                <span className="wcard-nl">More assessments</span>
-                <span className="wcard-more-sub">Create a custom one</span>
+                <span className="wcard-nl">Build an assessment</span>
+                <span className="wcard-more-sub">Start from a template</span>
               </Link>
             ) : null}
           </div>

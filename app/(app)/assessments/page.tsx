@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
 import { AssessmentSuite, type SuiteRow } from "./suite/AssessmentSuite";
 
@@ -81,5 +82,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={isAdmin(ctx.role)} />;
 }
