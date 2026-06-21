@@ -313,6 +313,37 @@ button { font-family:inherit; }
 .a-done p{color:var(--muted);font-size:14px;margin:0 auto 20px;line-height:1.6}
 @media(max-width:860px){.a-ov{grid-template-columns:1fr}}
 
+/* ---------- assessment suite (overview / detail) ---------- */
+.as-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.as-kpi{background:var(--canvas-2);border:1px solid var(--line);border-radius:12px;padding:15px 17px}
+.as-kpi-big{font-family:var(--font-display);font-size:27px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums;color:var(--ink)}
+.as-kpi-title{margin-top:8px;font-size:13px;font-weight:600;color:var(--ink)}
+.as-kpi-sub{margin-top:2px;font-size:12px;color:var(--muted)}
+.as-tablehead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.as-search{width:auto;max-width:230px}
+.as-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:0 0 18px}
+.as-tab{background:none;border:none;border-bottom:2px solid transparent;padding:9px 14px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.as-tab:hover{color:var(--ink)}
+.as-tab.on{color:var(--green);border-bottom-color:var(--green)}
+.as-qgroup{display:flex;align-items:center;gap:8px;padding:11px 16px 8px;background:var(--canvas);border-bottom:1px solid var(--line);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.as-qrow{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);font-size:13px;color:var(--ink)}
+.as-qrow:last-child{border-bottom:none}
+.as-qn{flex-shrink:0;width:24px;height:24px;border-radius:7px;background:var(--canvas-2);color:var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.as-scorerow{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.as-scorename{width:180px;flex-shrink:0;font-size:13px;color:var(--ink)}
+.as-scoretrack{flex:1;height:10px;border-radius:999px;background:var(--canvas-2);overflow:hidden}
+.as-scorefill{display:block;height:100%;border-radius:999px}
+.as-scoreval{width:34px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.as-legend{display:flex;gap:16px;margin-top:14px;padding-top:13px;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}
+.as-legend span{display:inline-flex;align-items:center;gap:6px}
+.as-sw{width:9px;height:9px;border-radius:2px;display:inline-block}
+.as-workshop{background:var(--forest);color:#fff;border-radius:12px;padding:22px 24px;max-width:560px}
+.as-ws-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:rgba(255,255,255,.6);margin-bottom:9px}
+.as-ws-title{font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:6px}
+.as-ws-sub{font-size:13px;color:rgba(255,255,255,.78);line-height:1.55;margin:0 0 16px}
+.as-workshop .btn-prim{background:#fff;color:var(--forest)}
+@media(max-width:860px){.as-kpis{grid-template-columns:repeat(2,1fr)}}
+
 /* ---------- leadership effectiveness test ---------- */
 .lead-cta{margin:6px 0 20px}
 .lead-test{max-width:820px}

@@ -257,6 +257,9 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             <div className="a-pt">Assessments</div>
             <div className="a-ps">Personality and team assessments you can run inside a workshop or take on their own.</div>
           </div>
+          <div className="a-pr">
+            <Link className="btn-sec" href="/assessments/suite">Assessment suite →</Link>
+          </div>
         </div>
         {assignedToMe.length ? (
           <div className="a-assigned">
