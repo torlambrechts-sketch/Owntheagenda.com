@@ -100,12 +100,24 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
     .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
   const ledCount = workshopRows.filter((w) => w.led).length;
 
-  const kpis = [
-    { big: String(takenRows.length), title: "Assessments taken", sub: "personal instruments" },
-    { big: String(assignedRows.filter((a) => !a.done).length), title: "Assigned · open", sub: `${assignedRows.length} total` },
-    { big: String(ledCount), title: "Workshops led", sub: "as facilitator" },
-    { big: String(workshopRows.length - ledCount), title: "Workshops attended", sub: "as participant" },
-  ];
+  // Personal assessment *results* are private (RLS: owner-only). So the
+  // "completed" data is only reliable when viewing your own profile; for an
+  // admin viewing someone else we show assignments + workshops (both readable)
+  // and keep the private completions out rather than show a misleading zero.
+  const canSeeTaken = self;
+  const kpis = canSeeTaken
+    ? [
+        { big: String(takenRows.length), title: "Assessments taken", sub: "personal instruments" },
+        { big: String(assignedRows.filter((a) => !a.done).length), title: "Assigned · open", sub: `${assignedRows.length} total` },
+        { big: String(ledCount), title: "Workshops led", sub: "as facilitator" },
+        { big: String(workshopRows.length - ledCount), title: "Workshops attended", sub: "as participant" },
+      ]
+    : [
+        { big: String(assignedRows.length), title: "Assigned", sub: "assessments" },
+        { big: String(workshopRows.length), title: "Workshops", sub: "led or attended" },
+        { big: String(ledCount), title: "Workshops led", sub: "as facilitator" },
+        { big: String(workshopRows.length - ledCount), title: "Workshops attended", sub: "as participant" },
+      ];
 
   return (
     <OrgShell active="members" isAdmin={admin} subtitle={undefined}>
@@ -135,20 +147,20 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
       <div className="a-ov">
         <div className="a-ovcard">
           <h3>Assessment activity</h3>
-          {takenRows.length || assignedRows.length ? (
+          {(canSeeTaken && takenRows.length) || assignedRows.length ? (
             <table className="tbl">
               <thead>
                 <tr><th>Assessment</th><th style={{ width: 140 }}>When</th><th style={{ width: 110 }}>Status</th></tr>
               </thead>
               <tbody>
-                {takenRows.map((t) => (
+                {canSeeTaken ? takenRows.map((t) => (
                   <tr key={`t-${t.key}-${t.at}`}>
                     <td style={{ fontWeight: 600 }}>{t.name}</td>
                     <td style={{ color: "var(--muted)" }}>{fmtDate(t.at) ?? "—"}</td>
                     <td><span className="pill sm open">Completed</span></td>
                   </tr>
-                ))}
-                {assignedRows.filter((a) => !a.done).map((a) => (
+                )) : null}
+                {(canSeeTaken ? assignedRows.filter((a) => !a.done) : assignedRows).map((a) => (
                   <tr key={`a-${a.key}`}>
                     <td style={{ fontWeight: 600 }}>{a.name}</td>
                     <td style={{ color: "var(--muted)" }}>{a.due ? `Due ${fmtDate(a.due)}` : "—"}</td>
@@ -160,6 +172,9 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
           ) : (
             <p className="muted">No assessment activity yet.</p>
           )}
+          {!canSeeTaken ? (
+            <p className="muted" style={{ marginTop: 10, fontSize: 12 }}>Completed personal assessment results are private to the member.</p>
+          ) : null}
         </div>
 
         <div className="a-ovcard">
