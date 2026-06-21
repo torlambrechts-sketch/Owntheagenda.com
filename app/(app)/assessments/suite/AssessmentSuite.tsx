@@ -199,6 +199,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
         <div className="a-pr">
           {active ? statusPill(active.status) : null}
           {detail && detail.scores.length ? <button className="btn-sec" onClick={exportReport}>⤓ Export report</button> : null}
+          {active && active.status !== "closed" ? <Link className="btn-sec" href={`/assessments/status/${active.id}`}>Live status →</Link> : null}
           <Link className="btn-prim" href="/workshops">Open workshop →</Link>
         </div>
       </div>
