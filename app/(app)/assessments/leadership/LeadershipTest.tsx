@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
 import { scoreLeadership, saveLeadershipResponse } from "./actions";
 import { ScoreReadout, type Readout } from "./ScoreReadout";
 
@@ -37,8 +37,9 @@ export function LeadershipTest({
     [inventory],
   );
 
-  async function submit(answers: Record<string, number>) {
+  async function submit(all: Record<string, AnswerValue>) {
     setErr(null);
+    const { scores: answers } = splitAnswers(all);
     const res = teamId ? await saveLeadershipResponse(teamId, answers) : await scoreLeadership(answers);
     if (res.error) { setErr(res.error); throw new Error(res.error); }
     setResults(res.result as Readout);

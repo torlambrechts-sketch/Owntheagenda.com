@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
 import { toCsv, downloadText, fileSlug } from "@/lib/exporting";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
@@ -153,15 +153,17 @@ export function AssessmentLibrary({
   function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(reportInstFor(c), c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
   function viewTeam(c: CatalogItem) { setSample(false); setTeamMode(true); setScores(scoreFromAggregate(c)); setMode("admin"); setExp(new Set()); go("report"); }
 
-  async function finishRun(answers: Record<string, number>) {
+  async function finishRun(all: Record<string, AnswerValue>) {
     if (!active) return;
+    const { scores, answers } = splitAnswers(all);
     // Team instruments contribute to the team's open survey; individual ones
-    // persist a personal response.
+    // persist a personal response. Numeric scores are scored; non-numeric
+    // (single/multi/text) ride along in p_answers for the team path.
     const { error } = active.scope === "team" && active.openSurveyId
-      ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: answers })
-      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: answers });
+      ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: scores, p_answers: answers })
+      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: scores });
     if (error) { flash(error.message); throw error; }
-    setSample(false); setTeamMode(false); setScores(scoreFrom(active, answers)); setMode("candidate"); setExp(new Set());
+    setSample(false); setTeamMode(false); setScores(scoreFrom(active, scores)); setMode("candidate"); setExp(new Set());
     go("report");
     flash(active.scope === "team" && active.openSurveyId ? "Your response is in — the team report builds as members complete it" : "Saved — your report is ready");
   }

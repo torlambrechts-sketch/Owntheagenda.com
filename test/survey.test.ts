@@ -38,6 +38,29 @@ describe("dimensionMeans", () => {
     const dims = dimensionMeans(PSYCH_SAFETY_BANG, []);
     expect(dims.every((d) => d.mean === null)).toBe(true);
   });
+  it("excludes non-Likert items (single/multi/text) from the mean", () => {
+    const inst = instrumentFromRow({
+      key: "mixed",
+      name: "Mixed",
+      definition: {
+        scale: { min: 1, max: 5, minLabel: "Low", maxLabel: "High" },
+        dimensions: [{ key: "d1", label: "D1", blurb: "" }],
+        items: [
+          { key: "d1_1", dimension: "d1", text: "Likert", type: "likert" },
+          { key: "d1_2", dimension: "d1", text: "Pick one", type: "single", options: ["A", "B"] },
+          { key: "d1_3", dimension: "d1", text: "Free text", type: "text" },
+        ],
+      },
+    })!;
+    // Even if non-Likert items somehow carry a numeric stat, they must not skew
+    // the dimension mean — only the Likert item counts.
+    const dims = dimensionMeans(inst, [
+      { item_key: "d1_1", mean: 4, n: 3 },
+      { item_key: "d1_2", mean: 1, n: 3 },
+      { item_key: "d1_3", mean: 1, n: 3 },
+    ]);
+    expect(dims.find((d) => d.key === "d1")?.mean).toBe(4);
+  });
 });
 
 describe("climateStrength", () => {

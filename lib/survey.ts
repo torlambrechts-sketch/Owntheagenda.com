@@ -5,7 +5,19 @@
 // Grounded in: Bang & Midelfart, "Effective Management Teams"; Edmondson (1999);
 // Fyhn, Bang, Egeland & Schei (2023). Items are our own wording of the model.
 
-export type SurveyItem = { key: string; dimension: string; text: string; reverse?: boolean };
+// `type`/`options`/`required`/`qScale` are additive (default Likert). Only
+// Likert items carry a numeric score; single/multi/text are collected and
+// stored but excluded from dimension means.
+export type SurveyItem = {
+  key: string;
+  dimension: string;
+  text: string;
+  reverse?: boolean;
+  type?: "likert" | "single" | "multi" | "text";
+  options?: string[];
+  required?: boolean;
+  qScale?: string;
+};
 export type SurveyDimension = { key: string; label: string; blurb: string };
 export type SurveyInstrument = {
   kind: string;
@@ -115,7 +127,7 @@ export function dimensionMeans(
   const { min, max } = inst.scale;
   return inst.dimensions.map((d) => {
     const ms = inst.items
-      .filter((it) => it.dimension === d.key)
+      .filter((it) => it.dimension === d.key && (it.type ?? "likert") === "likert")
       .map((it) => {
         const m = items.find((x) => x.item_key === it.key)?.mean;
         if (typeof m !== "number") return undefined;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ordinal } from "@/lib/util";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
-import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
 import { ResultsExport } from "@/components/ResultsExport";
 import {
   dimensionMeans,
@@ -59,7 +59,7 @@ export function SurveyModule({
   const [comments, setComments] = useState<Comments | null>(null);
   const [busy, setBusy] = useState(false);
   const [snapInst, setSnapInst] = useState<SurveyInstrument | null>(null);
-  const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, AnswerValue>>({});
   const [draftReady, setDraftReady] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Prefer the survey's own snapshot definition (locked at open) over the live
@@ -124,15 +124,15 @@ export function SurveyModule({
     let active = true;
     supabase.rpc("get_survey_draft", { p_survey: surveyId }).then(({ data }) => {
       if (!active) return;
-      if (data && typeof data === "object") setInitialAnswers(data as Record<string, number>);
+      if (data && typeof data === "object") setInitialAnswers(data as Record<string, AnswerValue>);
       setDraftReady(true);
     });
     return () => { active = false; };
   }, [surveyId, supabase]);
-  const saveDraft = useCallback((scores: Record<string, number>) => {
+  const saveDraft = useCallback((answers: Record<string, AnswerValue>) => {
     if (!surveyId) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { void supabase.rpc("save_survey_draft", { p_survey: surveyId, p_scores: scores }); }, 600);
+    saveTimer.current = setTimeout(() => { void supabase.rpc("save_survey_draft", { p_survey: surveyId, p_scores: answers }); }, 600);
   }, [supabase, surveyId]);
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
@@ -155,9 +155,10 @@ export function SurveyModule({
     setBusy(false);
     if (!error && data) setSurveyId(data as string);
   }
-  async function submit(scores: Record<string, number>) {
+  async function submit(all: Record<string, AnswerValue>) {
     if (!surveyId) return;
-    const { error } = await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores });
+    const { scores, answers } = splitAnswers(all);
+    const { error } = await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores, p_answers: answers });
     if (error) throw error;
     setSubmitted(true);
     loadResults(surveyId);

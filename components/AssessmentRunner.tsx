@@ -12,8 +12,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // It only collects answers and calls onSubmit — each caller decides what to
 // render afterwards (a report, an aggregate read, a saved confirmation), so the
 // scoring/result logic in lib/survey.ts stays the single source of truth.
+//
+// Question types: Likert (numeric, the default and the only *scored* type),
+// single choice, multi-select and free text. Non-Likert answers are collected
+// here and handed to onSubmit alongside the numeric ones; callers persist the
+// non-numeric answers separately so scoring (numeric means) stays intact.
 
-export type RunnerItem = { key: string; dimension: string; text: string };
+export type AnswerValue = number | string | string[];
+export type QuestionType = "likert" | "single" | "multi" | "text";
+export type RunnerItem = {
+  key: string;
+  dimension: string;
+  text: string;
+  type?: QuestionType;
+  options?: string[];
+  required?: boolean;
+};
 export type RunnerDimension = { key: string; label: string };
 export type RunnerInstrument = {
   name: string;
@@ -21,6 +35,31 @@ export type RunnerInstrument = {
   dimensions?: RunnerDimension[];
   items: RunnerItem[];
 };
+
+function itemType(it: RunnerItem): QuestionType {
+  return it.type ?? "likert";
+}
+// Split collected answers into numeric scores (Likert — the only scored type)
+// and everything else (single/multi/text), which callers persist separately so
+// the numeric scoring path stays valid.
+export function splitAnswers(a: Record<string, AnswerValue>): {
+  scores: Record<string, number>;
+  answers: Record<string, AnswerValue>;
+} {
+  const scores: Record<string, number> = {};
+  const answers: Record<string, AnswerValue> = {};
+  for (const [k, v] of Object.entries(a)) {
+    if (typeof v === "number") scores[k] = v;
+    else answers[k] = v;
+  }
+  return { scores, answers };
+}
+function isAnswered(v: AnswerValue | undefined): boolean {
+  if (v == null) return false;
+  if (typeof v === "number") return true;
+  if (typeof v === "string") return v.trim() !== "";
+  return Array.isArray(v) && v.length > 0;
+}
 
 export function AssessmentRunner({
   instrument,
@@ -36,14 +75,14 @@ export function AssessmentRunner({
   headerSub = "Answer as honestly as you can — there are no right or wrong answers.",
 }: {
   instrument: RunnerInstrument;
-  initialAnswers?: Record<string, number>;
-  onSubmit: (answers: Record<string, number>) => void | Promise<void>;
+  initialAnswers?: Record<string, AnswerValue>;
+  onSubmit: (answers: Record<string, AnswerValue>) => void | Promise<void>;
   onBack?: () => void;
   submitLabel?: string;
   /** localStorage key — when set, in-progress answers are saved and resumed. */
   draftKey?: string;
   /** Optional: mirror in-progress answers elsewhere (e.g. server-side draft). */
-  onChange?: (answers: Record<string, number>) => void;
+  onChange?: (answers: Record<string, AnswerValue>) => void;
   privacyNote?: string;
   estimateMins?: number;
   /** Allow submitting before every item is answered (shows provisional progress). */
@@ -54,7 +93,7 @@ export function AssessmentRunner({
   const n = items.length;
   const { min, max, minLabel, maxLabel } = instrument.scale;
 
-  const [answers, setAnswers] = useState<Record<string, number>>(() => ({ ...(initialAnswers ?? {}) }));
+  const [answers, setAnswers] = useState<Record<string, AnswerValue>>(() => ({ ...(initialAnswers ?? {}) }));
   const [idx, setIdx] = useState(0);
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -73,7 +112,7 @@ export function AssessmentRunner({
     try {
       const raw = window.localStorage.getItem(draftKey);
       if (!raw) return;
-      const saved = JSON.parse(raw) as Record<string, number>;
+      const saved = JSON.parse(raw) as Record<string, AnswerValue>;
       if (saved && typeof saved === "object" && Object.keys(saved).length) {
         setAnswers((cur) => ({ ...cur, ...saved }));
         setResumed(true);
@@ -97,9 +136,11 @@ export function AssessmentRunner({
     if (Object.keys(answers).length) onChangeRef.current?.(answers);
   }, [answers]);
 
-  const answered = useMemo(() => items.filter((it) => answers[it.key] != null).length, [items, answers]);
+  const answered = useMemo(() => items.filter((it) => isAnswered(answers[it.key])).length, [items, answers]);
   const pct = n ? Math.round((answered / n) * 100) : 0;
-  const allRated = n > 0 && answered === n;
+  // Submission gates on *required* items (non-Likert questions can be optional).
+  const requiredItems = useMemo(() => items.filter((it) => it.required !== false), [items]);
+  const allRated = n > 0 && requiredItems.every((it) => isAnswered(answers[it.key]));
 
   const opts = useMemo(() => {
     const out: number[] = [];
@@ -112,6 +153,11 @@ export function AssessmentRunner({
   );
 
   const setAnswer = useCallback((key: string, v: number) => setAnswers((a) => ({ ...a, [key]: v })), []);
+  const setVal = useCallback((key: string, v: AnswerValue) => setAnswers((a) => ({ ...a, [key]: v })), []);
+  const toggleMulti = useCallback((key: string, opt: string) => setAnswers((a) => {
+    const cur = Array.isArray(a[key]) ? (a[key] as string[]) : [];
+    return { ...a, [key]: cur.includes(opt) ? cur.filter((o) => o !== opt) : [...cur, opt] };
+  }), []);
 
   const doSubmit = useCallback(async () => {
     if (busy) return;
@@ -130,8 +176,8 @@ export function AssessmentRunner({
     }
   }, [answers, busy, draftKey, onSubmit]);
 
-  // Keyboard: digit keys pick a value, ← / → and Enter navigate. Disabled in
-  // the single-page fallback and while typing in a field.
+  // Keyboard: digit keys pick a value (Likert only), ← / → and Enter navigate.
+  // Disabled in the single-page fallback and while typing in a field.
   useEffect(() => {
     if (showAll) return;
     const onKey = (e: KeyboardEvent) => {
@@ -139,14 +185,14 @@ export function AssessmentRunner({
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       const it = items[idx];
       if (!it) return;
-      if (/^[0-9]$/.test(e.key)) {
+      if (itemType(it) === "likert" && /^[0-9]$/.test(e.key)) {
         const v = Number(e.key);
         if (v >= min && v <= max) { setAnswer(it.key, v); e.preventDefault(); }
         return;
       }
       if (e.key === "ArrowLeft") { setIdx((i) => Math.max(0, i - 1)); e.preventDefault(); }
       else if (e.key === "ArrowRight" || e.key === "Enter") {
-        if (answers[it.key] == null) return;
+        if (it.required !== false && !isAnswered(answers[it.key])) return;
         if (idx < n - 1) { setIdx((i) => Math.min(n - 1, i + 1)); }
         else if (allRated) { void doSubmit(); }
         e.preventDefault();
@@ -163,6 +209,48 @@ export function AssessmentRunner({
       {privacyNote ? <span className="arun-priv">{privacyNote}</span> : null}
     </div>
   );
+
+  // Non-Likert controls, shared by both render modes.
+  const choiceInput = (it: RunnerItem) => {
+    const t = itemType(it);
+    if (t === "text") {
+      return (
+        <textarea
+          className="arun-text"
+          rows={3}
+          aria-label={it.text}
+          value={typeof answers[it.key] === "string" ? (answers[it.key] as string) : ""}
+          onChange={(e) => setVal(it.key, e.target.value)}
+          placeholder="Type your answer…"
+        />
+      );
+    }
+    const options = it.options ?? [];
+    if (t === "multi") {
+      const cur = Array.isArray(answers[it.key]) ? (answers[it.key] as string[]) : [];
+      return (
+        <div className="arun-choices" role="group" aria-label={it.text}>
+          {options.map((o) => (
+            <button key={o} type="button" role="checkbox" aria-checked={cur.includes(o)}
+              className={`arun-choice${cur.includes(o) ? " on" : ""}`} onClick={() => toggleMulti(it.key, o)}>
+              <span className="arun-box sq" />{o}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    // single
+    return (
+      <div className="arun-choices" role="radiogroup" aria-label={it.text}>
+        {options.map((o) => (
+          <button key={o} type="button" role="radio" aria-checked={answers[it.key] === o}
+            className={`arun-choice${answers[it.key] === o ? " on" : ""}`} onClick={() => setVal(it.key, o)}>
+            <span className="arun-box" />{o}
+          </button>
+        ))}
+      </div>
+    );
+  };
 
   // ---- accessible single-page fallback ----
   if (showAll) {
@@ -183,18 +271,20 @@ export function AssessmentRunner({
             {its.map((it) => (
               <div className="asq" key={it.key}>
                 <div className="asq-q"><span>{it.text}</span></div>
-                <div className="asopts sv7" role="radiogroup" aria-label={it.text}>
-                  {opts.map((v) => (
-                    <button
-                      key={v}
-                      role="radio"
-                      aria-checked={answers[it.key] === v}
-                      aria-label={optLabel(v)}
-                      className={answers[it.key] === v ? "on" : ""}
-                      onClick={() => setAnswer(it.key, v)}
-                    >{v}</button>
-                  ))}
-                </div>
+                {itemType(it) === "likert" ? (
+                  <div className="asopts sv7" role="radiogroup" aria-label={it.text}>
+                    {opts.map((v) => (
+                      <button
+                        key={v}
+                        role="radio"
+                        aria-checked={answers[it.key] === v}
+                        aria-label={optLabel(v)}
+                        className={answers[it.key] === v ? "on" : ""}
+                        onClick={() => setAnswer(it.key, v)}
+                      >{v}</button>
+                    ))}
+                  </div>
+                ) : choiceInput(it)}
               </div>
             ))}
           </div>
@@ -211,6 +301,9 @@ export function AssessmentRunner({
   const it = items[idx];
   const cur = it ? answers[it.key] : undefined;
   const last = idx === n - 1;
+  const curType = it ? itemType(it) : "likert";
+  const curRequired = it ? it.required !== false : false;
+  const nextBlocked = curRequired && !isAnswered(cur);
   return (
     <div className="a-run">
       <div className="a-runtop">
@@ -223,44 +316,48 @@ export function AssessmentRunner({
 
       <div className="a-qcard">
         <div className="a-runmeta"><span>Question {idx + 1} of {n}</span><span>{answered} / {n} answered</span></div>
-        <div className="a-qnum">This statement fits me</div>
-        <div className="a-qtext">{it?.text}</div>
-        <div className="a-likert" role="radiogroup" aria-label={it?.text}>
-          {opts.map((v, oi) => {
-            const checked = cur === v;
-            // Roving tabindex: only the checked option (or the first, when none
-            // is chosen) is in the tab order; arrows move within the group.
-            const tab = checked || (cur == null && oi === 0) ? 0 : -1;
-            return (
-              <div
-                key={v}
-                className={`a-lopt${checked ? " on" : ""}`}
-                role="radio"
-                aria-checked={checked}
-                aria-label={optLabel(v)}
-                tabIndex={tab}
-                onClick={() => it && setAnswer(it.key, v)}
-                onKeyDown={(e) => {
-                  if (!it) return;
-                  if (e.key === " ") { e.preventDefault(); setAnswer(it.key, v); return; }
-                  let n = -1;
-                  if (e.key === "ArrowDown") n = Math.min(opts.length - 1, oi + 1);
-                  else if (e.key === "ArrowUp") n = Math.max(0, oi - 1);
-                  else if (e.key === "Home") n = 0;
-                  else if (e.key === "End") n = opts.length - 1;
-                  else return;
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setAnswer(it.key, opts[n]);
-                  (e.currentTarget.parentElement?.children[n] as HTMLElement | undefined)?.focus();
-                }}
-              >
-                <span className="a-lr" />{optLabel(v)}
-                <span className="arun-kbd">{v}</span>
-              </div>
-            );
-          })}
-        </div>
+        {curType === "likert" ? <div className="a-qnum">This statement fits me</div> : null}
+        <div className="a-qtext">{it?.text}{!curRequired ? <span className="arun-optional"> · optional</span> : null}</div>
+        {curType === "likert" ? (
+          <div className="a-likert" role="radiogroup" aria-label={it?.text}>
+            {opts.map((v, oi) => {
+              const checked = cur === v;
+              // Roving tabindex: only the checked option (or the first, when none
+              // is chosen) is in the tab order; arrows move within the group.
+              const tab = checked || (cur == null && oi === 0) ? 0 : -1;
+              return (
+                <div
+                  key={v}
+                  className={`a-lopt${checked ? " on" : ""}`}
+                  role="radio"
+                  aria-checked={checked}
+                  aria-label={optLabel(v)}
+                  tabIndex={tab}
+                  onClick={() => it && setAnswer(it.key, v)}
+                  onKeyDown={(e) => {
+                    if (!it) return;
+                    if (e.key === " ") { e.preventDefault(); setAnswer(it.key, v); return; }
+                    let m = -1;
+                    if (e.key === "ArrowDown") m = Math.min(opts.length - 1, oi + 1);
+                    else if (e.key === "ArrowUp") m = Math.max(0, oi - 1);
+                    else if (e.key === "Home") m = 0;
+                    else if (e.key === "End") m = opts.length - 1;
+                    else return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAnswer(it.key, opts[m]);
+                    (e.currentTarget.parentElement?.children[m] as HTMLElement | undefined)?.focus();
+                  }}
+                >
+                  <span className="a-lr" />{optLabel(v)}
+                  <span className="arun-kbd">{v}</span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          it ? choiceInput(it) : null
+        )}
       </div>
 
       {/* visual-only progress, placed below the question (higher-completion placement) */}
@@ -273,9 +370,9 @@ export function AssessmentRunner({
           <button className="btn-sec" disabled={busy} onClick={doSubmit}>{busy ? "Saving…" : `See results (${answered}/${n})`}</button>
         ) : null}
         {last ? (
-          <button className="btn-prim" disabled={busy || (allowPartial ? answered === 0 : cur == null || !allRated)} onClick={doSubmit}>{busy ? "Saving…" : allowPartial && !allRated ? `See results (${answered}/${n})` : submitLabel}</button>
+          <button className="btn-prim" disabled={busy || (allowPartial ? answered === 0 : nextBlocked || !allRated)} onClick={doSubmit}>{busy ? "Saving…" : allowPartial && !allRated ? `See results (${answered}/${n})` : submitLabel}</button>
         ) : (
-          <button className="btn-prim" disabled={cur == null} onClick={() => setIdx((i) => Math.min(n - 1, i + 1))}>Next ›</button>
+          <button className="btn-prim" disabled={nextBlocked} onClick={() => setIdx((i) => Math.min(n - 1, i + 1))}>Next ›</button>
         )}
       </div>
     </div>

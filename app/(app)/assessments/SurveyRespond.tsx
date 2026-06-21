@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
-import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
 import { ResultsExport } from "@/components/ResultsExport";
 import { ordinal } from "@/lib/util";
 import {
@@ -49,7 +49,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   const [results, setResults] = useState<Results | null>(null);
   const [ready, setReady] = useState(false);
   const [comment, setComment] = useState("");
-  const [initialAnswers, setInitialAnswers] = useState<Record<string, number>>({});
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, AnswerValue>>({});
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadResults = useCallback(async () => {
@@ -71,7 +71,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
       } else {
         // Resume a server-side draft (cross-device): start where they left off.
         const { data: draft } = await supabase.rpc("get_survey_draft", { p_survey: survey.id });
-        if (draft && typeof draft === "object") setInitialAnswers(draft as Record<string, number>);
+        if (draft && typeof draft === "object") setInitialAnswers(draft as Record<string, AnswerValue>);
       }
       setReady(true);
       loadResults();
@@ -79,21 +79,23 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   }, [supabase, survey.id, userId, loadResults]);
 
   // Debounced mirror of in-progress answers to the server draft.
-  const saveDraft = useCallback((scores: Record<string, number>) => {
+  const saveDraft = useCallback((answers: Record<string, AnswerValue>) => {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void supabase.rpc("save_survey_draft", { p_survey: survey.id, p_scores: scores });
+      void supabase.rpc("save_survey_draft", { p_survey: survey.id, p_scores: answers });
     }, 600);
   }, [supabase, survey.id]);
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
-  async function submit(scores: Record<string, number>) {
+  async function submit(all: Record<string, AnswerValue>) {
     if (!inst) return;
+    const { scores, answers } = splitAnswers(all);
     const trimmed = comment.trim();
     const { error } = await supabase.rpc("submit_survey_response", {
       p_survey: survey.id,
       p_scores: scores,
       p_comments: trimmed ? { general: trimmed } : {},
+      p_answers: answers,
     });
     if (error) throw error;
     setSubmitted(true);

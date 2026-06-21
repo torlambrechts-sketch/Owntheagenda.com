@@ -1627,7 +1627,7 @@ export type Database = {
         Returns: number
       }
       submit_survey_response: {
-        Args: { p_survey: string; p_scores: Json; p_comments?: Json }
+        Args: { p_survey: string; p_scores: Json; p_comments?: Json; p_answers?: Json }
         Returns: undefined
       }
       survey_comments: {
@@ -1643,7 +1643,7 @@ export type Database = {
         Returns: Json
       }
       submit_public_survey_response: {
-        Args: { p_token: string; p_scores: Json; p_comments?: Json }
+        Args: { p_token: string; p_scores: Json; p_comments?: Json; p_answers?: Json }
         Returns: undefined
       }
       save_survey_draft: {

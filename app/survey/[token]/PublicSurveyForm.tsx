@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { AssessmentRunner } from "@/components/AssessmentRunner";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
 import type { SurveyInstrument } from "@/lib/survey";
 
 // The anonymous public responder. No account, no identity — answers post via
@@ -14,14 +14,16 @@ export function PublicSurveyForm({ token, instrument }: { token: string; instrum
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  async function submit(scores: Record<string, number>) {
+  async function submit(all: Record<string, AnswerValue>) {
     setError(null);
     const supabase = createClient();
+    const { scores, answers } = splitAnswers(all);
     const trimmed = comment.trim();
     const { error } = await supabase.rpc("submit_public_survey_response", {
       p_token: token,
       p_scores: scores,
       p_comments: trimmed ? { general: trimmed } : {},
+      p_answers: answers,
     });
     if (error) { setError(error.message); throw error; }
     setDone(true);
