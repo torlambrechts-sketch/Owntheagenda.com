@@ -27,7 +27,34 @@ export type Database = {
           title: string
           status: string
           current_ord: number
+          kind: string
+          min_responses: number
+          play_key: string | null
+          auto_workshop_template: string | null
+          assessment_kind: string | null
+          collect_days: number
+          due_at: string | null
+          assessment_anonymity: string
           created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      program_task: {
+        Row: {
+          id: string
+          program_id: string
+          workspace_id: string
+          step_id: string | null
+          kind: string
+          title: string
+          owner_id: string | null
+          owner_name: string | null
+          due_at: string | null
+          status: string
           created_at: string
           updated_at: string
         }
@@ -47,6 +74,7 @@ export type Database = {
           ref_table: string | null
           ref_id: string | null
           gate: string | null
+          config: Json
           scheduled_at: string | null
           completed_at: string | null
           created_at: string
@@ -1096,6 +1124,10 @@ export type Database = {
           closed_at: string | null
           due_at: string | null
           subject_user_id: string | null
+          definition: Json | null
+          anonymity: string
+          share_token: string | null
+          shared_at: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1108,9 +1140,22 @@ export type Database = {
         Row: {
           id: string
           survey_id: string
+          respondent_id: string | null
+          respondent_hash: string | null
+          scores: Json
+          comments: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      survey_response_draft: {
+        Row: {
+          survey_id: string
           respondent_id: string
           scores: Json
-          created_at: string
+          updated_at: string
         }
         Insert: { [k: string]: unknown }
         Update: { [k: string]: unknown }
@@ -1157,6 +1202,7 @@ export type Database = {
           user_id: string
           template_key: string
           scores: Json
+          definition: Json | null
           shared: boolean
           created_at: string
           updated_at: string
@@ -1172,6 +1218,7 @@ export type Database = {
           user_id: string
           template_key: string
           scores: Json
+          definition: Json | null
           created_at: string
         }
         Insert: { [k: string]: unknown }
@@ -1214,10 +1261,69 @@ export type Database = {
       }
       program_status: {
         Args: { p_program: string }
-        Returns: { step_id: string; live: string | null; ready: boolean }[]
+        Returns: { step_id: string; live: string | null; ready: boolean; done: number | null; target: number | null }[]
       }
       program_sync: {
         Args: { p_program: string }
+        Returns: undefined
+      }
+      create_flow: {
+        Args: { p_workspace: string; p_title: string; p_team?: string | null; p_min_responses?: number }
+        Returns: string
+      }
+      create_flow_steps: {
+        Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number; p_workshop_template?: string | null; p_anonymity?: string }
+        Returns: string
+      }
+      set_flow_task: {
+        Args: { p_task: string; p_status: string }
+        Returns: undefined
+      }
+      update_flow_task: {
+        Args: { p_task: string; p_owner?: string | null; p_owner_name?: string | null; p_due?: string | null; p_title?: string | null }
+        Returns: undefined
+      }
+      program_start_assessment: {
+        Args: { p_program: string }
+        Returns: string
+      }
+      flow_remind: {
+        Args: { p_program: string }
+        Returns: number
+      }
+      start_play: {
+        Args: {
+          p_workspace: string
+          p_team: string
+          p_play_key: string
+          p_title: string
+          p_workshop_template_key: string
+          p_min_responses?: number
+          p_assessment_kind?: string | null
+        }
+        Returns: string
+      }
+      program_add_step: {
+        Args: { p_program: string; p_after_ord: number; p_kind: string; p_title: string }
+        Returns: string
+      }
+      program_remove_step: {
+        Args: { p_step: string }
+        Returns: undefined
+      }
+      program_move_step: {
+        Args: { p_step: string; p_dir: number }
+        Returns: undefined
+      }
+      program_set_branch: {
+        Args: {
+          p_step: string
+          p_dynamic: string
+          p_op: string
+          p_value: number
+          p_then_template: string
+          p_else_template: string
+        }
         Returns: undefined
       }
       program_start_pulse: {
@@ -1513,7 +1619,7 @@ export type Database = {
         Returns: string
       }
       create_survey: {
-        Args: { p_team: string; p_kind: string; p_name: string; p_due?: string }
+        Args: { p_team: string; p_kind: string; p_name: string; p_due?: string; p_anonymity?: string }
         Returns: Database["public"]["Tables"]["survey"]["Row"]
       }
       remind_survey: {
@@ -1521,8 +1627,36 @@ export type Database = {
         Returns: number
       }
       submit_survey_response: {
+        Args: { p_survey: string; p_scores: Json; p_comments?: Json }
+        Returns: undefined
+      }
+      survey_comments: {
+        Args: { p_survey: string }
+        Returns: Json
+      }
+      survey_share_set: {
+        Args: { p_survey: string; p_on: boolean }
+        Returns: string | null
+      }
+      public_survey_meta: {
+        Args: { p_token: string }
+        Returns: Json
+      }
+      submit_public_survey_response: {
+        Args: { p_token: string; p_scores: Json; p_comments?: Json }
+        Returns: undefined
+      }
+      save_survey_draft: {
         Args: { p_survey: string; p_scores: Json }
         Returns: undefined
+      }
+      get_survey_draft: {
+        Args: { p_survey: string }
+        Returns: Json
+      }
+      survey_trend: {
+        Args: { p_team: string; p_kind: string }
+        Returns: Json
       }
       submit_individual_response: {
         Args: { p_workspace: string; p_template_key: string; p_scores: Json }

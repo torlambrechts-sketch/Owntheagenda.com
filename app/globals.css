@@ -250,11 +250,26 @@ button { font-family:inherit; }
 .a-likert{display:flex;flex-direction:column;gap:9px}
 .a-lopt{display:flex;align-items:center;gap:13px;border:1px solid var(--line-2);border-radius:10px;padding:12px 15px;cursor:pointer;font-size:14px;background:var(--surface);transition:border-color .12s,background .12s}
 .a-lopt:hover{border-color:var(--green);background:var(--canvas)}
+.a-lopt:focus-visible{outline:2px solid var(--green);outline-offset:2px}
 .a-lopt.on{border-color:var(--green);background:var(--open-bg)}
 .a-lr{width:20px;height:20px;border-radius:50%;border:2px solid var(--line-2);flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 .a-lopt.on .a-lr{border-color:var(--green);background:var(--green)}
 .a-lopt.on .a-lr::after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
 .a-runnav{display:flex;align-items:center;gap:12px}.a-runnav .sp{flex:1}
+/* shared AssessmentRunner */
+.a-runtop{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.a-runtop-h{font-family:var(--font-display);font-size:18px;font-weight:600;flex:1;display:flex;flex-direction:column}
+.a-runtop-sub{font-family:var(--font-body,inherit);font-size:12px;font-weight:400;color:var(--muted)}
+.arun-allbtn{background:none;border:none;color:var(--green);font-size:12px;font-weight:600;cursor:pointer;flex:none}
+.arun-allbtn:hover{text-decoration:underline}
+.arun-intro{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:14px}
+.arun-priv{color:var(--green)}
+.arun-resumed{background:var(--open-bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--green);margin-bottom:14px}
+.a-lopt{position:relative}
+.arun-kbd{margin-left:auto;width:18px;height:18px;border-radius:4px;border:1px solid var(--line-2);font-size:11px;font-weight:700;color:var(--faint);display:inline-flex;align-items:center;justify-content:center}
+.a-lopt.on .arun-kbd{border-color:var(--green);color:var(--green)}
+.arun-progress-bottom{margin:2px 0 16px}
+.arun-count{font-size:12.5px;color:var(--muted);margin-right:auto;align-self:center}
 /* report */
 .a-report{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:24px 26px;max-width:880px}
 .a-rephead{display:flex;align-items:flex-start;gap:14px;margin-bottom:6px}
@@ -1197,6 +1212,20 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .gapdim-l{color:var(--ink);font-weight:600}
 .gapdim-v .muted,.muted{color:var(--faint);font-weight:400}
 .roster{padding:2px 0 8px}
+.svcomment{margin-top:12px}
+.svcomment textarea{resize:vertical;min-height:46px}
+.cmtrow{display:flex;flex-direction:column;gap:1px;padding:6px 2px;border-bottom:1px solid var(--line)}
+.cmtrow:last-child{border-bottom:none}
+.cmttext{font-size:12.5px;color:var(--ink);line-height:1.4}
+.cmtauthor{font-size:11px;color:var(--faint);font-weight:600}
+.aa-focus{margin:10px 0 4px;padding:9px 12px;border-radius:8px;background:var(--canvas-2);border:1px solid var(--line);font-size:12.5px;line-height:1.45;color:var(--ink)}
+.aa-focus.even{color:var(--muted)}
+.aa-focus b{font-weight:700}
+.aa-comments{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.aa-comments-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:6px}
+.aa-comments-h .n{color:var(--faint);font-weight:600}
+.sharerow{display:flex;align-items:center;gap:8px;padding:6px 2px;flex-wrap:wrap}
+.sharelink{flex:1;min-width:180px;font-size:11.5px;color:var(--muted)}
 .rosterrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 2px}
 .rosterrow .person{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:600;color:var(--ink)}
 .aspanel{margin-top:14px}
@@ -1531,11 +1560,182 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .revtog:hover{background:var(--canvas);color:var(--muted)}
 .revtog.on{background:var(--open-bg);border-color:var(--green);color:var(--forest)}
 .formerr{background:rgba(176,74,52,.08);border:1px solid var(--rust);color:var(--rust);font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:12px}
+/* guided builder */
+.bld-head{display:flex;align-items:flex-start;gap:12px}
+.bld-headactions{margin-left:auto;display:flex;gap:8px;flex:none;padding-top:6px}
+.bld-split{display:block}
+.bld-split.withpreview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.bld-form{min-width:0}
+.bld-preview{position:sticky;top:16px;border:1px solid var(--line);border-radius:12px;background:var(--canvas);padding:14px}
+.bld-preview-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.bld-preview-frame{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;overflow:auto;max-height:72vh}
+.bld-preview-frame.mobile{max-width:380px;margin:0 auto}
+.fielderr{color:var(--rust);font-size:12px;margin-top:4px}
+.bank-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:54vh;overflow:auto}
+.bank-row{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.bank-text{display:flex;flex-direction:column;gap:2px;min-width:0}
+.bank-text span{font-size:13.5px}
+.bank-text small{color:var(--muted);font-size:11.5px}
+.bank-row .btn-sec{flex:none}
 
 @media (max-width:980px){
+.bld-split.withpreview{grid-template-columns:1fr}
+.bld-preview{position:static}
   .app{grid-template-columns:60px 1fr}
   .nav{display:none}
 }
 @media (prefers-reduced-motion:reduce){
   .sw,.scrim,.toast{transition:none}
+  .a-progress>span,.arun-progress-bottom>span{transition:none}
 }
+
+/* ---- Flows: header actions, plays, readiness gate, builder ---------- */
+.page-head-acts{display:flex;gap:10px;align-items:center}
+.wfx-thr{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);white-space:nowrap}
+.wfx-thr .inp.sm{width:64px}
+.wfx-steps.flow{grid-template-columns:repeat(3,1fr)}
+@media (max-width:720px){.wfx-steps.flow{grid-template-columns:1fr}}
+
+/* Plays gallery */
+.plays{background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.plays-head{width:100%;display:flex;align-items:center;gap:12px;padding:14px 20px;background:none;border:none;cursor:pointer;text-align:left}
+.plays-title{font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
+.plays-sub{font-size:12.5px;color:var(--muted)}
+.plays-chev{margin-left:auto;color:var(--faint)}
+.plays-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:14px;padding:0 20px 20px}
+.play-card{display:flex;flex-direction:column;gap:9px;padding:15px;background:var(--canvas-2);border:1px solid var(--line);border-radius:9px}
+.play-card h4{font-size:13.5px;font-weight:700;margin:0}
+.play-blurb{font-size:12px;color:var(--muted);margin:0;flex:1;line-height:1.45}
+.play-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.play-thr{font-size:11px;font-weight:600;color:var(--faint)}
+.play-launch{display:flex;gap:8px}
+.play-launch .inp.sm{flex:1}
+
+/* Readiness gate */
+.rg{display:flex;flex-direction:column;gap:8px;flex:1}
+.rg-top{display:flex;align-items:center;gap:11px}
+.rg-ring .rg-track{fill:none;stroke:var(--line-2);stroke-width:4}
+.rg-ring .rg-fill{fill:none;stroke:var(--amber);stroke-width:4;stroke-linecap:round;transition:stroke-dashoffset .4s ease}
+.rg.ready .rg-fill{stroke:var(--green)}
+.rg-counts{display:flex;flex-direction:column;line-height:1.1}
+.rg-counts strong{font-size:18px;font-weight:800;color:var(--ink)}
+.rg-of{font-size:13px;font-weight:600;color:var(--faint)}
+.rg-label{font-size:11px;color:var(--muted)}
+.rg-acts{display:flex;flex-wrap:wrap;gap:12px}
+
+/* Flow builder (node editor) */
+.wfx-builder{padding:18px 20px}
+.fb-list{display:flex;flex-direction:column;gap:0}
+.fb-node{border:1px solid var(--line);border-left:3px solid var(--line-2);border-radius:8px;padding:12px 14px;background:var(--canvas-2)}
+.fb-node.active{border-left-color:var(--amber);background:var(--surface)}
+.fb-node.done{border-left-color:var(--green)}
+.fb-node:not(:last-child){margin-bottom:22px;position:relative}
+.fb-node:not(:last-child)::after{content:"";position:absolute;left:18px;bottom:-18px;width:2px;height:14px;background:var(--line-2)}
+.fb-node-h{display:flex;align-items:center;gap:10px}
+.fb-kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--green);background:var(--open-bg);padding:3px 8px;border-radius:5px}
+.fb-title{font-size:13px;font-weight:700;color:var(--ink)}
+.fb-node-ctl{margin-left:auto;display:flex;gap:9px}
+.fb-branch{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line-2);display:flex;flex-direction:column;gap:8px}
+.fb-cond{font-size:12px;color:var(--muted);margin:0}
+.fb-cond-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.fb-cond-row .inp.sm{width:auto}
+.fb-val{width:64px!important}
+.fb-pick{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.fb-pick .inp.sm{flex:1}
+.fb-add{display:flex;gap:9px;margin-top:18px}
+.fb-add .inp.sm{width:auto;min-width:180px}
+
+/* ---- Flow composer (white-box step builder) ------------------------ */
+.fc{margin-bottom:20px}
+.fc-head{margin-bottom:14px}
+.fc-sub{font-size:12.5px;color:var(--muted);margin:4px 0 0}
+.fc-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.fc-meta .inp:first-child{flex:1;min-width:220px}
+.fc-thr{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);white-space:nowrap}
+.fc-thr .inp.sm{width:64px}
+.fc-strip{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+.fc-box{position:relative;width:185px;display:flex;flex-direction:column;gap:7px;padding:12px;background:var(--canvas-2);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:9px}
+.fc-box-top{display:flex;align-items:center;justify-content:space-between}
+.fc-num{width:22px;height:22px;border-radius:50%;background:var(--open-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px}
+.fc-box-ctl{display:flex;gap:7px}
+.fc-box .inp.sm{width:100%}
+.fc-hint{font-size:10.5px;color:var(--faint)}
+.fc-box:not(:last-of-type)::after{content:"›";position:absolute;right:-11px;top:50%;transform:translateY(-50%);color:var(--line-2);font-size:18px;font-weight:700;z-index:1}
+.fc-add{width:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:none;border:1.5px dashed var(--line-2);border-radius:9px;cursor:pointer;color:var(--muted);padding:12px}
+.fc-add:hover{border-color:var(--green);color:var(--green)}
+.fc-add-ring{width:34px;height:34px;border-radius:50%;background:var(--open-bg);color:var(--green);display:flex;align-items:center;justify-content:center}
+.fc-add-l{font-size:12px;font-weight:700}
+.fc-foot{display:flex;align-items:center;justify-content:flex-end;gap:16px;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+
+/* ---- Flows table (rows + expandable run panel) --------------------- */
+.flow-row{cursor:pointer}
+.flow-row.open{background:var(--canvas)}
+.flow-cell{display:flex;align-items:center;gap:9px}
+.flow-title{font-weight:600;color:var(--ink)}
+.flow-prog-row{display:flex;flex-direction:column;gap:4px}
+.a-progress.flow-prog{width:130px;height:6px;background:var(--line);border-radius:20px;overflow:hidden}
+.flow-prog-row small{font-size:11px;color:var(--faint)}
+.flow-chev{color:var(--faint);display:inline-block;transition:transform .15s}
+.flow-chev.open{transform:rotate(180deg);color:var(--green)}
+.flow-exp-row td{padding:0!important;background:var(--canvas)}
+.flow-exp{padding:8px 14px 18px}
+.wfx-run-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.wfx-run-h .wfx-prog-note{padding:0;margin-left:4px}
+
+/* ---- Flow composer presets + branch warning ----------------------- */
+.fc-presets{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.fc-presets-l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)}
+.chip{background:var(--canvas-2);border:1px solid var(--line-2);color:var(--muted);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+.chip:hover{border-color:var(--green);color:var(--green);background:var(--open-bg)}
+.fb-warn{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--rust);background:var(--reject-bg);padding:3px 8px;border-radius:5px}
+.flow-row:focus-visible{background:var(--canvas);outline-offset:-2px}
+
+/* ---- Flow assessment instrument picker ---------------------------- */
+.fc-new{font-size:11px;font-weight:600;color:var(--green);text-decoration:none}
+.fc-new:hover{text-decoration:underline}
+.wfx-instr{font-size:11px;font-weight:700;color:var(--green);background:var(--open-bg);border-radius:5px;padding:3px 8px;align-self:flex-start}
+.wfx-instr.muted{color:var(--muted);background:var(--canvas-2);font-weight:600}
+
+/* ---- Flow task sub-rows (sub-flows in the table) ------------------- */
+.flow-subrow td{background:var(--canvas);border-bottom:1px solid var(--line);padding-top:8px;padding-bottom:8px}
+.flow-sub{display:flex;align-items:center;gap:9px;padding-left:24px}
+.flow-sub-title{font-size:12.5px;color:var(--ink)}
+.flow-sub-title.done{color:var(--faint);text-decoration:line-through}
+.flow-sub-meta{font-size:12px;color:var(--muted)}
+.flow-check{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--green);font-size:12px;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.flow-check.on{background:var(--open-bg);border-color:var(--green)}
+.flow-check:disabled{cursor:default;opacity:.6}
+
+/* ---- Flow due column + commitments collapse ----------------------- */
+.flow-due{font-size:12px;color:var(--muted);white-space:nowrap}
+.flow-due.overdue{color:var(--rust);font-weight:700}
+.flow-due-flag{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--rust)}
+.flow-sub-meta.overdue{color:var(--rust);font-weight:600}
+.flow-commit-toggle{cursor:pointer}
+.flow-commit-head{padding-left:24px;font-size:12px;font-weight:600;color:var(--muted)}
+.flow-commit-head .flow-chev.xs{font-size:10px;transition:transform .15s}
+.flow-commit-head .flow-chev.xs.open{transform:rotate(180deg);color:var(--green)}
+.flow-commit-done{margin-left:8px;font-size:11px;color:var(--faint);font-weight:600}
+
+/* Assessment results export */
+.rxport{display:flex;align-items:center;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+.rxport-lab{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--faint)}
+.rxport-btn{border:1px solid var(--line-2);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;border-radius:6px;padding:4px 10px;cursor:pointer}
+.rxport-btn:hover{background:var(--canvas);color:var(--ink)}
+
+/* Survey re-measure trend */
+.strend{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+.strend:first-of-type{border-top:none}
+.strend-name{flex:1;font-size:13px;color:var(--ink);font-weight:600}
+.strend-spark{flex:none}
+.strend-now{display:flex;align-items:baseline;gap:3px;min-width:64px;justify-content:flex-end}
+.strend-val{font-size:16px;font-weight:700;color:var(--forest)}
+.strend-den{font-size:10px;color:var(--faint)}
+.strend-delta{font-size:11px;font-weight:700;min-width:52px;text-align:right}
+.strend-delta.up{color:var(--green)}
+.strend-delta.down{color:var(--rust)}
+.strend-delta.flat{color:var(--faint)}
+
+/* Builder soft guardrails */
+.bwarn{font-size:11px;color:var(--amber,#A8862F);margin-top:3px}
+.fieldwarn{font-size:11.5px;color:var(--amber,#A8862F);margin:4px 0 0}

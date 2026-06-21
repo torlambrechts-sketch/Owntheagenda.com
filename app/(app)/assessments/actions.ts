@@ -9,6 +9,7 @@ export async function sendSurvey(
   teamId: string,
   kind: string,
   dueAt: string | null,
+  anonymity: string = "anonymous",
 ): Promise<{ error?: string; id?: string }> {
   const supabase = createClient();
   const { data: tpl } = await supabase
@@ -23,6 +24,7 @@ export async function sendSurvey(
     p_team: teamId,
     p_kind: kind,
     p_name: name,
+    p_anonymity: anonymity === "attributed" ? "attributed" : "anonymous",
     ...(due && !isNaN(due.getTime()) ? { p_due: due.toISOString() } : {}),
   });
   if (error) return { error: error.message };
@@ -43,6 +45,16 @@ export async function closeSurvey(surveyId: string): Promise<{ error?: string }>
   if (error) return { error: error.message };
   revalidatePath("/assessments");
   return {};
+}
+
+// Mint or revoke a public link for an anonymous survey. Returns the token
+// (null when turned off). Only anonymous surveys can be shared.
+export async function setSurveyShare(surveyId: string, on: boolean): Promise<{ error?: string; token?: string | null }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("survey_share_set", { p_survey: surveyId, p_on: on });
+  if (error) return { error: error.message };
+  revalidatePath("/insight/leadership-teams");
+  return { token: (data as string | null) ?? null };
 }
 
 // Designate (or clear) whose view to contrast against the team — the perception gap.
