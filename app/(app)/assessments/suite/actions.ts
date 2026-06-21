@@ -24,6 +24,7 @@ export type AssessmentDetail = {
   overall: number | null; // overall mean on the instrument scale
   lowestLabel: string | null;
   belowCount: number;
+  linkedWorkshop: { id: string; title: string } | null; // a workshop carrying this survey
 };
 
 // Generalised banding by position on the instrument's scale. The design's hard
@@ -91,6 +92,24 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
     }
   }
 
+  // A workshop carrying this survey (the flow engine pins it on a step's
+  // survey_id) — lets the assessment link straight to its follow-up workshop.
+  let linkedWorkshop: { id: string; title: string } | null = null;
+  const { data: linkBlock } = await supabase
+    .from("block")
+    .select("workshop_id")
+    .eq("survey_id", surveyId)
+    .limit(1)
+    .maybeSingle();
+  if (linkBlock?.workshop_id) {
+    const { data: ws } = await supabase
+      .from("workshop")
+      .select("id, title")
+      .eq("id", linkBlock.workshop_id)
+      .maybeSingle();
+    if (ws) linkedWorkshop = { id: ws.id as string, title: ws.title as string };
+  }
+
   return {
     detail: {
       surveyId,
@@ -107,6 +126,7 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       overall: overall == null ? null : Math.round(overall * 100) / 100,
       lowestLabel,
       belowCount,
+      linkedWorkshop,
     },
   };
 }

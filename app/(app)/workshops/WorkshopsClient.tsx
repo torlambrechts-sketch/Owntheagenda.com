@@ -312,6 +312,7 @@ export function WorkshopsClient({
                             <>
                               <div className="wk-menu-back" onClick={() => setMenuFor(null)} />
                               <div className="wk-menu">
+                                <Link href={`/workshops/${w.id}/overview`} onClick={() => setMenuFor(null)}>Overview</Link>
                                 <Link href={`/workshops/${w.id}`} onClick={() => setMenuFor(null)}>Open</Link>
                                 <Link href={`/run/${w.id}`} onClick={() => setMenuFor(null)}>Run ▸</Link>
                                 {canManage ? <button className="del" onClick={() => remove(w.id)}>Delete</button> : null}

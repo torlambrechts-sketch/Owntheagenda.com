@@ -113,9 +113,14 @@ export default async function BuilderPage({
 
   return (
     <div>
-      <Link href="/workshops" className="linkbtn" style={{ fontSize: 12 }}>
-        ‹ Workshops
-      </Link>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Link href="/workshops" className="linkbtn" style={{ fontSize: 12 }}>
+          ‹ Workshops
+        </Link>
+        <Link href={`/workshops/${workshop.id}/overview`} className="linkbtn" style={{ fontSize: 12 }}>
+          Overview →
+        </Link>
+      </div>
       <BuilderClient
         workshop={{ id: workshop.id, title: workshop.title, scheduledAt: workshop.scheduled_at, objective: workshop.objective }}
         teamId={workshop.team_id}

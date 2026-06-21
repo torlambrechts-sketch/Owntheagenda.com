@@ -298,18 +298,26 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
           {tab === "workshop" ? (
             <div className="as-workshop">
-              <div className="as-ws-eyebrow">Follow-up workshop</div>
+              <div className="as-ws-eyebrow">{detail.linkedWorkshop ? "Linked workshop" : "Follow-up workshop"}</div>
               <div className="as-ws-title">
-                {detail.belowCount
-                  ? `${detail.belowCount} ${detail.belowCount === 1 ? "section is" : "sections are"} below the healthy band`
-                  : "No section is below the band"}
+                {detail.linkedWorkshop
+                  ? detail.linkedWorkshop.title
+                  : detail.belowCount
+                    ? `${detail.belowCount} ${detail.belowCount === 1 ? "section is" : "sections are"} below the healthy band`
+                    : "No section is below the band"}
               </div>
               <p className="as-ws-sub">
-                {detail.belowCount
-                  ? "A targeted workshop helps the team work through the lowest-scoring sections together — diagnose causes, agree measures and assign owners."
-                  : "Scores look healthy. You can still run a workshop to build on strengths or revisit a theme."}
+                {detail.linkedWorkshop
+                  ? "This assessment is carried into a workshop — open it to review the agenda, run the session and track the measures agreed."
+                  : detail.belowCount
+                    ? "A targeted workshop helps the team work through the lowest-scoring sections together — diagnose causes, agree measures and assign owners."
+                    : "Scores look healthy. You can still run a workshop to build on strengths or revisit a theme."}
               </p>
-              <Link className="btn-prim" href="/workshops">Start a workshop →</Link>
+              {detail.linkedWorkshop ? (
+                <Link className="btn-prim" href={`/workshops/${detail.linkedWorkshop.id}/overview`}>Open workshop →</Link>
+              ) : (
+                <Link className="btn-prim" href="/workshops">Start a workshop →</Link>
+              )}
             </div>
           ) : null}
         </>
