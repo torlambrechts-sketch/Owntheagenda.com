@@ -398,6 +398,25 @@ button { font-family:inherit; }
 .orgact-actor{font-weight:600}
 .orgact-m{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums;white-space:nowrap}
 
+/* ---------- flow detail views (outline / table / map) ---------- */
+.flow-chip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border:1px solid;border-radius:20px;padding:2px 9px;background:var(--surface)}
+.flow-out-row{display:flex;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.flow-out-row:last-child{border-bottom:none}
+.flow-out-n{flex-shrink:0;width:24px;height:24px;border-radius:7px;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.flow-out-body{min-width:0;flex:1}
+.flow-out-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.flow-out-t{font-size:13.5px;font-weight:600;color:var(--ink)}
+.flow-out-sub{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:3px}
+.flowmap{display:flex;flex-direction:column;align-items:center;gap:0}
+.flowmap-node{display:flex;align-items:center;gap:10px;width:min(440px,100%);background:var(--surface);border:1.5px solid;border-radius:11px;padding:11px 14px;box-shadow:var(--shadow)}
+.flowmap-chip{flex-shrink:0;color:#fff;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;border-radius:20px;padding:3px 9px}
+.flowmap-t{flex:1;font-size:13.5px;font-weight:600;color:var(--ink)}
+.flowmap-routes{width:min(440px,100%);display:flex;flex-direction:column;gap:5px;padding:8px 4px 2px}
+.flowmap-route{font-size:12px;color:var(--muted)}
+.flowmap-cond{font-weight:700}
+.flowmap-arrow{color:var(--line-2);font-size:18px;line-height:1;padding:4px 0}
+.flowmap-end{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);margin-top:4px}
+
 /* ---------- leadership effectiveness test ---------- */
 .lead-cta{margin:6px 0 20px}
 .lead-test{max-width:820px}

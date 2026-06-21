@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { useTableControls } from "@/components/TableControls";
 import type { ProgramView, TaskView, Member } from "./WorkflowClient";
 
@@ -119,6 +120,7 @@ export function FlowsTable({
                     return (
                       <FlowRows
                         key={p.id}
+                        id={p.id}
                         open={open}
                         onToggle={() => setOpenId(open ? null : p.id)}
                         title={p.title}
@@ -222,6 +224,7 @@ function TaskSubRow({
 }
 
 function FlowRows({
+  id,
   open,
   onToggle,
   title,
@@ -241,6 +244,7 @@ function FlowRows({
   onAssignTask,
   expanded,
 }: {
+  id: string;
   open: boolean;
   onToggle: () => void;
   title: string;
@@ -297,7 +301,10 @@ function FlowRows({
           {flowOverdue ? <span className="flow-due-flag">overdue</span> : null}
         </td>
         <td><span className={`pill sm ${statusPill}`}>{statusText}</span></td>
-        <td className="r"><span className={`flow-chev${open ? " open" : ""}`}>▾</span></td>
+        <td className="r">
+          <Link href={`/workflow/${id}`} className="linkbtn" style={{ marginRight: 10 }} onClick={(e) => e.stopPropagation()}>Views ›</Link>
+          <span className={`flow-chev${open ? " open" : ""}`}>▾</span>
+        </td>
       </tr>
 
       {drivers.map((t) => (
