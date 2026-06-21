@@ -4,17 +4,18 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database.types";
 
-// Best-effort audit logging. Records an assessment lifecycle event via the
-// guarded public.log_event writer; never throws into the caller (a logging
+// Best-effort audit logging. Records an assessment/pulse lifecycle event via
+// the guarded public.log_event writer; never throws into the caller (a logging
 // failure must not break the action it accompanies).
 async function logEvent(
   supabase: ReturnType<typeof createClient>,
   action: string,
+  entityType: "survey" | "pulse",
   entityId: string,
   meta: Json = {},
 ): Promise<void> {
   try {
-    await supabase.rpc("log_event", { p_action: action, p_entity_type: "survey", p_entity_id: entityId, p_meta: meta });
+    await supabase.rpc("log_event", { p_action: action, p_entity_type: entityType, p_entity_id: entityId, p_meta: meta });
   } catch {
     /* logging is non-fatal */
   }
@@ -46,7 +47,7 @@ export async function sendSurvey(
   });
   if (error) return { error: error.message };
   const id = (data as { id?: string } | null)?.id;
-  if (id) await logEvent(supabase, "assessment.opened", id, { kind });
+  if (id) await logEvent(supabase, "assessment.opened", "survey", id, { kind });
   revalidatePath("/assessments");
   return { id };
 }
@@ -62,7 +63,7 @@ export async function closeSurvey(surveyId: string): Promise<{ error?: string }>
   const supabase = createClient();
   const { error } = await supabase.rpc("close_survey", { p_survey: surveyId });
   if (error) return { error: error.message };
-  await logEvent(supabase, "assessment.closed", surveyId);
+  await logEvent(supabase, "assessment.closed", "survey", surveyId);
   revalidatePath("/assessments");
   return {};
 }
@@ -91,11 +92,13 @@ export async function runPulse(
   name: string,
 ): Promise<{ error?: string }> {
   const supabase = createClient();
-  const { error } = await supabase.rpc("create_pulse", {
+  const { data, error } = await supabase.rpc("create_pulse", {
     p_team: teamId,
     p_name: name,
   });
   if (error) return { error: error.message };
+  const pid = (data as { id?: string } | null)?.id;
+  if (pid) await logEvent(supabase, "pulse.opened", "pulse", pid, { team: teamId });
   revalidatePath("/assessments");
   return {};
 }
@@ -120,6 +123,7 @@ export async function closePulse(
   const supabase = createClient();
   const { error } = await supabase.rpc("close_pulse", { p_pulse: pulseId });
   if (error) return { error: error.message };
+  await logEvent(supabase, "pulse.closed", "pulse", pulseId);
   revalidatePath("/assessments");
   return {};
 }

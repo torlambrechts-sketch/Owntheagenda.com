@@ -301,7 +301,9 @@ export function RunClient({
     setEndErr(null);
     if (!confirm("Close the session for everyone? This finalises it and opens the readout.")) return;
     const { error } = await supabase.rpc("end_session", { p_session: sid });
-    if (error) setEndErr(error.message);
+    if (error) { setEndErr(error.message); return; }
+    // Best-effort audit; never blocks closing the session.
+    try { await supabase.rpc("log_event", { p_action: "session.completed", p_entity_type: "workshop", p_entity_id: workshopId, p_meta: {} }); } catch { /* non-fatal */ }
   }
   async function toggleReady() {
     const me = participants.find((p) => p.userId === userId);
