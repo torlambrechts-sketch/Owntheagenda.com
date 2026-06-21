@@ -89,6 +89,30 @@ Production") is absent end-to-end.
 
 ---
 
+## Implemented (this round)
+
+- ✅ **Runner Welcome + Thank-you** (P1) — opt-in `welcome`/`done` stages (intro card + "what happens
+  next") with an `onStageChange` hook; wired into PublicSurveyForm + SurveyRespond.
+- ✅ **Full Likert labels** (P2) — every point labelled on agree-scales (guarded for frequency/NPS).
+- ✅ **Section-paged runner mode + dots** (P2) — opt-in `paging="section"` (one dimension per page,
+  "Section X of Y", progress dots, horizontal labelled Likert); wired into both respondent surfaces.
+- ✅ **Dedicated live run-status view** (P1) — `/assessments/status/[id]`: KPI cards, response-rate
+  ring, responses-over-time chart, section scores, live activity feed; Send-reminder / Close.
+- ✅ **Threshold trigger watch** (P1) — the status view flags sections below the builder `threshold`
+  (or the healthy band) with a mitigation-workshop CTA; `close_survey` emits a **Threshold-alert** +
+  **Closed-&-report** notification to leads + creator (P2).
+- ✅ **Pause / resume** (P3) — `set_survey_paused`; 'paused' blocks submission without closing.
+
+### Still open (scoped / deferred, with rationale)
+- **By-unit breakdown** (P2) — the design assumes one assessment across several units; our survey is
+  per-team, so the status view shows **section scores** instead. True multi-unit needs a
+  distribution-across-units data model.
+- **Notification management UI + per-user channel prefs** (P2) — the lifecycle *messages* now exist
+  (invite/reminder/nudge/threshold/closed); a per-type toggle + channel-matrix + preferences surface
+  is a separate feature.
+- **Web-push channel** (P3) — needs a service worker + VAPID + subscription storage; large and not
+  verifiable in this environment.
+
 ## Later actions (prioritised backlog)
 
 Priority: **P1** high-value / lower-risk · **P2** medium · **P3** large / lower-value.
