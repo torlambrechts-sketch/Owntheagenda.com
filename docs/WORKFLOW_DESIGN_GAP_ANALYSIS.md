@@ -17,7 +17,11 @@ Status legend: ✅ done · 🟡 partial · ⛔ missing. Percentages are rough ef
 - ✅ **On-canvas flow editing** — add / delete step + inline branch-routing editor on the `/workflow/[id]` Map (admins), via the existing add/remove/branch RPCs.
 - ✅ **In-place template editing** — `/builder?id=` loads an existing definition into the three-pane editor and saves in place; gallery lists "Your assessments".
 - ✅ **Non-Likert question types end-to-end** — the shared runner renders single/multi/text, optional questions gate on *required* items, and answers persist (team + individual paths) in a dedicated `answers` jsonb while `scores` stays numeric (scoring untouched). Replaces the earlier "Publish guard" P2.
-- 🟡 **Workshop builder** — module picker now phase-grouped (Open/Diverge/Converge/Decide/Close). Full agenda-canvas redesign + new module types remain deferred (each needs a run-side renderer).
+- 🟡 **Workshop builder** — module picker phase-grouped (Open/Diverge/Converge/Decide/Close); agenda canvas now has a phase-coloured connector rail + end-of-workshop marker (time rail already existed). New module *types* remain deferred (each needs a run-side renderer); the inspector "live preview" of a module is also still open.
+- ✅ **Flow Map keyboard reorder** — per-node ↑/↓ buttons alongside drag (a11y).
+- ✅ **Runner 0–10 keyboard** — digit buffering makes two-digit values reachable.
+- ✅ **Favicon** — `app/icon.svg` (the gold mark) wired as the app icon.
+- ✅ **Branch dynamics dedup** — shared `workflow/dynamics.ts` (markup stays local).
 
 ### Known residual limitations (from the post-implementation review)
 - The Assessment Builder only authors three Likert scales (1–5 / 1–7 / 0–10); editing a template stored with an exotic scale (e.g. 1–6) normalises it to 1–5 on save. Acceptable while the builder's scale model is fixed; revisit if arbitrary scales are needed.

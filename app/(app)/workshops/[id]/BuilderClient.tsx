@@ -60,6 +60,13 @@ const ACT_PHASES: { label: string; acts: Activity[] }[] = [
   { label: "Decide", acts: ["outcome"] },
   { label: "Close", acts: ["discuss"] },
 ];
+const PHASE_COLOR: Record<string, string> = {
+  Open: "var(--role)", Diverge: "#6d28d9", Converge: "#0e7490", Decide: "var(--forest)", Close: "var(--amber)",
+};
+function phaseOf(a: string): { label: string; color: string } {
+  const p = ACT_PHASES.find((ph) => ph.acts.includes(a as Activity));
+  return p ? { label: p.label, color: PHASE_COLOR[p.label] } : { label: "", color: "var(--green)" };
+}
 // Short helper text shown under the activity picker per module.
 const ACT_HINT: Partial<Record<Activity, string>> = {
   canvas: "Free-form sticky-note board.",
@@ -426,6 +433,7 @@ export function BuilderClient({
           const start = acc;
           acc += b.duration;
           const act = ACTIVITY[b.activityType] ?? { label: b.activityType, cls: "" };
+          const ph = phaseOf(b.activityType);
           const cfgHint =
             b.activityType === "feedback"
               ? `${b.config?.lanes?.length ?? 0} columns`
@@ -439,6 +447,10 @@ export function BuilderClient({
               <div className="time">
                 <div className="t">{clock(start)}</div>
                 <div className="d">{b.duration} min</div>
+              </div>
+              <div className="brail" aria-hidden>
+                <span className="dot" style={{ borderColor: ph.color }} title={ph.label} />
+                {i < blocks.length - 1 ? <span className="line" /> : null}
               </div>
               <div className="bcard">
                 <div className="top">
@@ -479,6 +491,13 @@ export function BuilderClient({
             </div>
           );
         })}
+        {blocks.length ? (
+          <div className="block agenda-end">
+            <div className="time"><div className="t" style={{ color: "var(--faint)" }}>{clock(acc)}</div></div>
+            <div className="brail" aria-hidden><span className="dot end" /></div>
+            <div className="endlbl">End of workshop · {blocks.reduce((s, b) => s + b.duration, 0)} min total</div>
+          </div>
+        ) : null}
       </div>
 
       {canManage ? (
