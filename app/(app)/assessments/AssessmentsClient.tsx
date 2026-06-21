@@ -289,7 +289,7 @@ export function AssessmentsClient({
             </tbody>
           </table>
           <div className="form-note" style={{ marginTop: 10 }}>
-            Email / Slack delivery is a later integration — “Remind” logs the nudge for now.
+            “Remind” sends an in-app notification to each member who hasn’t finished, and is recorded in the workspace activity log. Email / Slack delivery can be added via an integration.
           </div>
         </div>
       ) : null}

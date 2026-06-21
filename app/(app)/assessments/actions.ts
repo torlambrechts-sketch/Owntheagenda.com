@@ -56,7 +56,9 @@ export async function remindSurvey(surveyId: string): Promise<{ error?: string; 
   const supabase = createClient();
   const { data, error } = await supabase.rpc("remind_survey", { p_survey: surveyId });
   if (error) return { error: error.message };
-  return { pending: (data as unknown as number) ?? 0 };
+  const pending = (data as unknown as number) ?? 0;
+  await logEvent(supabase, "assessment.reminded", "survey", surveyId, { pending });
+  return { pending };
 }
 
 export async function closeSurvey(surveyId: string): Promise<{ error?: string }> {

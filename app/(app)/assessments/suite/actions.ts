@@ -32,6 +32,7 @@ export type AssessmentDetail = {
 const ACTION_LABEL: Record<string, string> = {
   "assessment.opened": "Assessment opened",
   "assessment.closed": "Assessment closed",
+  "assessment.reminded": "Reminder sent",
 };
 
 // Generalised banding by position on the instrument's scale. The design's hard
