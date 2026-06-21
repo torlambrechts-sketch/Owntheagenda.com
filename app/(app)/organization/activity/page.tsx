@@ -35,14 +35,15 @@ const RANGES: { key: string; label: string; days: number | null }[] = [
   { key: "all", label: "All time", days: null },
 ];
 
-// Event categories → the action prefixes they cover (PostgREST `like` filters).
+// Event categories → the action prefixes they cover. These feed a PostgREST
+// `or` filter where the `like` wildcard is `*` (not SQL `%`).
 const CATEGORIES: { key: string; label: string; likes: string[] }[] = [
   { key: "all", label: "All events", likes: [] },
-  { key: "assessment", label: "Assessments", likes: ["assessment.%"] },
-  { key: "workshop", label: "Workshops & sessions", likes: ["workshop.%", "session.%"] },
-  { key: "pulse", label: "Pulses", likes: ["pulse.%"] },
-  { key: "member", label: "Members", likes: ["member.%", "membership.%", "invitation.%"] },
-  { key: "workspace", label: "Workspace", likes: ["workspace.%"] },
+  { key: "assessment", label: "Assessments", likes: ["assessment.*"] },
+  { key: "workshop", label: "Workshops & sessions", likes: ["workshop.*", "session.*"] },
+  { key: "pulse", label: "Pulses", likes: ["pulse.*"] },
+  { key: "member", label: "Members", likes: ["member.*", "membership.*", "invitation.*"] },
+  { key: "workspace", label: "Workspace", likes: ["workspace.*"] },
 ];
 
 function dotColor(entityType: string | null): string {
