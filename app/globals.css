@@ -796,6 +796,14 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .prevstage h3{font-family:var(--font-display);font-size:18px;font-weight:600;margin:6px 0 10px;color:#fff}
 .prevstage .prev-prompt{font-size:14px;line-height:1.5;color:rgba(255,255,255,.92);background:rgba(255,255,255,.07);border-radius:9px;padding:12px 14px;border-left:3px solid var(--green);margin-bottom:10px;white-space:pre-wrap}
 .prevstage .prev-hint{font-size:12px;color:rgba(255,255,255,.62)}
+.runrail{display:flex;align-items:center;gap:6px;padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--line);overflow-x:auto;flex:none;scrollbar-width:thin}
+.runrail-step{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;padding:5px 12px 5px 6px;font-family:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.runrail-step:disabled{cursor:default}
+.runrail-step .runrail-n{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--canvas-2);color:var(--muted);font-size:11px;font-weight:700}
+.runrail-step.done{color:var(--ink)}
+.runrail-step.done .runrail-n{background:var(--open-bg);color:var(--green)}
+.runrail-step.on{border-color:var(--green);color:var(--ink);background:var(--open-bg)}
+.runrail-step.on .runrail-n{background:var(--green);color:#fff}
 .runbody{flex:1;display:flex;min-height:0}
 .stage{flex:1;padding:28px;overflow:auto}
 .stage-prompt{background:var(--forest);border-radius:14px;padding:30px;color:#fff;max-width:760px;margin:0 auto;box-shadow:var(--shadow)}

@@ -477,6 +477,28 @@ export function RunClient({
         {acting ? <button className="exitbtn" onClick={endSession}>Close ▸</button> : null}
       </div>
 
+      {blocks.length > 1 ? (
+        <div className="runrail" aria-label="Run of show">
+          {blocks.map((b) => {
+            const cur = b.ord === session.currentBlockOrd;
+            const done = b.ord < session.currentBlockOrd;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                className={`runrail-step${cur ? " on" : done ? " done" : ""}`}
+                disabled={!acting}
+                onClick={() => { if (acting) phase(b.ord); }}
+                title={`${ACTIVITY[b.activityType]?.label ?? b.activityType} · ${b.title}`}
+              >
+                <span className="runrail-n">{done ? "✓" : b.ord}</span>
+                <span className="runrail-t">{b.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {endErr ? (
         <div className="closegate">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
