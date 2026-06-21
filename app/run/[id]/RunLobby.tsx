@@ -45,6 +45,8 @@ export function RunLobby({
       setBusy(null);
       return;
     }
+    // Best-effort audit; never blocks the session start.
+    try { await supabase.rpc("log_event", { p_action: "session.started", p_entity_type: "workshop", p_entity_id: workshopId, p_meta: {} }); } catch { /* non-fatal */ }
     router.refresh();
   }
 

@@ -35,6 +35,8 @@ const ACTION_LABEL: Record<string, string> = {
   "workshop.created": "Workshop created",
   "workshop.quickstarted": "Workshop quick-started",
   "workshop.scheduled": "Workshop scheduled",
+  "session.started": "Session started",
+  "session.completed": "Session completed",
   "assessment.opened": "Assessment opened",
   "assessment.closed": "Assessment closed",
   "pulse.reminded": "Pulse reminder sent",
