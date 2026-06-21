@@ -90,8 +90,6 @@ function parseDefinition(name: string, definition: unknown): { doc: Doc; thresho
 }
 
 function scaleToStr(scale?: { min?: number; max?: number }): string {
-  if (!scale) return "1–5";
-  if (scale.min === 0 && scale.max === 10) return "0–10";
-  if (scale.min === 1 && scale.max === 7) return "1–7";
-  return "1–5";
+  if (!scale || typeof scale.min !== "number" || typeof scale.max !== "number") return "1–5";
+  return `${scale.min}–${scale.max}`;
 }

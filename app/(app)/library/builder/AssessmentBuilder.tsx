@@ -41,7 +41,19 @@ function rid(p: string) { return p + Math.random().toString(36).slice(2, 7); }
 function q(text: string, type: QType, required: boolean, reverse: boolean): Question {
   return { id: rid("q"), text, type, required, reverse, scale: "1–5", options: type === "single" ? ["Yes", "Partly", "No"] : type === "multi" ? ["Option A", "Option B", "Option C"] : [] };
 }
-function scaleArr(s: string): number[] { return s === "1–7" ? [1, 2, 3, 4, 5, 6, 7] : s === "0–10" ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] : [1, 2, 3, 4, 5]; }
+function scaleArr(s: string): number[] {
+  const m = /^(\d+)\s*[–-]\s*(\d+)$/.exec((s || "").trim());
+  if (m) {
+    let a = Number(m[1]); let b = Number(m[2]);
+    if (b < a) { const t = a; a = b; b = t; }
+    if (b - a > 20) b = a + 20; // guard against runaway ranges
+    const out: number[] = [];
+    for (let v = a; v <= b; v++) out.push(v);
+    if (out.length >= 2) return out;
+  }
+  return [1, 2, 3, 4, 5];
+}
+const SCALE_PRESETS = ["1–4", "1–5", "1–6", "1–7", "1–10", "0–4", "0–5", "0–10"];
 function clone<T>(d: T): T { return JSON.parse(JSON.stringify(d)); }
 function slug(s: string) { return s.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, ""); }
 
@@ -130,7 +142,8 @@ export function AssessmentBuilder({ edit, existing = [] }: { edit?: EditSeed; ex
     const firstLikert = d.sections.flatMap((s) => s.questions).find((x) => x.type === "likert");
     const sc = firstLikert ? firstLikert.scale : "1–5";
     const arr = scaleArr(sc);
-    const scale = { min: arr[0], max: arr[arr.length - 1], minLabel: sc === "0–10" ? "Not at all" : "Strongly disagree", maxLabel: sc === "0–10" ? "Completely" : "Strongly agree" };
+    const zero = arr[0] === 0;
+    const scale = { min: arr[0], max: arr[arr.length - 1], minLabel: zero ? "Not at all" : "Strongly disagree", maxLabel: zero ? "Completely" : "Strongly agree" };
     const items = d.sections.filter((s) => s.questions.length).flatMap((s, si) => {
       const dimKey = dims[si].key;
       return s.questions.map((x, qi) => ({
@@ -338,7 +351,9 @@ export function AssessmentBuilder({ edit, existing = [] }: { edit?: EditSeed; ex
                 <div style={{ marginBottom: 14 }}>
                   <div className="ab-insp-lbl">Scale</div>
                   <select className="inp" value={sel.scale} onChange={(e) => setQField("scale", e.target.value)}>
-                    <option value="1–5">1–5 (Likert)</option><option value="1–7">1–7 (Likert)</option><option value="0–10">0–10 (NPS-style)</option>
+                    {(SCALE_PRESETS.includes(sel.scale) ? SCALE_PRESETS : [sel.scale, ...SCALE_PRESETS]).map((s) => (
+                      <option key={s} value={s}>{s}{s === "1–5" ? " (Likert)" : s === "0–10" ? " (NPS-style)" : ""}</option>
+                    ))}
                   </select>
                 </div>
               ) : null}
