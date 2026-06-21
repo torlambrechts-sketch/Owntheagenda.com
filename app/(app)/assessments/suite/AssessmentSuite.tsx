@@ -35,6 +35,11 @@ function fmtDate(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+function fmtDateTime(iso: string) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
 export function AssessmentSuite({ rows, kpis }: { rows: SuiteRow[]; kpis: Kpi[] }) {
   const [view, setView] = useState<View>("overview");
   const [active, setActive] = useState<SuiteRow | null>(null);
@@ -110,7 +115,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
             <div className="a-ps">Every assessment across your teams — status, responses and where a section falls below the healthy band.</div>
           </div>
           <div className="a-pr">
-            <Link className="btn-sec" href="/assessments">Instrument library</Link>
+            <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
           </div>
         </div>
 
@@ -256,14 +261,31 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
           {tab === "responses" ? (
             <div className="a-ovcard">
-              <h3>Responses</h3>
+              <h3>Responses <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {detail.respondents}</span></h3>
               {detail.respondents ? (
-                <p>
-                  {detail.respondents} {detail.respondents === 1 ? "person has" : "people have"} responded.
-                  {detail.masked
-                    ? " Section results stay hidden until the minimum number of responses is reached — individual answers are never shown."
-                    : " Responses are anonymous in aggregate; no answer is attributed to a person."}
-                </p>
+                <>
+                  <p>
+                    {detail.respondents} {detail.respondents === 1 ? "person has" : "people have"} responded.
+                    {detail.masked
+                      ? " Individual submissions stay hidden until the minimum number of responses is reached — answers are never attributed to a person."
+                      : " Responses are anonymous in aggregate; no answer is tied to a person."}
+                  </p>
+                  {detail.submissions.length ? (
+                    <table className="tbl" style={{ marginTop: 6 }}>
+                      <thead>
+                        <tr><th>Respondent</th><th style={{ width: 180 }}>Submitted</th></tr>
+                      </thead>
+                      <tbody>
+                        {detail.submissions.map((when, i) => (
+                          <tr key={i}>
+                            <td><span className="person" style={{ fontWeight: 500 }}><span className="av sm">?</span>Anonymous respondent</span></td>
+                            <td style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtDateTime(when)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : null}
+                </>
               ) : (
                 <p className="muted">No responses yet. {active?.status === "open" ? "The assessment is open — results will appear here as people respond." : "This assessment is closed with no responses."}</p>
               )}

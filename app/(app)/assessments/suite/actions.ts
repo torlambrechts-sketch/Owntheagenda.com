@@ -19,6 +19,7 @@ export type AssessmentDetail = {
   sections: { key: string; label: string; count: number }[];
   respondents: number;
   masked: boolean;
+  submissions: string[]; // anonymous submission timestamps (only when unmasked)
   scores: SectionScore[]; // empty when masked / no responses yet
   overall: number | null; // overall mean on the instrument scale
   lowestLabel: string | null;
@@ -57,6 +58,19 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   const { data: res } = await supabase.rpc("survey_results", { p_survey: surveyId, p_strength_items: strengthItemKeys(inst) });
   const r = res as { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
 
+  // Anonymous submission timestamps — surfaced only once results are unmasked,
+  // so a small response set can't be tied back to an individual. respondent_id
+  // is never read here.
+  let submissions: string[] = [];
+  if (r && !r.masked) {
+    const { data: subs } = await supabase
+      .from("survey_response")
+      .select("created_at")
+      .eq("survey_id", surveyId)
+      .order("created_at", { ascending: false });
+    submissions = (subs ?? []).map((s) => s.created_at as string);
+  }
+
   let scores: SectionScore[] = [];
   let overall: number | null = null;
   let lowestLabel: string | null = null;
@@ -88,6 +102,7 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       sections,
       respondents: r?.respondents ?? 0,
       masked: r ? r.masked : true,
+      submissions,
       scores,
       overall: overall == null ? null : Math.round(overall * 100) / 100,
       lowestLabel,
