@@ -10,9 +10,9 @@ import type { SurveyInstrument } from "@/lib/survey";
 // token. After submitting we show a thank-you, never an aggregate (the read is
 // for the team, not the public).
 export function PublicSurveyForm({ token, instrument }: { token: string; instrument: SurveyInstrument }) {
-  const [done, setDone] = useState(false);
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<"welcome" | "questions" | "done">("welcome");
 
   async function submit(all: Record<string, AnswerValue>) {
     setError(null);
@@ -26,16 +26,6 @@ export function PublicSurveyForm({ token, instrument }: { token: string; instrum
       p_answers: answers,
     });
     if (error) { setError(error.message); throw error; }
-    setDone(true);
-  }
-
-  if (done) {
-    return (
-      <div className="narrow-card" style={{ textAlign: "center" }}>
-        <div className="assess-done" style={{ justifyContent: "center" }}>✓ Thank you — your anonymous response is in.</div>
-        <p className="lede" style={{ marginBottom: 0 }}>You can close this tab. Your individual answers are never shown to anyone.</p>
-      </div>
-    );
   }
 
   return (
@@ -45,19 +35,38 @@ export function PublicSurveyForm({ token, instrument }: { token: string; instrum
         privacyNote="Fully anonymous — your answers are never tied to you."
         submitLabel="Submit my read ›"
         onSubmit={submit}
+        onStageChange={setStage}
+        welcome={{
+          title: instrument.name,
+          blurb: "Your honest answers help improve the working environment. It takes a few minutes, and your responses are fully anonymous — no answer can be traced back to you.",
+          facts: [`${instrument.items.length} questions`, "A few minutes", "Anonymous"],
+          startLabel: "Start assessment",
+          footnote: "Results are reported only as group aggregates of 5 or more.",
+        }}
+        done={{
+          title: "Thank you",
+          blurb: "Your responses have been recorded anonymously. You can close this tab — your individual answers are never shown to anyone.",
+          nextSteps: [
+            { title: "Results aggregated", sub: "Anonymised once 5+ have answered" },
+            { title: "Team review", sub: "Findings are shared with the team" },
+            { title: "Workshop if triggered", sub: "Scheduled where a section falls below threshold" },
+          ],
+        }}
       />
-      <div className="svcomment">
-        <label className="dlabel" htmlFor="pub-cmt">Add a comment <span className="opt">(optional)</span></label>
-        <textarea
-          id="pub-cmt"
-          className="inp"
-          rows={2}
-          placeholder="Anything you want the team to know in your own words…"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-        />
-        <p className="src" style={{ marginTop: 4 }}>Shown without your name, and only once at least 3 people respond.</p>
-      </div>
+      {stage === "questions" ? (
+        <div className="svcomment">
+          <label className="dlabel" htmlFor="pub-cmt">Add a comment <span className="opt">(optional)</span></label>
+          <textarea
+            id="pub-cmt"
+            className="inp"
+            rows={2}
+            placeholder="Anything you want the team to know in your own words…"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+          />
+          <p className="src" style={{ marginTop: 4 }}>Shown without your name, and only once at least 3 people respond.</p>
+        </div>
+      ) : null}
       {error ? <p className="src" style={{ color: "var(--rust)" }}>{error}</p> : null}
     </div>
   );

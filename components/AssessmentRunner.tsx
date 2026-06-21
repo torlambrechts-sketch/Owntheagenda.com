@@ -61,6 +61,24 @@ function isAnswered(v: AnswerValue | undefined): boolean {
   return Array.isArray(v) && v.length > 0;
 }
 
+// Standard agree-scale labels, used to label every point (not just the
+// endpoints) — but ONLY when the scale's endpoint labels clearly read as an
+// agree/disagree scale, so we never mislabel a frequency or NPS scale.
+const AGREE5 = ["Strongly disagree", "Disagree", "Neutral", "Agree", "Strongly agree"];
+const AGREE7 = ["Strongly disagree", "Disagree", "Somewhat disagree", "Neutral", "Somewhat agree", "Agree", "Strongly agree"];
+function pointLabel(v: number, min: number, max: number, minL: string, maxL: string): string {
+  if (v === min) return minL;
+  if (v === max) return maxL;
+  if (/disagree/i.test(minL) && /agree/i.test(maxL)) {
+    if (max - min === 4) return AGREE5[v - min] ?? "";
+    if (max - min === 6) return AGREE7[v - min] ?? "";
+  }
+  return "";
+}
+
+export type RunnerWelcome = { title: string; blurb: string; facts?: string[]; startLabel?: string; footnote?: string };
+export type RunnerDone = { title: string; blurb: string; nextSteps?: { title: string; sub: string }[] };
+
 export function AssessmentRunner({
   instrument,
   initialAnswers,
@@ -73,6 +91,9 @@ export function AssessmentRunner({
   estimateMins,
   allowPartial = false,
   headerSub = "Answer as honestly as you can — there are no right or wrong answers.",
+  welcome,
+  done,
+  onStageChange,
 }: {
   instrument: RunnerInstrument;
   initialAnswers?: Record<string, AnswerValue>;
@@ -88,6 +109,14 @@ export function AssessmentRunner({
   /** Allow submitting before every item is answered (shows provisional progress). */
   allowPartial?: boolean;
   headerSub?: string;
+  /** Optional intro card shown before the first question. */
+  welcome?: RunnerWelcome;
+  /** Optional thank-you card shown after submit (with "what happens next"). When
+   *  set, the runner owns the post-submit screen; the caller should not swap. */
+  done?: RunnerDone;
+  /** Notifies the caller which stage is showing, so sibling content (e.g. a
+   *  comment box) can be hidden outside the question stage. */
+  onStageChange?: (stage: "welcome" | "questions" | "done") => void;
 }) {
   const items = instrument.items;
   const n = items.length;
@@ -98,6 +127,8 @@ export function AssessmentRunner({
   const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resumed, setResumed] = useState(false);
+  const [started, setStarted] = useState(!welcome);
+  const [submitted, setSubmitted] = useState(false);
   const hydrated = useRef(false);
   const digitRef = useRef<{ v: number; t: number } | null>(null);
 
@@ -151,7 +182,7 @@ export function AssessmentRunner({
     return out;
   }, [min, max]);
   const optLabel = useCallback(
-    (v: number) => (v === min ? `${v} · ${minLabel}` : v === max ? `${v} · ${maxLabel}` : String(v)),
+    (v: number) => { const l = pointLabel(v, min, max, minLabel, maxLabel); return l ? `${v} · ${l}` : String(v); },
     [min, max, minLabel, maxLabel],
   );
 
@@ -171,6 +202,7 @@ export function AssessmentRunner({
       if (draftKey && typeof window !== "undefined") {
         try { window.localStorage.removeItem(draftKey); } catch { /* non-fatal */ }
       }
+      setSubmitted(true);
     } catch {
       // The caller surfaces its own error; keep the draft and stay on the run
       // so nothing is lost.
@@ -216,6 +248,12 @@ export function AssessmentRunner({
 
   // A fresh question starts a fresh digit buffer.
   useEffect(() => { digitRef.current = null; }, [idx]);
+
+  // Tell the caller which stage is showing (so it can hide sibling content).
+  const stage: "welcome" | "questions" | "done" = done && submitted ? "done" : welcome && !started ? "welcome" : "questions";
+  const onStageChangeRef = useRef(onStageChange);
+  useEffect(() => { onStageChangeRef.current = onStageChange; });
+  useEffect(() => { onStageChangeRef.current?.(stage); }, [stage]);
 
   const intro = (
     <div className="arun-intro">
@@ -266,6 +304,46 @@ export function AssessmentRunner({
       </div>
     );
   };
+
+  // ---- thank-you (runner-owned, opt-in) ----
+  if (done && submitted) {
+    return (
+      <div className="a-run">
+        <div className="arun-card arun-done">
+          <span className="arun-donecheck" aria-hidden>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+          </span>
+          <h1 className="arun-bigh">{done.title}</h1>
+          <p className="arun-blurb">{done.blurb}</p>
+          {done.nextSteps?.length ? (
+            <div className="arun-next">
+              <div className="arun-next-h">What happens next</div>
+              {done.nextSteps.map((s, i) => (
+                <div className="arun-next-row" key={i}><span className="arun-next-n">{i + 1}</span><div><div className="arun-next-t">{s.title}</div><div className="arun-next-s">{s.sub}</div></div></div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // ---- welcome / intro (opt-in) ----
+  if (welcome && !started) {
+    return (
+      <div className="a-run">
+        <div className="arun-card arun-welcome">
+          <h1 className="arun-bigh">{welcome.title}</h1>
+          <p className="arun-blurb">{welcome.blurb}</p>
+          {welcome.facts?.length ? (
+            <div className="arun-facts">{welcome.facts.map((f, i) => <span key={i} className="arun-fact">{f}</span>)}</div>
+          ) : null}
+          <button className="btn-prim arun-start" onClick={() => setStarted(true)}>{welcome.startLabel ?? "Start assessment"} ›</button>
+          {welcome.footnote ? <div className="arun-foot">{welcome.footnote}</div> : null}
+        </div>
+      </div>
+    );
+  }
 
   // ---- accessible single-page fallback ----
   if (showAll) {

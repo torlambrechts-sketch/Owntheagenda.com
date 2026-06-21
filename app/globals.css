@@ -275,6 +275,21 @@ button { font-family:inherit; }
 .arun-intro{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-bottom:14px}
 .arun-priv{color:var(--green)}
 .arun-resumed{background:var(--open-bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--green);margin-bottom:14px}
+.arun-card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:34px 32px;text-align:center}
+.arun-bigh{font-family:var(--font-display);font-size:25px;font-weight:600;letter-spacing:-.015em;color:var(--ink);margin:0 0 10px}
+.arun-blurb{font-size:14.5px;line-height:1.6;color:var(--muted);margin:0 0 22px}
+.arun-facts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
+.arun-fact{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink);background:var(--canvas);border:1px solid var(--line);border-radius:9px;padding:8px 12px}
+.arun-start{width:100%;justify-content:center;padding:13px;font-size:14.5px}
+.arun-foot{margin-top:14px;font-size:11.5px;color:var(--faint);line-height:1.5}
+.arun-donecheck{display:inline-flex;align-items:center;justify-content:center;width:66px;height:66px;border-radius:50%;background:var(--open-bg);border:1px solid var(--line);color:var(--green);margin-bottom:20px}
+.arun-next{background:var(--canvas);border:1px solid var(--line);border-radius:12px;padding:16px 18px;text-align:left}
+.arun-next-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:11px}
+.arun-next-row{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid var(--line)}
+.arun-next-row:last-child{border-bottom:none}
+.arun-next-n{flex:none;width:28px;height:28px;border-radius:8px;background:var(--open-bg);color:var(--green);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.arun-next-t{font-size:13px;font-weight:600;color:var(--ink)}
+.arun-next-s{font-size:12px;color:var(--muted)}
 .a-lopt{position:relative}
 .arun-kbd{margin-left:auto;width:18px;height:18px;border-radius:4px;border:1px solid var(--line-2);font-size:11px;font-weight:700;color:var(--faint);display:inline-flex;align-items:center;justify-content:center}
 .a-lopt.on .arun-kbd{border-color:var(--green);color:var(--green)}

@@ -46,6 +46,7 @@ export function SurveyRespond({
 function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: string; inst: SurveyInstrument | null }) {
   const supabase = useMemo(() => createClient(), []);
   const [submitted, setSubmitted] = useState(false);
+  const [stage, setStage] = useState<"welcome" | "questions" | "done">("welcome");
   const [results, setResults] = useState<Results | null>(null);
   const [ready, setReady] = useState(false);
   const [comment, setComment] = useState("");
@@ -128,7 +129,15 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
             privacyNote="Anonymous in aggregate — individual answers are never shown."
             submitLabel="Submit my read ›"
             onSubmit={submit}
+            onStageChange={setStage}
+            welcome={{
+              title: inst.name,
+              blurb: "Your honest answers help the team see where things stand. It takes a few minutes, and your individual answers are never shown — only the team aggregate.",
+              facts: [`${inst.items.length} questions`, "A few minutes", "Anonymous in aggregate"],
+              startLabel: "Start",
+            }}
           />
+          {stage === "questions" ? (
           <div className="svcomment">
             <label className="dlabel" htmlFor={`cmt-${survey.id}`}>Add a comment <span className="opt">(optional)</span></label>
             <textarea
@@ -145,6 +154,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
                 : "Shown without your name, and only once at least 3 people respond."}
             </p>
           </div>
+          ) : null}
         </>
       ) : (
         <>
