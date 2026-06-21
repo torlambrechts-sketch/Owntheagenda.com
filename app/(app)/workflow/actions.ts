@@ -167,6 +167,15 @@ export async function moveStep(stepId: string, dir: number) {
   return {};
 }
 
+// Reorder a flow's steps in one call (drag-and-drop on the flow canvas).
+export async function reorderSteps(programId: string, ids: string[]) {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("program_reorder_steps", { p_program: programId, p_ids: ids });
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
+}
+
 export async function setBranch(
   stepId: string,
   dynamic: string,

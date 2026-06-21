@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/util";
 import { FlowViews, type FlowStep } from "./FlowViews";
 
 // Read-only flow detail with multiple representations (Outline / Timeline /
@@ -68,6 +69,8 @@ export default async function FlowDetailPage({ params }: { params: { id: string 
         title={program.title as string}
         status={program.status as string}
         teamName={team?.name ?? null}
+        programId={program.id as string}
+        canEdit={isAdmin(ctx.role)}
         steps={flowSteps}
       />
     </div>

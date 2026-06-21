@@ -1711,6 +1711,10 @@ export type Database = {
         Args: { p_action: string; p_entity_type: string; p_entity_id: string; p_meta?: Json }
         Returns: undefined
       }
+      program_reorder_steps: {
+        Args: { p_program: string; p_ids: string[] }
+        Returns: undefined
+      }
       ensure_block_survey: {
         Args: { p_block: string }
         Returns: string

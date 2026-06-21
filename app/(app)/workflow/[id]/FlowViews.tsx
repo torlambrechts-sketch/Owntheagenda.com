@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
+import { reorderSteps } from "../actions";
 
 export type FlowStep = {
   id: string;
@@ -67,15 +69,28 @@ export function FlowViews({
   title,
   status,
   teamName,
-  steps,
+  programId,
+  canEdit = false,
+  steps: initialSteps,
 }: {
   title: string;
   status: string;
   teamName: string | null;
+  programId: string;
+  canEdit?: boolean;
   steps: FlowStep[];
 }) {
+  const router = useRouter();
   const [view, setView] = useState<View>("outline");
   const [preview, setPreview] = useState(false);
+  const [steps, setSteps] = useState<FlowStep[]>(initialSteps);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // Server prop is the source of truth; resync if it changes (after a refresh).
+  useEffect(() => { setSteps(initialSteps); }, [initialSteps]);
 
   const statusPill = status === "active" ? { l: "Active", c: "open" }
     : status === "completed" ? { l: "Completed", c: "internal" }
@@ -87,6 +102,26 @@ export function FlowViews({
     const next = steps[i + 1];
     return next ? next.title : "End";
   };
+
+  // Drag-to-reorder on the Map. Reorders optimistically, persists the new
+  // sequence, and reverts on error.
+  function onDrop(targetId: string) {
+    const from = steps.findIndex((s) => s.id === dragId);
+    const to = steps.findIndex((s) => s.id === targetId);
+    setDragId(null); setOverId(null);
+    if (from < 0 || to < 0 || from === to) return;
+    const next = steps.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const prev = steps;
+    setSteps(next);
+    setSaving(true); setErr(null);
+    reorderSteps(programId, next.map((s) => s.id)).then((res) => {
+      setSaving(false);
+      if (res.error) { setSteps(prev); setErr(res.error); return; }
+      router.refresh();
+    });
+  }
 
   return (
     <>
@@ -177,12 +212,27 @@ export function FlowViews({
         </div>
       ) : (
         <div className="a-ovcard">
+          {canEdit ? (
+            <div className="flowmap-hint">
+              {saving ? "Saving order…" : err ? <span style={{ color: "var(--rust)" }}>{err}</span> : "Drag a node to reorder the flow."}
+            </div>
+          ) : null}
           <div className="flowmap">
             {steps.map((s, i) => {
               const k = kindOf(s.kind); const p = stepPill(s.status);
               return (
                 <div key={s.id}>
-                  <div className="flowmap-node" style={{ borderColor: k.tone }}>
+                  <div
+                    className={`flowmap-node${canEdit ? " drag" : ""}${overId === s.id && dragId !== s.id ? " over" : ""}${dragId === s.id ? " dragging" : ""}`}
+                    style={{ borderColor: k.tone }}
+                    draggable={canEdit}
+                    onDragStart={canEdit ? () => setDragId(s.id) : undefined}
+                    onDragOver={canEdit ? (e) => { e.preventDefault(); setOverId(s.id); } : undefined}
+                    onDragLeave={canEdit ? () => setOverId((o) => (o === s.id ? null : o)) : undefined}
+                    onDrop={canEdit ? (e) => { e.preventDefault(); onDrop(s.id); } : undefined}
+                    onDragEnd={canEdit ? () => { setDragId(null); setOverId(null); } : undefined}
+                  >
+                    {canEdit ? <span className="flowmap-grip" aria-hidden>⠿</span> : null}
                     <span className="flowmap-chip" style={{ background: k.tone }}>{k.label}</span>
                     <span className="flowmap-t">{s.title}</span>
                     <span className={`pill sm ${p.c}`}>{p.l}</span>
