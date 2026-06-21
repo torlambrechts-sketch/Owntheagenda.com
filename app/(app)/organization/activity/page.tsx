@@ -51,17 +51,34 @@ function dayKey(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" });
 }
 
-export default async function OrganizationActivityPage() {
+const RANGES: { key: string; label: string; days: number | null }[] = [
+  { key: "7", label: "7 days", days: 7 },
+  { key: "30", label: "30 days", days: 30 },
+  { key: "90", label: "90 days", days: 90 },
+  { key: "all", label: "All time", days: null },
+];
+
+export default async function OrganizationActivityPage({
+  searchParams,
+}: {
+  searchParams: { range?: string };
+}) {
   const ctx = await requireSession();
   if (!isAdmin(ctx.role)) redirect("/dashboard");
   const supabase = createClient();
 
-  const { data: events } = await supabase
+  const range = RANGES.find((r) => r.key === searchParams.range) ?? RANGES[1]; // default 30 days
+  let q = supabase
     .from("audit_log")
     .select("id, action, actor_id, entity_type, metadata, created_at")
     .eq("workspace_id", ctx.workspace.id)
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(200);
+  if (range.days != null) {
+    const since = new Date(Date.now() - range.days * 86400000).toISOString();
+    q = q.gte("created_at", since);
+  }
+  const { data: events } = await q;
   const rows = events ?? [];
 
   const actorIds = Array.from(new Set(rows.map((e) => e.actor_id).filter((x): x is string => !!x)));
@@ -81,8 +98,13 @@ export default async function OrganizationActivityPage() {
 
   return (
     <OrgShell active="activity" isAdmin subtitle="An accountability log of assessment, workshop and membership events across the workspace.">
+      <div className="orgact-filters">
+        {RANGES.map((r) => (
+          <a key={r.key} href={`/organization/activity?range=${r.key}`} className={`orgact-pill${r.key === range.key ? " on" : ""}`}>{r.label}</a>
+        ))}
+      </div>
       {rows.length === 0 ? (
-        <div className="empty">No activity recorded yet. Events appear here as assessments and workshops are run.</div>
+        <div className="empty">No activity in the last {range.label.toLowerCase()}. Events appear here as assessments and workshops are run.</div>
       ) : (
         <div className="orgact">
           {groups.map((g) => (
@@ -90,12 +112,15 @@ export default async function OrganizationActivityPage() {
               <div className="orgact-day">{g.day}</div>
               {g.items.map((e) => {
                 const actor = e.actor_id ? nameById.get(e.actor_id as string) ?? "Someone" : "System";
+                const n = (e.metadata as { measures?: number } | null)?.measures;
+                const suffix = e.action === "session.completed" && typeof n === "number"
+                  ? ` · ${n} ${n === 1 ? "measure" : "measures"}` : "";
                 return (
                   <div className="orgact-row" key={e.id}>
                     <span className="av sm" aria-hidden style={{ background: dotColor(e.entity_type as string | null) }}>{initials(actor)}</span>
                     <div className="orgact-body">
                       <div className="orgact-l">
-                        <span className="orgact-actor">{actor}</span> {ACTION_LABEL[e.action as string] ?? (e.action as string)}
+                        <span className="orgact-actor">{actor}</span> {ACTION_LABEL[e.action as string] ?? (e.action as string)}{suffix}
                       </div>
                       <div className="orgact-m">{fmtWhen(e.created_at as string)}</div>
                     </div>

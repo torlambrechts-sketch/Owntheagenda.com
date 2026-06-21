@@ -164,12 +164,19 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
     ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", eventActorIds)
     : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
   const eventNameById = new Map((eventProfs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Someone"]));
-  const activity = (events ?? []).map((e) => ({
-    id: e.id,
-    label: ACTION_LABEL[e.action] ?? e.action,
-    actor: e.actor_id ? eventNameById.get(e.actor_id) ?? "Someone" : "System",
-    at: e.created_at as string,
-  }));
+  const activity = (events ?? []).map((e) => {
+    let label = ACTION_LABEL[e.action] ?? e.action;
+    const n = (e.metadata as { measures?: number } | null)?.measures;
+    if (e.action === "session.completed" && typeof n === "number") {
+      label += ` · ${n} ${n === 1 ? "measure" : "measures"}`;
+    }
+    return {
+      id: e.id,
+      label,
+      actor: e.actor_id ? eventNameById.get(e.actor_id) ?? "Someone" : "System",
+      at: e.created_at as string,
+    };
+  });
 
   const st = STATUS_PILL[workshop.status] ?? { label: workshop.status, cls: "draft" };
   const sched = fmtDate(workshop.scheduled_at);
