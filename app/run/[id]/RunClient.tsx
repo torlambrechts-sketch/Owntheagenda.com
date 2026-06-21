@@ -136,9 +136,9 @@ export function RunClient({
   const block = blocks.find((b) => b.ord === session.currentBlockOrd) ?? blocks[0];
   const acting = isFacilitator && view === "facilitator";
   const moduleMode =
-    block?.activityType === "brainstorm" ? "brainstorm" as const
+    block?.activityType === "brainstorm" || block?.activityType === "hmw" ? "brainstorm" as const
     : block?.activityType === "vote" ? "poll" as const
-    : block?.activityType === "feedback" ? "feedback" as const
+    : block?.activityType === "feedback" || block?.activityType === "retrospective" ? "feedback" as const
     : block?.activityType === "checkin" && !!(block?.config as Record<string, unknown>)?.capture ? "brainstorm" as const
     : null;
 

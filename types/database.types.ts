@@ -1755,7 +1755,7 @@ export type Database = {
     }
     Enums: {
       action_status: "open" | "done"
-      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback" | "manual" | "charter" | "assess" | "survey"
+      activity_type: "canvas" | "vote" | "discuss" | "checkin" | "outcome" | "brainstorm" | "feedback" | "manual" | "charter" | "assess" | "survey" | "retrospective" | "hmw"
       invitation_status: "pending" | "accepted" | "revoked" | "expired"
       membership_status: "active" | "suspended" | "pending"
       plan_tier: "free" | "pro" | "enterprise"
@@ -1800,7 +1800,7 @@ export const Constants = {
   public: {
     Enums: {
       action_status: ["open", "done"],
-      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback", "manual", "charter", "assess", "survey"],
+      activity_type: ["canvas", "vote", "discuss", "checkin", "outcome", "brainstorm", "feedback", "manual", "charter", "assess", "survey", "retrospective", "hmw"],
       invitation_status: ["pending", "accepted", "revoked", "expired"],
       membership_status: ["active", "suspended", "pending"],
       plan_tier: ["free", "pro", "enterprise"],

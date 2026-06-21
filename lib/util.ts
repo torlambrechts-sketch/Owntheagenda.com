@@ -67,6 +67,8 @@ export const ACTIVITY: Record<string, { label: string; cls: string }> = {
   manual: { label: "User manual", cls: "t-checkin" },
   charter: { label: "Charter", cls: "t-outcome" },
   assess: { label: "Assessment", cls: "t-vote" },
+  retrospective: { label: "Retrospective", cls: "t-feedback" },
+  hmw: { label: "How might we", cls: "t-brainstorm" },
 };
 
 export const CATEGORY: Record<string, string> = {

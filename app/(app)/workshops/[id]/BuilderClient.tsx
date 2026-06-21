@@ -55,10 +55,10 @@ const DYN: [Dyn, string][] = [
 // Diverge → Converge → Decide → Close) so the picker reads as a phased library.
 const ACT_PHASES: { label: string; acts: Activity[] }[] = [
   { label: "Open", acts: ["checkin"] },
-  { label: "Diverge", acts: ["brainstorm", "canvas"] },
+  { label: "Diverge", acts: ["brainstorm", "hmw", "canvas"] },
   { label: "Converge", acts: ["vote", "feedback"] },
   { label: "Decide", acts: ["outcome"] },
-  { label: "Close", acts: ["discuss"] },
+  { label: "Close", acts: ["retrospective", "discuss"] },
 ];
 const PHASE_COLOR: Record<string, string> = {
   Open: "var(--role)", Diverge: "#6d28d9", Converge: "#0e7490", Decide: "var(--forest)", Close: "var(--amber)",
@@ -76,6 +76,8 @@ const ACT_HINT: Partial<Record<Activity, string>> = {
   discuss: "Open discussion against a prompt.",
   checkin: "A round to open or close the room.",
   outcome: "Capture commitments as tracked actions.",
+  hmw: "Reframe the problem as “How might we…” and gather ideas, dot-voted live.",
+  retrospective: "Cards posted into Start / Stop / Continue columns.",
 };
 
 function toLocalInput(iso: string | null): string {
@@ -253,8 +255,9 @@ export function BuilderClient({
     const b = Math.max(1, Number(budget) || 3);
     const base: Record<string, unknown> = autoAdvance ? { autoAdvance: true } : {};
     if (activity === "feedback") return { ...base, lanes };
+    if (activity === "retrospective") return { ...base, lanes: lanes.length ? lanes : ["Start", "Stop", "Continue"] };
     if (activity === "vote") return { ...base, options, budget: b };
-    if (activity === "brainstorm") return { ...base, budget: b, silent, ...(prework ? { prework: true } : {}) };
+    if (activity === "brainstorm" || activity === "hmw") return { ...base, budget: b, silent, ...(prework ? { prework: true } : {}) };
     if (activity === "checkin") return { ...base, capture };
     return base;
   }
@@ -262,6 +265,8 @@ export function BuilderClient({
     const b = Math.max(1, Number(budget) || 3);
     switch (activity) {
       case "brainstorm": return prework ? "Members add cards as pre-work before the session, then reveal and dot-vote together live." : silent ? "Participants add idea cards privately, then reveal and dot-vote together." : "Participants add idea cards and dot-vote.";
+      case "hmw": return "Members add ideas against the “How might we…” prompt, then dot-vote to prioritise.";
+      case "retrospective": return "Participants post cards into the Start / Stop / Continue columns.";
       case "vote": return `Participants vote with ${b} dots across the options.`;
       case "feedback": return "Participants add cards to the columns.";
       case "checkin": return capture ? "Participants type a written response — cards you can edit, vote on and promote." : "Participants reflect, then tap “I’m ready” — no typing.";
@@ -532,7 +537,12 @@ export function BuilderClient({
         <div className="two">
           <div className="field">
             <label>Activity type</label>
-            <select className="inp" value={activity} onChange={(e) => setActivity(e.target.value as Activity)}>
+            <select className="inp" value={activity} onChange={(e) => {
+              const a = e.target.value as Activity;
+              setActivity(a);
+              if (a === "retrospective" && !lanesText.trim()) setLanesText("Start\nStop\nContinue");
+              if (a === "hmw" && !prompt.trim()) setPrompt("How might we …");
+            }}>
               {ACT_PHASES.map((p) => (
                 <optgroup key={p.label} label={p.label}>
                   {p.acts.map((a) => (
@@ -550,7 +560,7 @@ export function BuilderClient({
         {ACT_HINT[activity] ? (
           <div className="form-note" style={{ marginTop: -6, marginBottom: 14 }}>{ACT_HINT[activity]}</div>
         ) : null}
-        {activity === "feedback" ? (
+        {activity === "feedback" || activity === "retrospective" ? (
           <div className="field">
             <label>Columns <span className="opt">(one per line)</span></label>
             <textarea className="inp" rows={3} value={lanesText} onChange={(e) => setLanesText(e.target.value)} placeholder={"Start\nStop\nContinue"} />
@@ -571,7 +581,7 @@ export function BuilderClient({
             </div>
           </>
         ) : null}
-        {activity === "brainstorm" ? (
+        {activity === "brainstorm" || activity === "hmw" ? (
           <>
             <div className="field">
               <label>Votes per person</label>
