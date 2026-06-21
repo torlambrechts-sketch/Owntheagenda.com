@@ -19,7 +19,7 @@ export type SuiteRow = {
 export type Kpi = { big: string; title: string; sub: string };
 
 type View = "overview" | "detail";
-type DetailTab = "info" | "questions" | "responses" | "results" | "workshop";
+type DetailTab = "info" | "questions" | "responses" | "results" | "workshop" | "activity";
 
 const BAND_VARS = ["var(--rust)", "var(--amber)", "var(--green)"] as const;
 const BAND_LABEL = ["Below band", "Mid band", "Above band"] as const;
@@ -213,6 +213,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
               ["responses", "Responses"],
               ["results", "Results"],
               ["workshop", "Workshop"],
+              ["activity", "Activity"],
             ] as [DetailTab, string][]).map(([key, label]) => (
               <button key={key} className={`as-tab${tab === key ? " on" : ""}`} onClick={() => setTab(key)}>{label}</button>
             ))}
@@ -317,6 +318,27 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                 <Link className="btn-prim" href={`/workshops/${detail.linkedWorkshop.id}/overview`}>Open workshop →</Link>
               ) : (
                 <Link className="btn-prim" href="/workshops">Start a workshop →</Link>
+              )}
+            </div>
+          ) : null}
+
+          {tab === "activity" ? (
+            <div className="a-ovcard">
+              <h3>Activity</h3>
+              {detail.activity.length ? (
+                <div className="wsd-log">
+                  {detail.activity.map((e) => (
+                    <div className="wsd-log-row" key={e.id}>
+                      <span className="wsd-log-dot" />
+                      <div>
+                        <div className="wsd-log-l">{e.label}</div>
+                        <div className="wsd-log-m">{e.actor} · {fmtDateTime(e.at)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">No activity recorded yet. Lifecycle events (opened, closed) appear here — visible to workspace admins.</p>
               )}
             </div>
           ) : null}

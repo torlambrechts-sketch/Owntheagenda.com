@@ -2,6 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import type { Json } from "@/types/database.types";
+
+// Best-effort audit logging. Records an assessment lifecycle event via the
+// guarded public.log_event writer; never throws into the caller (a logging
+// failure must not break the action it accompanies).
+async function logEvent(
+  supabase: ReturnType<typeof createClient>,
+  action: string,
+  entityId: string,
+  meta: Json = {},
+): Promise<void> {
+  try {
+    await supabase.rpc("log_event", { p_action: action, p_entity_type: "survey", p_entity_id: entityId, p_meta: meta });
+  } catch {
+    /* logging is non-fatal */
+  }
+}
 
 // Send a multi-item assessment to the team, optionally with a deadline.
 // The instrument name is resolved from the template library by key.
@@ -28,8 +45,10 @@ export async function sendSurvey(
     ...(due && !isNaN(due.getTime()) ? { p_due: due.toISOString() } : {}),
   });
   if (error) return { error: error.message };
+  const id = (data as { id?: string } | null)?.id;
+  if (id) await logEvent(supabase, "assessment.opened", id, { kind });
   revalidatePath("/assessments");
-  return { id: (data as { id?: string } | null)?.id };
+  return { id };
 }
 
 export async function remindSurvey(surveyId: string): Promise<{ error?: string; pending?: number }> {
@@ -43,6 +62,7 @@ export async function closeSurvey(surveyId: string): Promise<{ error?: string }>
   const supabase = createClient();
   const { error } = await supabase.rpc("close_survey", { p_survey: surveyId });
   if (error) return { error: error.message };
+  await logEvent(supabase, "assessment.closed", surveyId);
   revalidatePath("/assessments");
   return {};
 }

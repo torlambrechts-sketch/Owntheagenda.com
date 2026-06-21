@@ -25,6 +25,13 @@ export type AssessmentDetail = {
   lowestLabel: string | null;
   belowCount: number;
   linkedWorkshop: { id: string; title: string } | null; // a workshop carrying this survey
+  activity: { id: number; label: string; actor: string; at: string }[]; // audit events (admins)
+};
+
+// Human labels for the assessment audit actions.
+const ACTION_LABEL: Record<string, string> = {
+  "assessment.opened": "Assessment opened",
+  "assessment.closed": "Assessment closed",
 };
 
 // Generalised banding by position on the instrument's scale. The design's hard
@@ -110,6 +117,27 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
     if (ws) linkedWorkshop = { id: ws.id as string, title: ws.title as string };
   }
 
+  // Activity log for this assessment — audit_log is readable by workspace
+  // admins via RLS, so non-admins simply get an empty list.
+  const { data: events } = await supabase
+    .from("audit_log")
+    .select("id, action, actor_id, created_at")
+    .eq("entity_type", "survey")
+    .eq("entity_id", surveyId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const actorIds = Array.from(new Set((events ?? []).map((e) => e.actor_id).filter((x): x is string => !!x)));
+  const { data: profs } = actorIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", actorIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const nameById = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Someone"]));
+  const activity = (events ?? []).map((e) => ({
+    id: e.id as number,
+    label: ACTION_LABEL[e.action as string] ?? (e.action as string),
+    actor: e.actor_id ? nameById.get(e.actor_id as string) ?? "Someone" : "System",
+    at: e.created_at as string,
+  }));
+
   return {
     detail: {
       surveyId,
@@ -127,6 +155,7 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       lowestLabel,
       belowCount,
       linkedWorkshop,
+      activity,
     },
   };
 }

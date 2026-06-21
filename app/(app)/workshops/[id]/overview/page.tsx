@@ -25,6 +25,20 @@ function fmtDate(iso: string | null) {
 function fmtClock(d: Date) {
   return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
+function fmtWhen(iso: string) {
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// Human labels for the audit actions surfaced here.
+const ACTION_LABEL: Record<string, string> = {
+  "workshop.created": "Workshop created",
+  "workshop.quickstarted": "Workshop quick-started",
+  "workshop.scheduled": "Workshop scheduled",
+  "assessment.opened": "Assessment opened",
+  "assessment.closed": "Assessment closed",
+  "pulse.reminded": "Pulse reminder sent",
+};
 
 const STATUS_PILL: Record<string, { label: string; cls: string }> = {
   draft: { label: "Draft", cls: "draft" },
@@ -134,6 +148,26 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
       .order("created_at", { ascending: true });
     actions = (acts ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done" }));
   }
+
+  // ----- activity log (audit_log; readable by workspace admins via RLS) -----
+  const { data: events } = await supabase
+    .from("audit_log")
+    .select("id, action, actor_id, metadata, created_at")
+    .eq("entity_type", "workshop")
+    .eq("entity_id", workshop.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const eventActorIds = Array.from(new Set((events ?? []).map((e) => e.actor_id).filter((x): x is string => !!x)));
+  const { data: eventProfs } = eventActorIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", eventActorIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const eventNameById = new Map((eventProfs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Someone"]));
+  const activity = (events ?? []).map((e) => ({
+    id: e.id,
+    label: ACTION_LABEL[e.action] ?? e.action,
+    actor: e.actor_id ? eventNameById.get(e.actor_id) ?? "Someone" : "System",
+    at: e.created_at as string,
+  }));
 
   const st = STATUS_PILL[workshop.status] ?? { label: workshop.status, cls: "draft" };
   const sched = fmtDate(workshop.scheduled_at);
@@ -268,6 +302,23 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
               <p className="muted">No one has joined a session yet.</p>
             )}
           </div>
+
+          {activity.length ? (
+            <div className="a-ovcard">
+              <h3>Activity</h3>
+              <div className="wsd-log">
+                {activity.map((e) => (
+                  <div className="wsd-log-row" key={e.id}>
+                    <span className="wsd-log-dot" />
+                    <div>
+                      <div className="wsd-log-l">{e.label}</div>
+                      <div className="wsd-log-m">{e.actor} · {fmtWhen(e.at)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
