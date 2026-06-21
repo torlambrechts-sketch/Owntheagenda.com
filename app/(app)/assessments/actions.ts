@@ -70,6 +70,16 @@ export async function closeSurvey(surveyId: string): Promise<{ error?: string }>
   return {};
 }
 
+// Pause / resume a collecting assessment (blocks submission without closing).
+export async function setSurveyPaused(surveyId: string, paused: boolean): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_survey_paused", { p_survey: surveyId, p_paused: paused });
+  if (error) return { error: error.message };
+  await logEvent(supabase, paused ? "assessment.paused" : "assessment.resumed", "survey", surveyId);
+  revalidatePath("/assessments");
+  return {};
+}
+
 // Mint or revoke a public link for an anonymous survey. Returns the token
 // (null when turned off). Only anonymous surveys can be shared.
 export async function setSurveyShare(surveyId: string, on: boolean): Promise<{ error?: string; token?: string | null }> {

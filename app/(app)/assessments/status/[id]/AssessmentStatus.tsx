@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { remindSurvey, closeSurvey } from "../../actions";
+import { remindSurvey, closeSurvey, setSurveyPaused } from "../../actions";
 
 export type StatusData = {
   surveyId: string;
@@ -88,7 +88,9 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
-  const [closed, setClosed] = useState(data.status !== "open");
+  const [status, setStatus] = useState(data.status);
+  const closed = status === "closed";
+  const paused = status === "paused";
 
   const rate = data.invited ? Math.round((data.responded / data.invited) * 100) : 0;
   const outstanding = Math.max(0, data.invited - data.responded);
@@ -107,7 +109,14 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
     startTransition(async () => {
       const res = await closeSurvey(data.surveyId);
       if (res.error) flash(res.error);
-      else { setClosed(true); flash("Assessment closed"); router.refresh(); }
+      else { setStatus("closed"); flash("Assessment closed"); router.refresh(); }
+    });
+  }
+  function togglePause() {
+    startTransition(async () => {
+      const res = await setSurveyPaused(data.surveyId, !paused);
+      if (res.error) flash(res.error);
+      else { setStatus(paused ? "open" : "paused"); flash(paused ? "Assessment resumed" : "Assessment paused"); router.refresh(); }
     });
   }
 
@@ -115,7 +124,7 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
     { title: "Responses", big: String(data.respondents), sub: `of ${data.invited} invited`, subColor: "var(--muted)" },
     { title: "Response rate", big: `${rate}%`, sub: "target ≥ 75%", subColor: rate >= 75 ? "var(--green)" : "var(--amber)" },
     { title: "Outstanding", big: String(outstanding), sub: outstanding ? "not yet responded" : "everyone responded", subColor: outstanding ? "var(--amber)" : "var(--green)" },
-    { title: closed ? "Closed" : "Closes in", big: closed ? "—" : closesIn != null ? (closesIn <= 0 ? "due" : `${closesIn}d`) : "open", sub: fmtDate(data.dueAt), subColor: "var(--muted)" },
+    { title: closed ? "Closed" : paused ? "Status" : "Closes in", big: closed ? "—" : paused ? "Paused" : closesIn != null ? (closesIn <= 0 ? "due" : `${closesIn}d`) : "open", sub: fmtDate(data.dueAt), subColor: "var(--muted)" },
   ];
 
   return (
@@ -125,17 +134,18 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
       </div>
       <div className="a-phead" style={{ marginBottom: 18 }}>
         <div>
-          <div className="a-pt">{data.name}{!closed ? " — live" : ""}</div>
+          <div className="a-pt">{data.name}{paused ? " — paused" : !closed ? " — live" : ""}</div>
           <div className="a-ps">
             {data.teamName ? `${data.teamName} · ` : ""}{data.openedAt ? `opened ${fmtDate(data.openedAt)} · ` : ""}
-            {closed ? "closed" : closesIn != null ? (closesIn <= 0 ? "closing now" : `closes in ${closesIn} days`) : "open"} · {data.invited} invited
+            {closed ? "closed" : paused ? "paused" : closesIn != null ? (closesIn <= 0 ? "closing now" : `closes in ${closesIn} days`) : "open"} · {data.invited} invited
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className={`pill sm ${closed ? "internal" : "open"}`}>{closed ? "Closed" : "Collecting"}</span>
+          <span className={`pill sm ${closed ? "internal" : paused ? "draft" : "open"}`}>{closed ? "Closed" : paused ? "Paused" : "Collecting"}</span>
           {!closed ? (
             <>
               <button className="btn-prim" disabled={pending} onClick={remind}>Send reminder</button>
+              <button className="btn-sec" disabled={pending} onClick={togglePause}>{paused ? "Resume" : "Pause"}</button>
               <button className="btn-sec" disabled={pending} onClick={close}>Close</button>
             </>
           ) : null}

@@ -1707,6 +1707,10 @@ export type Database = {
         Args: { p_survey: string }
         Returns: Database["public"]["Tables"]["survey"]["Row"]
       }
+      set_survey_paused: {
+        Args: { p_survey: string; p_paused: boolean }
+        Returns: undefined
+      }
       log_event: {
         Args: { p_action: string; p_entity_type: string; p_entity_id: string; p_meta?: Json }
         Returns: undefined
