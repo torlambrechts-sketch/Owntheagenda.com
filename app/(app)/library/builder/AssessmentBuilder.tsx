@@ -327,6 +327,7 @@ export function AssessmentBuilder({ edit, existing = [] }: { edit?: EditSeed; ex
               );
             })}
             <button className="ab-addq" onClick={addQuestion}><Icon n="plus" size={14} /> Add question</button>
+            <button className="ab-addq" style={{ marginTop: 8 }} onClick={addSection}><Icon n="layers" size={14} /> Add section</button>
           </div>
         </div>
 
