@@ -26,7 +26,7 @@ const BAND_LABEL = ["Below band", "Mid band", "Above band"] as const;
 
 function statusPill(status: string) {
   if (status === "open") return <span className="pill sm open">Open</span>;
-  if (status === "paused") return <span className="pill sm draft">Paused</span>;
+  if (status === "paused") return <span className="pill sm internal">Paused</span>;
   if (status === "closed") return <span className="pill sm draft">Closed</span>;
   return <span className="pill sm internal">{status || "Draft"}</span>;
 }

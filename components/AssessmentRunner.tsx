@@ -384,12 +384,25 @@ export function AssessmentRunner({
               <div className="arun-qhead"><span className="arun-qn">{baseNum + i + 1}</span><div className="arun-qtext">{it.text}{required ? <span className="arun-req"> *</span> : null}</div></div>
               {t === "likert" ? (
                 <div className="arun-lrow" role="radiogroup" aria-label={it.text}>
-                  {opts.map((v) => {
+                  {opts.map((v, oi) => {
                     const on = answers[it.key] === v; const lbl = pointLabel(v, min, max, minLabel, maxLabel);
+                    // Roving tabindex + arrow navigation, matching the item-paged radios.
+                    const tab = on || (answers[it.key] == null && oi === 0) ? 0 : -1;
                     return (
-                      <button key={v} type="button" role="radio" aria-checked={on} aria-label={optLabel(v)}
-                        className={`arun-lbtn${on ? " on" : ""}`} onClick={() => setAnswer(it.key, v)}>
-                        <span className="arun-lbtn-n">{v}</span><span className="arun-lbtn-l">{lbl}</span>
+                      <button key={v} type="button" role="radio" aria-checked={on} aria-label={optLabel(v)} tabIndex={tab}
+                        className={`arun-lbtn${on ? " on" : ""}`} onClick={() => setAnswer(it.key, v)}
+                        onKeyDown={(e) => {
+                          let m = -1;
+                          if (e.key === "ArrowRight" || e.key === "ArrowDown") m = Math.min(opts.length - 1, oi + 1);
+                          else if (e.key === "ArrowLeft" || e.key === "ArrowUp") m = Math.max(0, oi - 1);
+                          else if (e.key === "Home") m = 0;
+                          else if (e.key === "End") m = opts.length - 1;
+                          else return;
+                          e.preventDefault();
+                          setAnswer(it.key, opts[m]);
+                          (e.currentTarget.parentElement?.children[m] as HTMLElement | undefined)?.focus();
+                        }}>
+                        <span className="arun-lbtn-n">{v}</span>{lbl ? <span className="arun-lbtn-l">{lbl}</span> : null}
                       </button>
                     );
                   })}

@@ -62,7 +62,7 @@ function Chart({ submissions, target }: { submissions: string[]; target: number 
   const area = `${line} L ${pts[pts.length - 1].x.toFixed(1)} ${H - pad} L ${pts[0].x.toFixed(1)} ${H - pad} Z`;
   const targetY = H - pad - (target / max) * (H - pad * 2);
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block", height: H }}>
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block", height: H }} aria-hidden="true">
       <defs><linearGradient id="astfill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--green)" stopOpacity="0.16" /><stop offset="100%" stopColor="var(--green)" stopOpacity="0" /></linearGradient></defs>
       <line x1={pad} y1={targetY} x2={W - pad} y2={targetY} stroke="var(--amber)" strokeWidth="1.5" strokeDasharray="5 4" />
       <path d={area} fill="url(#astfill)" />
@@ -76,7 +76,7 @@ function Ring({ pct }: { pct: number }) {
   const r = 38, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
   const color = pct >= 75 ? "var(--green)" : pct >= 50 ? "var(--amber)" : "var(--rust)";
   return (
-    <svg width="108" height="108" viewBox="0 0 100 100">
+    <svg width="108" height="108" viewBox="0 0 100 100" role="img" aria-label={`Response rate ${pct} percent`}>
       <circle cx="50" cy="50" r={r} fill="none" stroke="var(--open-bg)" strokeWidth="10" />
       <circle cx="50" cy="50" r={r} fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={off} transform="rotate(-90 50 50)" />
       <text x="50" y="56" textAnchor="middle" fontSize="22" fontWeight="700" fill="var(--ink)">{pct}%</text>
@@ -92,8 +92,11 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
   const closed = status === "closed";
   const paused = status === "paused";
 
-  const rate = data.invited ? Math.round((data.responded / data.invited) * 100) : 0;
-  const outstanding = Math.max(0, data.invited - data.responded);
+  // Use the true response count (works for anonymous surveys too, where the
+  // attributed roster can't tell who completed). Clamp the rate to 100%.
+  const responded = Math.min(data.respondents, data.invited);
+  const rate = data.invited ? Math.min(100, Math.round((data.respondents / data.invited) * 100)) : 0;
+  const outstanding = Math.max(0, data.invited - data.respondents);
   const closesIn = daysUntil(data.dueAt);
 
   function flash(m: string) { setToast(m); setTimeout(() => setToast(null), 2600); }
@@ -124,7 +127,7 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
     { title: "Responses", big: String(data.respondents), sub: `of ${data.invited} invited`, subColor: "var(--muted)" },
     { title: "Response rate", big: `${rate}%`, sub: "target ≥ 75%", subColor: rate >= 75 ? "var(--green)" : "var(--amber)" },
     { title: "Outstanding", big: String(outstanding), sub: outstanding ? "not yet responded" : "everyone responded", subColor: outstanding ? "var(--amber)" : "var(--green)" },
-    { title: closed ? "Closed" : paused ? "Status" : "Closes in", big: closed ? "—" : paused ? "Paused" : closesIn != null ? (closesIn <= 0 ? "due" : `${closesIn}d`) : "open", sub: fmtDate(data.dueAt), subColor: "var(--muted)" },
+    { title: closed ? "Closed" : paused ? "Status" : "Closes in", big: closed ? "—" : paused ? "Paused" : closesIn != null ? (closesIn <= 0 ? "due" : `${closesIn}d`) : "—", sub: data.dueAt ? fmtDate(data.dueAt) : "no due date", subColor: "var(--muted)" },
   ];
 
   return (
@@ -141,7 +144,7 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className={`pill sm ${closed ? "internal" : paused ? "draft" : "open"}`}>{closed ? "Closed" : paused ? "Paused" : "Collecting"}</span>
+          <span className={`pill sm ${closed ? "draft" : paused ? "internal" : "open"}`}>{closed ? "Closed" : paused ? "Paused" : "Collecting"}</span>
           {!closed ? (
             <>
               <button className="btn-prim" disabled={pending} onClick={remind}>Send reminder</button>
@@ -190,7 +193,7 @@ export function AssessmentStatus({ data }: { data: StatusData }) {
           <div className="a-ovcard" style={{ textAlign: "center" }}>
             <div className="ast-eyebrow">Overall response rate</div>
             <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}><Ring pct={rate} /></div>
-            <div className="ast-ring-sub">{data.responded} of {data.invited} responded · target ≥ 75%</div>
+            <div className="ast-ring-sub">{responded} of {data.invited} responded · target ≥ 75%</div>
           </div>
 
           {data.triggered.length ? (

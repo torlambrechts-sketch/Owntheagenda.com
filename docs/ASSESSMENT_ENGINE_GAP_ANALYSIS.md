@@ -103,6 +103,16 @@ Production") is absent end-to-end.
   **Closed-&-report** notification to leads + creator (P2).
 - ✅ **Pause / resume** (P3) — `set_survey_paused`; 'paused' blocks submission without closing.
 
+### Known limitations (from the post-implementation review)
+- **Pause + workshop survey-binding:** `ensure_block_survey` / `ensure_workshop_survey` reuse an
+  existing survey only when `status = 'open'`. If a lead pauses a survey and then opens a workshop
+  survey-step of the same team+kind before resuming, a second survey is created (responses split).
+  Narrow sequence; binding semantics for a paused survey deserve a deliberate decision before changing
+  the reuse lookups.
+- **All-optional instruments:** on the final page, when every question is optional and none is
+  answered, Submit is disabled (we don't accept a wholly blank response) without an inline hint —
+  same gating as the item-paged engine.
+
 ### Still open (scoped / deferred, with rationale)
 - **By-unit breakdown** (P2) — the design assumes one assessment across several units; our survey is
   per-team, so the status view shows **section scores** instead. True multi-unit needs a
