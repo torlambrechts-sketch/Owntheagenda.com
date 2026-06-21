@@ -15,13 +15,26 @@ export default async function AssessmentSuitePage() {
 
   const { data: teams } = await supabase
     .from("team")
-    .select("id, name")
+    .select("id, name, lead_user_id")
     .eq("workspace_id", ctx.workspace.id)
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
   const teamList = teams ?? [];
   const teamNameById = new Map(teamList.map((t) => [t.id, t.name as string]));
   const teamIds = teamList.map((t) => t.id);
+
+  // Teams the caller can start an assessment for: admins manage all; leads manage
+  // teams they lead (team.lead_user_id or a team_member is_lead flag).
+  const admin = isAdmin(ctx.role);
+  const { data: leadMem } = !admin && teamIds.length
+    ? await supabase.from("team_member").select("team_id").eq("user_id", ctx.userId).eq("is_lead", true).in("team_id", teamIds)
+    : { data: [] as { team_id: string }[] };
+  const leadTeamIds = new Set<string>([
+    ...teamList.filter((t) => t.lead_user_id === ctx.userId).map((t) => t.id),
+    ...(leadMem ?? []).map((m) => m.team_id),
+  ]);
+  const manageableTeams = (admin ? teamList : teamList.filter((t) => leadTeamIds.has(t.id)))
+    .map((t) => ({ id: t.id as string, name: t.name as string }));
 
   const instruments = await resolveInstruments();
   const instNameByKind = new Map(Object.values(instruments).map((i) => [i.kind, i.name]));
@@ -60,6 +73,7 @@ export default async function AssessmentSuitePage() {
     category: "Survey",
     status: s.status,
     team: teamNameById.get(s.team_id) ?? null,
+    teamId: s.team_id,
     respondents: respCount.get(s.id) ?? 0,
     date: s.created_at,
   }));
@@ -91,5 +105,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={isAdmin(ctx.role)} teams={teamList.map((t) => ({ id: t.id as string, name: t.name as string }))} templates={templates} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
 }

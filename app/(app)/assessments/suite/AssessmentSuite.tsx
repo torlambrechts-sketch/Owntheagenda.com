@@ -13,6 +13,7 @@ export type SuiteRow = {
   category: string;
   status: string;
   team: string | null;
+  teamId: string | null;
   respondents: number;
   date: string;
 };
@@ -42,7 +43,8 @@ function fmtDateTime(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-export function AssessmentSuite({ rows, kpis, isAdmin = false, teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
+export function AssessmentSuite({ rows, kpis, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
+  const canManageRow = (r: SuiteRow) => isAdmin || (!!r.teamId && manageableTeamIds.includes(r.teamId));
   const [view, setView] = useState<View>("overview");
   const [newOpen, setNewOpen] = useState(false);
   const [active, setActive] = useState<SuiteRow | null>(null);
@@ -120,7 +122,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           <div className="a-pr">
             <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
             {isAdmin ? <Link className="btn-sec" href="/builder">Build assessment</Link> : null}
-            {isAdmin ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
+            {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
         </div>
 
@@ -174,7 +176,12 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                         </span>
                       ) : "—"}
                     </td>
-                    <td className="r"><span className="linkbtn">Open ›</span></td>
+                    <td className="r">
+                      {(r.status === "open" || r.status === "paused") && canManageRow(r) ? (
+                        <Link className="linkbtn" href={`/assessments/status/${r.id}`} onClick={(e) => e.stopPropagation()} style={{ marginRight: 12 }}>Live status →</Link>
+                      ) : null}
+                      <span className="linkbtn">Open ›</span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -204,7 +211,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
         <div className="a-pr">
           {active ? statusPill(active.status) : null}
           {detail && detail.scores.length ? <button className="btn-sec" onClick={exportReport}>⤓ Export report</button> : null}
-          {active && active.status !== "closed" ? <Link className="btn-sec" href={`/assessments/status/${active.id}`}>Live status →</Link> : null}
+          {active && active.status !== "closed" && canManageRow(active) ? <Link className="btn-sec" href={`/assessments/status/${active.id}`}>Live status →</Link> : null}
           <Link className="btn-prim" href="/workshops">Open workshop →</Link>
         </div>
       </div>
