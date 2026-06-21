@@ -52,6 +52,7 @@ export default async function FlowDetailPage({ params }: { params: { id: string 
       title: s.title as string,
       status: s.status as string,
       gate: (s.gate as string | null) ?? null,
+      config: c,
       branch: s.kind === "branch" ? {
         dynamic: (c.dynamic as string) ?? null,
         op: (c.op as string) ?? null,
@@ -62,6 +63,13 @@ export default async function FlowDetailPage({ params }: { params: { id: string 
     };
   });
 
+  // All available workshop templates, for branch routing selects on the canvas.
+  const { data: allTpls } = await supabase
+    .from("template")
+    .select("id, name")
+    .or(`workspace_id.is.null,workspace_id.eq.${ctx.workspace.id}`)
+    .order("name");
+
   return (
     <div>
       <Link href="/workflow" className="linkbtn" style={{ fontSize: 12 }}>‹ Flows</Link>
@@ -71,6 +79,7 @@ export default async function FlowDetailPage({ params }: { params: { id: string 
         teamName={team?.name ?? null}
         programId={program.id as string}
         canEdit={isAdmin(ctx.role)}
+        templates={(allTpls ?? []).map((t) => ({ id: t.id as string, name: t.name as string }))}
         steps={flowSteps}
       />
     </div>
