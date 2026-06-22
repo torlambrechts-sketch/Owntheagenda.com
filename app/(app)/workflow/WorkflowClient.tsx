@@ -324,6 +324,23 @@ export function WorkflowClient({
     );
   }
 
+  // Summary KPIs over the real flows (no dummy data).
+  const flowTotal = programs.length;
+  const flowActive = programs.filter((p) => p.status === "active").length;
+  const flowDone = programs.filter((p) => p.status === "completed").length;
+  const flowDrafts = programs.filter((p) => p.status === "draft").length;
+  const openTasks = programs.reduce(
+    (n, p) => n + p.tasks.filter((t) => t.status !== "done" && t.status !== "skipped").length,
+    0,
+  );
+  const completionRate = flowTotal ? Math.round((flowDone / flowTotal) * 100) : 0;
+  const flowKpis = [
+    { big: String(flowActive), title: "Active flows", sub: `${flowDrafts} draft${flowDrafts === 1 ? "" : "s"} · ${flowTotal} total` },
+    { big: String(flowDone), title: "Completed", sub: `of ${flowTotal} flow${flowTotal === 1 ? "" : "s"}` },
+    { big: String(openTasks), title: "Open tasks", sub: "across all flows" },
+    { big: `${completionRate}%`, title: "Completion rate", sub: "completed of all" },
+  ];
+
   return (
     <>
       <div className="page-head">
@@ -337,6 +354,18 @@ export function WorkflowClient({
           </p>
         </div>
       </div>
+
+      {programs.length ? (
+        <div className="wf-kpis">
+          {flowKpis.map((k) => (
+            <div className="wf-kpi" key={k.title}>
+              <div className="wf-kpi-big">{k.big}</div>
+              <div className="wf-kpi-t">{k.title}</div>
+              <div className="wf-kpi-s">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       {canManage ? (
         <Plays
