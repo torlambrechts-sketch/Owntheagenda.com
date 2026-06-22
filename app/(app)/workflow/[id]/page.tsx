@@ -70,15 +70,20 @@ export default async function FlowDetailPage({ params }: { params: { id: string 
     .or(`workspace_id.is.null,workspace_id.eq.${ctx.workspace.id}`)
     .order("name");
 
+  const admin = isAdmin(ctx.role);
+
   return (
     <div>
-      <Link href="/workflow" className="linkbtn" style={{ fontSize: 12 }}>‹ Flows</Link>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <Link href="/workflow" className="linkbtn" style={{ fontSize: 12 }}>‹ Flows</Link>
+        {admin ? <Link href={`/flow/${program.id}`} className="btn-sec">✎ Open builder</Link> : null}
+      </div>
       <FlowViews
         title={program.title as string}
         status={program.status as string}
         teamName={team?.name ?? null}
         programId={program.id as string}
-        canEdit={isAdmin(ctx.role)}
+        canEdit={admin}
         templates={(allTpls ?? []).map((t) => ({ id: t.id as string, name: t.name as string }))}
         steps={flowSteps}
       />

@@ -198,6 +198,36 @@ export async function setBranch(
   return {};
 }
 
+// Rename a flow/program. Direct update — the program_update RLS policy already
+// restricts this to workspace admins.
+export async function renameFlow(programId: string, title: string) {
+  const t = title.trim();
+  if (!t) return { error: "Give the flow a name." };
+  const supabase = createClient();
+  const { error } = await supabase.from("program").update({ title: t }).eq("id", programId);
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
+}
+
+// Update a single step's title and/or config jsonb (the builder uses this to
+// rename a node and to persist its canvas position in config.pos). Direct
+// update — gated by the program_step_update RLS policy (workspace admins).
+export async function updateStep(
+  stepId: string,
+  patch: { title?: string; config?: Record<string, unknown> },
+) {
+  const supabase = createClient();
+  const fields: Record<string, unknown> = {};
+  if (typeof patch.title === "string") fields.title = patch.title.trim();
+  if (patch.config) fields.config = patch.config;
+  if (Object.keys(fields).length === 0) return {};
+  const { error } = await supabase.from("program_step").update(fields).eq("id", stepId);
+  if (error) return { error: error.message };
+  revalidatePath("/workflow");
+  return {};
+}
+
 // Advance / update a single step manually.
 export async function setProgramStep(stepId: string, status: string) {
   const supabase = createClient();

@@ -412,7 +412,12 @@ export function WorkflowClient({
         title={viewFlow?.title ?? "Flow"}
         subtitle="Flow visualization"
         size="wide"
-        footer={viewFlow ? <Link className="btn-prim" href={`/workflow/${viewFlow.id}`}>Open full builder →</Link> : null}
+        footer={viewFlow ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link className="btn-sec" href={`/workflow/${viewFlow.id}`}>Flow detail</Link>
+            {canManage ? <Link className="btn-prim" href={`/flow/${viewFlow.id}`}>Open builder →</Link> : null}
+          </div>
+        ) : null}
       >
         {viewFlow ? <FlowMiniMap steps={viewFlow.steps} templateName={templateName} /> : null}
       </SideWindow>
