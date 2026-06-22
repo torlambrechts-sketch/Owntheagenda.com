@@ -91,6 +91,7 @@ export function WorkshopsClient({
   sessions = [],
   canvasItems = [],
   initialTab = "workshops",
+  kpis = [],
 }: {
   teamId: string;
   canManage: boolean;
@@ -102,9 +103,11 @@ export function WorkshopsClient({
   sessions?: SessionRow[];
   canvasItems?: GalleryItem[];
   initialTab?: WkTab;
+  kpis?: { label: string; value: string; sub: string }[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<WkTab>(initialTab);
+  const [layout, setLayout] = useState<"A" | "B">("A");
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -185,6 +188,17 @@ export function WorkshopsClient({
 
       {tab === "workshops" ? (
       <>
+      {kpis.length ? (
+        <div className="wk-kpis">
+          {kpis.map((k, i) => (
+            <div className="wk-kpi" key={i}>
+              <div className="wk-kpi-v">{k.value}</div>
+              <div className="wk-kpi-l">{k.label}</div>
+              <div className="wk-kpi-s">{k.sub}</div>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {recommendation ? (
         <div className="rec">
           <div className="rec-l">
@@ -211,7 +225,12 @@ export function WorkshopsClient({
 
       {/* ---- create strip ---- */}
       <div className="wk-create">
-        <div className="cat-head wk-create-h">Create a workshop</div>
+        <div className="wk-create-h-row">
+          <div className="cat-head wk-create-h">Create a workshop</div>
+          <Link href="/workshops/templates" className="linkbtn wk-manage-tpl">
+            Manage templates →
+          </Link>
+        </div>
         <div className="wk-strip">
           {canManage ? (
             <button className="wcard wcard-new" onClick={() => setQuickOpen(true)}>
@@ -239,12 +258,32 @@ export function WorkshopsClient({
       </div>
 
       {/* ---- workshops list ---- */}
-      <div className="cat-head" style={{ marginTop: 30 }}>
-        Your workshops <span className="n">{workshops.length}</span>
+      <div className="wk-list-head">
+        <div className="cat-head" style={{ margin: 0 }}>
+          Your workshops <span className="n">{workshops.length}</span>
+        </div>
+        {workshops.length ? (
+          <div className="wk-layout-seg" role="group" aria-label="Layout">
+            <button className={`wk-seg${layout === "A" ? " on" : ""}`} onClick={() => setLayout("A")} title="Table view">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+              Table
+            </button>
+            <button className={`wk-seg${layout === "B" ? " on" : ""}`} onClick={() => setLayout("B")} title="Board view">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+              Board
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {workshops.length === 0 ? (
         <div className="empty">No workshops yet — pick a template above to build your first one.</div>
+      ) : layout === "B" ? (
+        <WorkshopBoard
+          workshops={workshops}
+          canManage={canManage}
+          onQuick={() => setQuickOpen(true)}
+        />
       ) : (
         <>
           <nav className="otabband wk-tabs" aria-label="Workshop status">
@@ -457,5 +496,100 @@ export function WorkshopsClient({
         <span>{toast}</span>
       </div>
     </>
+  );
+}
+
+// Layout B from the Workshop App handoff: live/upcoming work as focus cards,
+// finished workshops as a compact history list. Pure presentation over the same
+// WorkshopRow data — no extra fetch.
+function WorkshopBoard({
+  workshops,
+  canManage,
+  onQuick,
+}: {
+  workshops: WorkshopRow[];
+  canManage: boolean;
+  onQuick: () => void;
+}) {
+  const focus = workshops.filter((w) => w.status === "live" || w.status === "scheduled" || w.status === "draft");
+  const history = workshops.filter((w) => w.status === "done");
+
+  const when = (w: WorkshopRow) =>
+    w.status === "scheduled" && w.scheduledAt
+      ? new Date(w.scheduledAt).toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })
+      : w.status === "draft"
+        ? "Not scheduled"
+        : `Edited ${w.editedLabel}`;
+
+  return (
+    <div className="wk-board">
+      <div className="wk-focus">
+        {focus.length === 0 ? (
+          <div className="empty" style={{ gridColumn: "1 / -1" }}>Nothing live or upcoming — start one above.</div>
+        ) : (
+          focus.map((w) => {
+            const st = STATUS[w.status] ?? { label: w.status, cls: "w-draft" };
+            const live = w.status === "live";
+            return (
+              <div className={`wk-fcard${live ? " live" : ""}`} key={w.id}>
+                <div className="wk-fcard-top">
+                  <span className={`wpill ${st.cls}`}>{st.label}</span>
+                  {w.category ? <span className="wk-fcard-cat">{CATEGORY[w.category] ?? w.category}</span> : null}
+                </div>
+                <Link href={`/workshops/${w.id}`} className="wk-fcard-nm">{w.title}</Link>
+                <div className="wk-fcard-meta">{when(w)}</div>
+                <div className="wk-fcard-foot">
+                  {live ? (
+                    <Link className="btn-prim" href={`/run/${w.id}`}>Enter live ▸</Link>
+                  ) : (
+                    <Link className="btn-prim" href={`/workshops/${w.id}`}>Open agenda</Link>
+                  )}
+                  <Link className="btn-sec" href={`/workshops/${w.id}/overview`}>Overview</Link>
+                </div>
+              </div>
+            );
+          })
+        )}
+        {canManage ? (
+          <button className="wk-fcard wk-fcard-new" onClick={onQuick}>
+            <span className="wcard-ring">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+            </span>
+            <span>New workshop</span>
+          </button>
+        ) : null}
+      </div>
+
+      <div className="cat-head" style={{ marginTop: 6 }}>Completed <span className="n">{history.length}</span></div>
+      {history.length === 0 ? (
+        <div className="empty">No finished workshops yet.</div>
+      ) : (
+        <div className="tbl-card">
+          <table className="tbl">
+            <tbody>
+              {history.map((w) => (
+                <tr key={w.id}>
+                  <td>
+                    <Link className="person wk-cell" href={`/workshops/${w.id}/overview`}>
+                      <span className={w.creatorName ? "av sm" : "wfold sm"}>
+                        {w.creatorName ? initials(w.creatorName) : "—"}
+                      </span>
+                      <span>
+                        {w.title}
+                        <small>{w.creatorName ? `By ${w.creatorName}` : "No facilitator"}{w.category ? ` · ${CATEGORY[w.category] ?? w.category}` : ""}</small>
+                      </span>
+                    </Link>
+                  </td>
+                  <td style={{ width: 160 }}>{w.editedLabel}</td>
+                  <td className="r" style={{ width: 120 }}>
+                    <Link className="linkbtn" href={`/workshops/${w.id}/overview`}>Results →</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }

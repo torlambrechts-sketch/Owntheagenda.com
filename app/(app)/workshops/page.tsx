@@ -225,6 +225,24 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     };
   });
 
+  // ----- KPI summary row (Workshop App handoff) — all derived from real data -----
+  const now = new Date();
+  const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  const liveScheduled = workshops.filter((w) => w.status === "live" || w.status === "scheduled").length;
+  const nextScheduled = workshops
+    .filter((w) => w.status === "scheduled" && w.scheduledAt)
+    .map((w) => w.scheduledAt as string)
+    .sort()[0];
+  const ranThisQuarter = sessions.filter((s) => s.startedAt && new Date(s.startedAt) >= qStart).length;
+  const totalActions = sessions.reduce((s, x) => s + (x.actions ?? 0), 0);
+  const completedCount = workshops.filter((w) => w.status === "done").length;
+  const kpis: { label: string; value: string; sub: string }[] = [
+    { value: String(liveScheduled), label: "Live & scheduled", sub: nextScheduled ? `next: ${new Date(nextScheduled).toLocaleDateString(undefined, { day: "2-digit", month: "short" })}` : "nothing booked" },
+    { value: String(ranThisQuarter), label: "Run this quarter", sub: `${sessions.length} sessions all-time` },
+    { value: String(totalActions), label: "Action items", sub: "captured live" },
+    { value: String(completedCount), label: "Completed", sub: `${tplCards.length} frameworks ready` },
+  ];
+
   return (
     <div>
       <h1 className="page-title">Workshops</h1>
@@ -243,6 +261,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           sessions={sessions}
           canvasItems={canvasItems}
           initialTab={initialTab}
+          kpis={kpis}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>
