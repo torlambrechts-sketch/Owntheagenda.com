@@ -228,6 +228,36 @@ export async function updateStep(
   return {};
 }
 
+// Duplicate a step — adds a copy right after the source (program_add_step
+// returns the new id), then carries over its config (offsetting any canvas
+// position so the copy doesn't sit exactly on top of the original).
+export async function duplicateStep(stepId: string) {
+  const supabase = createClient();
+  const { data: src } = await supabase
+    .from("program_step")
+    .select("program_id, ord, kind, title, config")
+    .eq("id", stepId)
+    .maybeSingle();
+  if (!src) return { error: "Step not found." };
+  const { data: newId, error } = await supabase.rpc("program_add_step", {
+    p_program: src.program_id as string,
+    p_after_ord: src.ord as number,
+    p_kind: src.kind as string,
+    p_title: `${src.title as string} (copy)`,
+  });
+  if (error) return { error: error.message };
+  const cfg = { ...((src.config as Record<string, unknown>) ?? {}) };
+  const pos = cfg.pos as { x?: number; y?: number } | undefined;
+  if (pos && typeof pos.x === "number" && typeof pos.y === "number") {
+    cfg.pos = { x: pos.x + 36, y: pos.y + 36 };
+  }
+  if (Object.keys(cfg).length) {
+    await supabase.from("program_step").update({ config: cfg }).eq("id", newId as string);
+  }
+  revalidatePath("/workflow");
+  return {};
+}
+
 // Advance / update a single step manually.
 export async function setProgramStep(stepId: string, status: string) {
   const supabase = createClient();

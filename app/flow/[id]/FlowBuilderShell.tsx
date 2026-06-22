@@ -13,6 +13,7 @@ import {
   setBranch,
   renameFlow,
   updateStep,
+  duplicateStep,
 } from "@/app/(app)/workflow/actions";
 
 // Full-screen visual Flow Builder — the "Assessment & workshop flow builder"
@@ -63,6 +64,46 @@ const PALETTE_GROUPS: { group: string; items: string[] }[] = [
 const PHASES = ["Measure", "Act", "Route"];
 const PHASE_LABEL: Record<string, string> = { Measure: "Measure", Act: "Act on it", Route: "Route & follow up" };
 
+// Per-kind inspector Configuration fields (the handoff's SCHEMA, adapted to the
+// engine's kinds and this product's English copy — no HSE/ROS framing). Values
+// persist into program_step.config; they are descriptive metadata the builder
+// surfaces, except `branch`, which has its own editor wired to program_set_branch.
+type Field =
+  | { k: string; l: string; t: "text" | "number" | "textarea" }
+  | { k: string; l: string; t: "select"; o: string[] }
+  | { k: string; l: string; t: "toggle" };
+const SCHEMA: Record<string, Field[]> = {
+  assessment: [
+    { k: "instrument", l: "Instrument", t: "text" },
+    { k: "anonymous", l: "Anonymous responses", t: "toggle" },
+  ],
+  launch: [
+    { k: "min_responses", l: "Wait for responses", t: "number" },
+    { k: "collect_days", l: "Collect within (days)", t: "number" },
+  ],
+  score: [
+    { k: "scale", l: "Scale", t: "select", o: ["1–5", "1–7", "0–100"] },
+    { k: "aggregation", l: "Aggregation", t: "select", o: ["Section mean", "Lowest section", "Weighted"] },
+  ],
+  workshop: [
+    { k: "duration", l: "Duration (min)", t: "number" },
+    { k: "participants", l: "Participants", t: "number" },
+    { k: "facilitator", l: "Facilitator", t: "text" },
+    { k: "location", l: "Location", t: "text" },
+    { k: "output", l: "Expected output", t: "textarea" },
+  ],
+  commit: [
+    { k: "due_days", l: "Due (days)", t: "number" },
+    { k: "assignee", l: "Assignee", t: "select", o: ["Auto from result", "Facilitator", "Line manager", "Team lead"] },
+  ],
+  report: [
+    { k: "destination", l: "Destination", t: "select", o: ["Insight hub", "Export PDF", "Email summary"] },
+  ],
+  repulse: [
+    { k: "after_days", l: "Re-pulse after (days)", t: "number" },
+  ],
+};
+
 function stepPill(s: string) {
   return s === "active" ? { l: "Active", c: "open" }
     : s === "done" ? { l: "Done", c: "internal" }
@@ -70,6 +111,8 @@ function stepPill(s: string) {
         : { l: "Pending", c: "draft" };
 }
 function subText(s: BuilderStep): string {
+  const desc = s.config?.description;
+  if (typeof desc === "string" && desc.trim()) return desc;
   if (s.branch) return `If ${dynLabel(s.branch.dynamic)} ${opLabel(s.branch.op)} ${s.branch.value ?? "—"}`;
   switch (s.kind) {
     case "assessment": return "Open the assessment for the team.";
@@ -160,6 +203,15 @@ export function FlowBuilderShell({
   }
   function doBranch(id: string, d: string, o: string, v: number, t: string, e: string) {
     run(setBranch(id, d, o, v, t, e));
+  }
+  // Merge inspector Description / Configuration values into the step's config.
+  function doConfig(id: string, patch: Record<string, unknown>) {
+    const s = steps.find((x) => x.id === id);
+    if (!s) return;
+    run(updateStep(id, { config: { ...s.config, ...patch } }));
+  }
+  function doDuplicate(id: string) {
+    run(duplicateStep(id));
   }
   function persistPos(id: string, x: number, y: number) {
     const s = steps.find((x2) => x2.id === id);
@@ -440,6 +492,8 @@ export function FlowBuilderShell({
               onClose={() => setSelId(null)}
               onRename={doRenameStep}
               onBranch={doBranch}
+              onConfig={doConfig}
+              onDuplicate={doDuplicate}
               onDelete={doRemove}
             />
           </>
@@ -475,7 +529,7 @@ export function FlowBuilderShell({
 
 // ---- Inspector (right rail) ----------------------------------------------
 function Inspector({
-  step, templates, pending, onClose, onRename, onBranch, onDelete,
+  step, templates, pending, onClose, onRename, onBranch, onConfig, onDuplicate, onDelete,
 }: {
   step: BuilderStep | null;
   templates: Template[];
@@ -483,18 +537,23 @@ function Inspector({
   onClose: () => void;
   onRename: (id: string, t: string) => void;
   onBranch: (id: string, d: string, o: string, v: number, t: string, e: string) => void;
+  onConfig: (id: string, patch: Record<string, unknown>) => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [title, setTitle] = useState(step?.title ?? "");
+  const [desc, setDesc] = useState((step?.config?.description as string) ?? "");
   useEffect(() => { setTitle(step?.title ?? ""); }, [step?.id, step?.title]);
+  useEffect(() => { setDesc((step?.config?.description as string) ?? ""); }, [step?.id, step?.config]);
   if (!step) {
     return (
       <div className="fbz-inspect empty">
-        <div className="fbz-inspect-empty">Select a node to configure it, or add one from the palette.</div>
+        <div className="fbz-inspect-empty">Select a node to edit its title, type and settings.</div>
       </div>
     );
   }
   const k = kindOf(step.kind); const pill = stepPill(step.status);
+  const fields = SCHEMA[step.kind] ?? [];
   return (
     <div className="fbz-inspect">
       <div className="fbz-inspect-h">
@@ -502,27 +561,78 @@ function Inspector({
         <button className="fbz-inspect-x" onClick={onClose} aria-label="Close">✕</button>
       </div>
       <label className="fbz-fld">
-        <span>Step name</span>
+        <span>Title</span>
         <input className="inp" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => onRename(step.id, title)} />
+      </label>
+      <label className="fbz-fld">
+        <span>Description</span>
+        <input className="inp" value={desc} placeholder="Short summary" onChange={(e) => setDesc(e.target.value)} onBlur={() => { if (desc !== ((step.config?.description as string) ?? "")) onConfig(step.id, { description: desc }); }} />
       </label>
       <div className="fbz-fld">
         <span>Status</span>
         <div><span className={`pill sm ${pill.c}`}>{pill.l}</span></div>
       </div>
+
+      {fields.length ? (
+        <div className="fbz-cfg">
+          <div className="fbz-fld-l">Configuration</div>
+          {fields.map((f) => (
+            <ConfigField key={f.k} field={f} value={step.config?.[f.k]} pending={pending} onSave={(v) => onConfig(step.id, { [f.k]: v })} />
+          ))}
+        </div>
+      ) : null}
+
       {step.kind === "branch" ? (
         <BranchEditor step={step} templates={templates} pending={pending} onSave={(d, o, v, t, e) => onBranch(step.id, d, o, v, t, e)} />
-      ) : (
-        <div className="fbz-fld">
-          <span>What it does</span>
-          <p className="fbz-fld-help">{subText(step)}</p>
-        </div>
-      )}
-      {step.status !== "done" ? (
-        <button className="fbz-del" disabled={pending} onClick={() => onDelete(step.id)}>Delete step</button>
-      ) : (
-        <p className="fbz-fld-help">Completed steps are locked.</p>
-      )}
+      ) : null}
+
+      <div className="fbz-inspect-foot">
+        <button className="btn-sec sm fbz-dup" disabled={pending} onClick={() => onDuplicate(step.id)}>⧉ Duplicate</button>
+        {step.status !== "done" ? (
+          <button className="fbz-del sm" disabled={pending} onClick={() => onDelete(step.id)}>🗑 Delete</button>
+        ) : null}
+      </div>
+      {step.status === "done" ? <p className="fbz-fld-help" style={{ marginTop: 10 }}>Completed steps are locked.</p> : null}
     </div>
+  );
+}
+
+// A single inspector Configuration field, persisted on change/blur.
+function ConfigField({
+  field, value, pending, onSave,
+}: {
+  field: Field;
+  value: unknown;
+  pending: boolean;
+  onSave: (v: unknown) => void;
+}) {
+  const [v, setV] = useState<string>(value == null ? "" : String(value));
+  useEffect(() => { setV(value == null ? "" : String(value)); }, [value]);
+  if (field.t === "toggle") {
+    const on = value === true || value === "true";
+    return (
+      <button className="fbz-toggle" disabled={pending} onClick={() => onSave(!on)}>
+        <span>{field.l}</span>
+        <span className={`fbz-switch-pill${on ? " on" : ""}`}><span className="fbz-knob" /></span>
+      </button>
+    );
+  }
+  return (
+    <label className="fbz-fld">
+      <span>{field.l}</span>
+      {field.t === "select" ? (
+        <select className="inp" value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value); }}>
+          <option value="">Choose…</option>
+          {field.o.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : field.t === "textarea" ? (
+        <textarea className="inp" rows={2} value={v} onChange={(e) => setV(e.target.value)} onBlur={() => onSave(v)} />
+      ) : (
+        <input className="inp" inputMode={field.t === "number" ? "numeric" : undefined} value={v}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => onSave(field.t === "number" ? (v === "" ? null : Number(v)) : v)} />
+      )}
+    </label>
   );
 }
 
