@@ -41,6 +41,13 @@ const KIND: Record<string, { label: string; tone: string }> = {
 };
 // Kinds that can be added on the canvas (mirrors program_add_step's allow-list).
 const ADDABLE = ["assessment", "launch", "interpret", "score", "workshop", "commit", "report", "repulse", "branch", "custom"] as const;
+// Grouped palette for the "Add step" menu — same kinds, organised by stage so
+// the menu reads like the flow's lifecycle.
+const PALETTE_GROUPS: { group: string; items: string[] }[] = [
+  { group: "Measure", items: ["assessment", "launch", "interpret", "score"] },
+  { group: "Act on it", items: ["workshop", "commit", "report"] },
+  { group: "Route & follow up", items: ["branch", "repulse", "custom"] },
+];
 function kindOf(k: string) { return KIND[k] ?? { label: k, tone: "var(--muted)" }; }
 function stepPill(s: string) {
   return s === "active" ? { l: "Active", c: "open" }
@@ -64,6 +71,35 @@ function previewText(s: FlowStep): string {
     case "repulse": return "Re-measure after a while to see movement.";
     default: return s.gate || "—";
   }
+}
+// One-line "Configuration" summary for the builder table — the parameters that
+// shape how a step runs, not its prose preview.
+function configSummary(s: FlowStep): string {
+  const c = s.config ?? {};
+  if (s.branch) return `${dynLabel(s.branch.dynamic)} ${opLabel(s.branch.op)} ${s.branch.value ?? "—"}`;
+  switch (s.kind) {
+    case "assessment": return (c.instrument as string) || "Team pulse";
+    case "launch": {
+      const min = c.min_responses ?? c.minResponses;
+      return min ? `Wait for ${min} responses` : s.gate || "Hold for responses";
+    }
+    case "workshop": return (c.template_name as string) || (c.template ? "Workshop template set" : "Pick template when ready");
+    case "repulse": return (c.days as number) ? `After ${c.days} days` : "Re-measure later";
+    default: return "—";
+  }
+}
+// "Connects to" chips for a step — a branch forks into two tagged paths,
+// every other step flows to the next one (or ends the flow).
+function connectChips(steps: FlowStep[], i: number): { tag?: string; label: string }[] {
+  const s = steps[i];
+  if (s.branch) {
+    return [
+      { tag: "if", label: s.branch.thenName ?? "a workshop" },
+      { tag: "else", label: s.branch.elseName ?? "a workshop" },
+    ];
+  }
+  const next = steps[i + 1];
+  return [{ label: next ? next.title : "End of flow" }];
 }
 
 export function FlowViews({
@@ -93,6 +129,7 @@ export function FlowViews({
   const [err, setErr] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [addMenu, setAddMenu] = useState(false);
 
   // Server prop is the source of truth; resync if it changes (after a refresh).
   useEffect(() => { setSteps(initialSteps); }, [initialSteps]);
@@ -113,6 +150,12 @@ export function FlowViews({
     setAdding(false);
     run(addStep(programId, afterOrd, kind, title));
   }
+  // Add from the table palette — name defaults to the kind label, editable on
+  // the canvas afterwards.
+  function addFromPalette(kind: string) {
+    setAddMenu(false);
+    doAdd(kind, kindOf(kind).label);
+  }
   function doRemove(id: string) {
     if (editId === id) setEditId(null);
     run(removeStep(id));
@@ -125,13 +168,6 @@ export function FlowViews({
   const statusPill = status === "active" ? { l: "Active", c: "open" }
     : status === "completed" ? { l: "Completed", c: "internal" }
       : { l: "Archived", c: "draft" };
-
-  const connectsTo = (i: number) => {
-    const s = steps[i];
-    if (s.branch) return `${s.branch.thenName ?? "a workshop"} / ${s.branch.elseName ?? "a workshop"}`;
-    const next = steps[i + 1];
-    return next ? next.title : "End";
-  };
 
   // Drag-to-reorder on the Map. Reorders optimistically, persists the new
   // sequence, and reverts on error.
@@ -219,26 +255,81 @@ export function FlowViews({
           </div>
         </div>
       ) : view === "table" ? (
-        <div className="tbl-card">
-          <table className="tbl">
-            <thead>
-              <tr><th style={{ width: 48 }}>Step</th><th>Name</th><th style={{ width: 120 }}>Type</th><th style={{ width: 110 }}>Status</th><th>Connects to</th></tr>
-            </thead>
-            <tbody>
-              {steps.map((s, i) => {
-                const k = kindOf(s.kind); const p = stepPill(s.status);
-                return (
-                  <tr key={s.id}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{i + 1}</td>
-                    <td style={{ fontWeight: 600 }}>{s.title}</td>
-                    <td><span className="flow-chip" style={{ color: k.tone, borderColor: k.tone }}>{k.label}</span></td>
-                    <td><span className={`pill sm ${p.c}`}>{p.l}</span></td>
-                    <td style={{ color: "var(--muted)" }}>{connectsTo(i)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="bt-card">
+          <div className="bt-head">
+            <div>
+              <div className="bt-head-t">Flow steps</div>
+              <div className="bt-head-s">{steps.length} {steps.length === 1 ? "step" : "steps"} · executed top to bottom</div>
+            </div>
+            {canEdit ? (
+              <div className="bt-addwrap">
+                <button className="bt-addbtn" onClick={() => setAddMenu((v) => !v)} aria-expanded={addMenu}>＋ Add step</button>
+                {addMenu ? (
+                  <>
+                    <div className="bt-menu-scrim" onClick={() => setAddMenu(false)} aria-hidden />
+                    <div className="bt-menu" role="menu">
+                      {PALETTE_GROUPS.map((g) => (
+                        <div className="bt-menu-g" key={g.group}>
+                          <div className="bt-menu-gl">{g.group}</div>
+                          <div className="bt-menu-grid">
+                            {g.items.map((kind) => {
+                              const k = kindOf(kind);
+                              return (
+                                <button key={kind} className="bt-menu-it" role="menuitem" disabled={saving} onClick={() => addFromPalette(kind)}>
+                                  <span className="bt-menu-dot" style={{ background: k.tone }} />
+                                  {k.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="bt-grid bt-grid-h">
+            <div>Step</div><div>Name</div><div>Type</div><div>Configuration</div><div>Connects to</div><div />
+          </div>
+          {steps.map((s, i) => {
+            const k = kindOf(s.kind);
+            const chips = connectChips(steps, i);
+            return (
+              <div className="bt-grid bt-row" key={s.id} style={{ boxShadow: `inset 3px 0 0 ${k.tone}` }}>
+                <div><span className="bt-order" style={{ color: k.tone, borderColor: k.tone }}>{i + 1}</span></div>
+                <div className="bt-name">
+                  <span className="bt-icon" style={{ background: k.tone }} aria-hidden />
+                  <div className="bt-name-txt">
+                    <div className="bt-name-t">{s.title}</div>
+                    <div className="bt-name-s">{previewText(s)}</div>
+                  </div>
+                </div>
+                <div><span className="flow-chip" style={{ color: k.tone, borderColor: k.tone }}>{k.label}</span></div>
+                <div className="bt-cfg">{configSummary(s)}</div>
+                <div className="bt-conns">
+                  {chips.map((c, ci) => (
+                    <span className="bt-conn" key={ci}>
+                      {c.tag ? <span className={`bt-conn-tag ${c.tag}`}>{c.tag}</span> : null}
+                      <span className="bt-conn-l">{c.label}</span>
+                    </span>
+                  ))}
+                </div>
+                <div className="bt-del">
+                  {canEdit && s.status !== "done" ? (
+                    <button className="bt-delbtn" title="Delete step" disabled={saving} onClick={() => doRemove(s.id)}>✕</button>
+                  ) : s.status === "done" ? (
+                    <span className="bt-lock" title="Completed steps are locked" aria-hidden>🔒</span>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+          <div className="bt-note">
+            <span className="bt-note-i" aria-hidden>⑂</span>
+            Branch rows fork into two paths — open a branch step on the Map to set its condition and targets.
+          </div>
         </div>
       ) : (
         <div className="a-ovcard">

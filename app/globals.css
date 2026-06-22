@@ -1942,6 +1942,47 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .wf-kpi-t{margin-top:7px;font-size:13px;font-weight:600;color:var(--ink)}
 .wf-kpi-s{margin-top:2px;font-size:12px;color:var(--muted)}
 @media(max-width:760px){.wf-kpis{grid-template-columns:repeat(2,1fr)}}
+/* Builder Table sub-view (flow steps as a grid with config + connections) */
+.bt-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden}
+.bt-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.bt-head-t{font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--ink)}
+.bt-head-s{margin-top:2px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.bt-addwrap{position:relative}
+.bt-addbtn{display:inline-flex;align-items:center;gap:6px;background:var(--forest);color:#fff;border:none;border-radius:7px;padding:8px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.bt-addbtn:hover{background:var(--green)}
+.bt-menu-scrim{position:fixed;inset:0;z-index:19}
+.bt-menu{position:absolute;top:42px;right:0;width:312px;max-height:380px;overflow-y:auto;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);padding:8px;z-index:20}
+.bt-menu-g{margin-bottom:8px}
+.bt-menu-gl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--faint);padding:4px 6px}
+.bt-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.bt-menu-it{display:flex;align-items:center;gap:7px;border:none;background:transparent;border-radius:7px;padding:7px 8px;cursor:pointer;text-align:left;font-family:inherit;font-size:12px;font-weight:600;color:var(--ink)}
+.bt-menu-it:hover{background:var(--canvas-2)}
+.bt-menu-it:disabled{opacity:.5;cursor:default}
+.bt-menu-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.bt-grid{display:grid;grid-template-columns:54px minmax(0,1.4fr) 130px minmax(0,1.3fr) minmax(0,1fr) 40px;gap:0;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line)}
+.bt-grid-h{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.bt-row:last-of-type{border-bottom:none}
+.bt-order{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:var(--canvas-2);border:1px solid;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums}
+.bt-name{min-width:0;padding-right:14px;display:flex;align-items:center;gap:9px}
+.bt-icon{width:10px;height:30px;border-radius:5px;flex-shrink:0}
+.bt-name-txt{min-width:0}
+.bt-name-t{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-name-s{margin-top:1px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt-cfg{font-size:12px;color:var(--ink);padding-right:14px;line-height:1.4}
+.bt-conns{display:flex;flex-wrap:wrap;gap:4px}
+.bt-conn{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--ink);background:var(--canvas-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px}
+.bt-conn-tag{font-weight:700;text-transform:uppercase}
+.bt-conn-tag.if{color:var(--rust)}
+.bt-conn-tag.else{color:var(--green)}
+.bt-conn-l{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.bt-del{display:flex;justify-content:flex-end}
+.bt-delbtn{border:none;background:transparent;color:var(--faint);cursor:pointer;padding:5px;border-radius:6px;font-size:12px;line-height:1}
+.bt-delbtn:hover{background:#fee2e2;color:var(--rust)}
+.bt-delbtn:disabled{opacity:.4;cursor:default}
+.bt-lock{color:var(--faint);padding:5px;font-size:12px}
+.bt-note{margin:12px 18px 14px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.bt-note-i{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;border-radius:5px;background:var(--draft-bg);border:1px solid var(--amber);color:var(--rust);font-size:11px}
+@media(max-width:760px){.bt-grid{grid-template-columns:40px 1.4fr 90px 40px}.bt-cfg,.bt-conns{display:none}}
 .fc{margin-bottom:20px}
 .fc-head{margin-bottom:14px}
 .fc-toggle{width:100%;display:flex;align-items:center;gap:12px;padding:0 0 14px;background:none;border:none;cursor:pointer;text-align:left;font-family:inherit}
