@@ -57,6 +57,7 @@ export function FlowComposer({
     anonymity: string,
   ) => void;
 }) {
+  const [open, setOpen] = useState(true);
   const [title, setTitle] = useState("");
   const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [minResp, setMinResp] = useState(4);
@@ -92,14 +93,20 @@ export function FlowComposer({
 
   return (
     <div className="fc card">
-      <div className="fc-head">
-        <div className="cat-head" style={{ marginBottom: 0 }}>Build a flow</div>
-        <p className="fc-sub">Compose the steps, then create it. Each step is an action the flow runs in order.</p>
-        <div className="fc-presets">
-          <span className="fc-presets-l">Start from</span>
-          <button className="chip" onClick={() => setSteps(DEFAULT_STEPS)}>Quick flow · 3 steps</button>
-          <button className="chip" onClick={() => setSteps(FULL_LOOP_STEPS)}>Full operating loop · 6 steps</button>
-        </div>
+      <button type="button" className="fc-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="fc-toggle-l">
+          <span className="cat-head" style={{ marginBottom: 0 }}>Build a flow</span>
+          <span className="fc-sub">Compose the steps, then create it. Each step is an action the flow runs in order.</span>
+        </span>
+        <span className="plays-chev">{open ? "▴" : "▾"}</span>
+      </button>
+
+      {open ? (
+      <>
+      <div className="fc-presets">
+        <span className="fc-presets-l">Start from</span>
+        <button className="chip" onClick={() => setSteps(DEFAULT_STEPS)}>Quick flow · 3 steps</button>
+        <button className="chip" onClick={() => setSteps(FULL_LOOP_STEPS)}>Full operating loop · 6 steps</button>
       </div>
 
       <div className="fc-meta">
@@ -223,6 +230,8 @@ export function FlowComposer({
           Create flow
         </button>
       </div>
+      </>
+      ) : null}
     </div>
   );
 }
