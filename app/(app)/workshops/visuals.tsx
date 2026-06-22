@@ -86,6 +86,26 @@ export function statusVis(status: string): StatusVis {
   return STATUS_VIS[status] ?? STATUS_VIS.draft;
 }
 
+// Facilitation-phase visuals (exact handoff CATS hex) for the editor + builder.
+export const PHASE_VIS: Record<string, { accent: string; tint: string; border: string }> = {
+  open: { accent: "#1d4ed8", tint: "#eff6ff", border: "#bfdbfe" },
+  diverge: { accent: "#6d28d9", tint: "#f5f3ff", border: "#ddd6fe" },
+  converge: { accent: "#0e7490", tint: "#ecfeff", border: "#a5f3fc" },
+  decide: { accent: "#1a3d32", tint: "#e7efe9", border: "#c5d3c8" },
+  close: { accent: "#a16207", tint: "#fefce8", border: "#fde68a" },
+};
+
+// Per-activity icon (maps the app's activity_type enum to a handoff glyph).
+export const ACT_ICON: Record<string, string> = {
+  checkin: "HeartHandshake", charter: "Flag", assess: "ChartColumnBig", survey: "ListTodo",
+  manual: "PenLine", brainstorm: "Sparkles", hmw: "Lightbulb", canvas: "Layers",
+  vote: "Target", feedback: "RefreshCcw", discuss: "Users", outcome: "Gavel",
+  retrospective: "RefreshCcw",
+};
+export function actIcon(type: string): string {
+  return ACT_ICON[type] ?? "Sparkles";
+}
+
 // Workshop App surface tokens (exact handoff hex).
 export const WA = {
   accent: "#1a3d32",

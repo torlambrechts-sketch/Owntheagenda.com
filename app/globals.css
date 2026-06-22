@@ -2425,3 +2425,6 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 @keyframes wa-pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 5px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
 .wa-pulse{animation:wa-pulse 1.5s infinite}
 @media(max-width:900px){.wa-row{grid-template-columns:minmax(0,1.6fr) 110px 120px 90px minmax(0,1fr) 150px}.wa-row>div:nth-child(4){display:none}}
+
+/* Template editor: stack the block library under the agenda on narrow screens */
+@media(max-width:880px){.tpl-edit-grid{grid-template-columns:1fr!important}.tpl-edit-side{position:static!important}}
