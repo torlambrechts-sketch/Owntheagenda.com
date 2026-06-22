@@ -74,6 +74,16 @@ the handoff is the app favicon (`app/icon.svg`).
 ### Assessment & Workshop Flow Builder — `Assessment and workshop flow builder` handoff ✅
 - Adapted **in place** to the app's Next.js paradigm (no invented `ui_configurations`
   / DB-driven UI layer; copy lives in code). Strictly Supabase.
+- **Full-screen Flow Builder** — `/flow/[id]` ✅ (the handoff's primary design,
+  `Flow Builder Table.dc.html`): builder chrome (editable title, breadcrumb,
+  status chips, live saved/saving, Close / Preview / Publish); **Canvas / Table /
+  Outline / Timeline** switcher; a **Canvas** node-graph with a grouped palette,
+  draggable nodes (positions persist in `program_step.config.pos`), SVG
+  connectors, drag-a-port-to-reorder, ⌫-to-delete, and a right-hand **inspector**
+  (rename / route / delete). Ordering + branching reuse the `program_*` RPCs;
+  rename/position via direct admin-RLS updates. Reaches via "Open builder" on
+  `/workflow/[id]` and the Flows list. (The in-shell `/workflow/[id]` views remain
+  for read/run.)
 - **Quick Start wizard** — `/start` ✅ (full-screen, admin-gated): Team → Focus →
   Cadence → Invite, mapped onto existing primitives — team insert, curated **Play**
   (focus → instrument + workshop), cadence in the launched flow's title, and
