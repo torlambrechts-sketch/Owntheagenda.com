@@ -60,12 +60,28 @@ the handoff is the app favicon (`app/icon.svg`).
 - Respondent take-path: launch/reminder notifications + dashboard "Take" deep-link
   to the take surface (`/assessments/library`).
 
-### Flow Builder — `Flow Builder.dc.html` / `Flow Builder Table.dc.html` 🟡
-- **Overview (list)** — `/workflow` ✅ (status tabs, plays, composer).
+### Flow Builder — `Flow Builder.dc.html` / `Flow Builder Table.dc.html` ✅
+- **Overview (list)** — `/workflow` ✅: status tabs, plays (top + expanded),
+  collapsible composer, summary KPI row, per-row **View** → side-window mini-map.
 - **Detail/builder** — `/workflow/[id]` ✅: Outline / Timeline / Table / Map
-  views; on-canvas editing (add/delete/reorder steps, inline branch routing);
-  drag + keyboard reorder; node kinds incl. `score` + `report`; Preview run.
+  views. The **Table** sub-view matches the handoff: "Flow steps" header card,
+  grouped **Add step** palette, Name + sub-line, Configuration column, "Connects
+  to" chips with if/else branch tags, per-row delete (locked when done), branch
+  footnote. On-canvas editing (add/delete/reorder, inline branch routing); drag +
+  keyboard reorder; node kinds incl. `score` + `report`; Preview run.
 - Free-form x/y canvas remains a non-goal (the engine is sequence-based).
+
+### Assessment & Workshop Flow Builder — `Assessment and workshop flow builder` handoff ✅
+- Adapted **in place** to the app's Next.js paradigm (no invented `ui_configurations`
+  / DB-driven UI layer; copy lives in code). Strictly Supabase.
+- **Quick Start wizard** — `/start` ✅ (full-screen, admin-gated): Team → Focus →
+  Cadence → Invite, mapped onto existing primitives — team insert, curated **Play**
+  (focus → instrument + workshop), cadence in the launched flow's title, and
+  `create_invitation` per email. No new schema.
+- **Dashboard** — `/dashboard` ✅ (enhanced in place, real data only): KPI row,
+  per-team health bars (Insight rollup), derived "Suggested next step" nudge,
+  Active assessments (collection progress via `program_status`), Recent activity
+  (`audit_log`, admins), plus the existing personal to-do.
 
 ### Workflow / Workshop Builder — `Workflow Builder.dc.html` 🟡
 - Workshop builder (`/workshops/[id]`): phase-grouped module picker
