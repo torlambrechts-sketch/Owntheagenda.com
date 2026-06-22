@@ -4,6 +4,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  createFlow,
   createFlowSteps,
   startPlay,
   remindNonResponders,
@@ -144,6 +145,15 @@ export function WorkflowClient({
     );
   }
   const instrumentName = (k: string | null) => (k ? assessments.find((a) => a.key === k)?.name ?? k : null);
+
+  // New flow → create a starter flow and open it straight in the builder.
+  function onNewFlow() {
+    startTransition(async () => {
+      const res = await createFlow(workspaceId, "Untitled flow", null, 4);
+      if (res.error) { flash(res.error); return; }
+      if (res.id) router.push(`/flow/${res.id}`);
+    });
+  }
 
   // Render a single flow's run surface (stage cards + inline builder) for the
   // expanded table row. Keeps all the contextual run actions in one place.
@@ -353,6 +363,11 @@ export function WorkflowClient({
             launch a Play to start in one click.
           </p>
         </div>
+        {canManage ? (
+          <button className="btn-prim" disabled={pending} onClick={onNewFlow}>
+            ＋ New flow
+          </button>
+        ) : null}
       </div>
 
       {programs.length ? (

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { SideWindow } from "@/components/SideWindow";
 import { DYN, dynLabel, opLabel } from "@/app/(app)/workflow/dynamics";
 import {
   addStep,
@@ -13,6 +12,7 @@ import {
   setBranch,
   renameFlow,
   updateStep,
+  duplicateStep,
 } from "@/app/(app)/workflow/actions";
 
 // Full-screen visual Flow Builder — the "Assessment & workshop flow builder"
@@ -63,6 +63,46 @@ const PALETTE_GROUPS: { group: string; items: string[] }[] = [
 const PHASES = ["Measure", "Act", "Route"];
 const PHASE_LABEL: Record<string, string> = { Measure: "Measure", Act: "Act on it", Route: "Route & follow up" };
 
+// Per-kind inspector Configuration fields (the handoff's SCHEMA, adapted to the
+// engine's kinds and this product's English copy — no HSE/ROS framing). Values
+// persist into program_step.config; they are descriptive metadata the builder
+// surfaces, except `branch`, which has its own editor wired to program_set_branch.
+type Field =
+  | { k: string; l: string; t: "text" | "number" | "textarea" }
+  | { k: string; l: string; t: "select"; o: string[] }
+  | { k: string; l: string; t: "toggle" };
+const SCHEMA: Record<string, Field[]> = {
+  assessment: [
+    { k: "instrument", l: "Instrument", t: "text" },
+    { k: "anonymous", l: "Anonymous responses", t: "toggle" },
+  ],
+  launch: [
+    { k: "min_responses", l: "Wait for responses", t: "number" },
+    { k: "collect_days", l: "Collect within (days)", t: "number" },
+  ],
+  score: [
+    { k: "scale", l: "Scale", t: "select", o: ["1–5", "1–7", "0–100"] },
+    { k: "aggregation", l: "Aggregation", t: "select", o: ["Section mean", "Lowest section", "Weighted"] },
+  ],
+  workshop: [
+    { k: "duration", l: "Duration (min)", t: "number" },
+    { k: "participants", l: "Participants", t: "number" },
+    { k: "facilitator", l: "Facilitator", t: "text" },
+    { k: "location", l: "Location", t: "text" },
+    { k: "output", l: "Expected output", t: "textarea" },
+  ],
+  commit: [
+    { k: "due_days", l: "Due (days)", t: "number" },
+    { k: "assignee", l: "Assignee", t: "select", o: ["Auto from result", "Facilitator", "Line manager", "Team lead"] },
+  ],
+  report: [
+    { k: "destination", l: "Destination", t: "select", o: ["Insight hub", "Export PDF", "Email summary"] },
+  ],
+  repulse: [
+    { k: "after_days", l: "Re-pulse after (days)", t: "number" },
+  ],
+};
+
 function stepPill(s: string) {
   return s === "active" ? { l: "Active", c: "open" }
     : s === "done" ? { l: "Done", c: "internal" }
@@ -70,6 +110,8 @@ function stepPill(s: string) {
         : { l: "Pending", c: "draft" };
 }
 function subText(s: BuilderStep): string {
+  const desc = s.config?.description;
+  if (typeof desc === "string" && desc.trim()) return desc;
   if (s.branch) return `If ${dynLabel(s.branch.dynamic)} ${opLabel(s.branch.op)} ${s.branch.value ?? "—"}`;
   switch (s.kind) {
     case "assessment": return "Open the assessment for the team.";
@@ -160,6 +202,15 @@ export function FlowBuilderShell({
   }
   function doBranch(id: string, d: string, o: string, v: number, t: string, e: string) {
     run(setBranch(id, d, o, v, t, e));
+  }
+  // Merge inspector Description / Configuration values into the step's config.
+  function doConfig(id: string, patch: Record<string, unknown>) {
+    const s = steps.find((x) => x.id === id);
+    if (!s) return;
+    run(updateStep(id, { config: { ...s.config, ...patch } }));
+  }
+  function doDuplicate(id: string) {
+    run(duplicateStep(id));
   }
   function persistPos(id: string, x: number, y: number) {
     const s = steps.find((x2) => x2.id === id);
@@ -440,6 +491,8 @@ export function FlowBuilderShell({
               onClose={() => setSelId(null)}
               onRename={doRenameStep}
               onBranch={doBranch}
+              onConfig={doConfig}
+              onDuplicate={doDuplicate}
               onDelete={doRemove}
             />
           </>
@@ -452,30 +505,14 @@ export function FlowBuilderShell({
         )}
       </div>
 
-      <SideWindow open={preview} onClose={() => setPreview(false)} title="Preview run" subtitle={title}>
-        <p style={{ color: "var(--muted)", fontSize: 12.5, marginTop: 0 }}>How this flow runs, step by step.</p>
-        <ol className="agenda">
-          {ordered.map((s, i) => {
-            const k = kindOf(s.kind);
-            return (
-              <li key={s.id} className="agenda-step">
-                <div className="agenda-h">
-                  <span className="agenda-t">{i + 1}. {s.title}</span>
-                  <span className="agenda-meta" style={{ color: k.tone }}>{k.label}</span>
-                </div>
-                <div className="agenda-p">{subText(s)}</div>
-              </li>
-            );
-          })}
-        </ol>
-      </SideWindow>
+      {preview ? <PreviewModal title={title} ordered={ordered} onClose={() => setPreview(false)} /> : null}
     </div>
   );
 }
 
 // ---- Inspector (right rail) ----------------------------------------------
 function Inspector({
-  step, templates, pending, onClose, onRename, onBranch, onDelete,
+  step, templates, pending, onClose, onRename, onBranch, onConfig, onDuplicate, onDelete,
 }: {
   step: BuilderStep | null;
   templates: Template[];
@@ -483,18 +520,23 @@ function Inspector({
   onClose: () => void;
   onRename: (id: string, t: string) => void;
   onBranch: (id: string, d: string, o: string, v: number, t: string, e: string) => void;
+  onConfig: (id: string, patch: Record<string, unknown>) => void;
+  onDuplicate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const [title, setTitle] = useState(step?.title ?? "");
+  const [desc, setDesc] = useState((step?.config?.description as string) ?? "");
   useEffect(() => { setTitle(step?.title ?? ""); }, [step?.id, step?.title]);
+  useEffect(() => { setDesc((step?.config?.description as string) ?? ""); }, [step?.id, step?.config]);
   if (!step) {
     return (
       <div className="fbz-inspect empty">
-        <div className="fbz-inspect-empty">Select a node to configure it, or add one from the palette.</div>
+        <div className="fbz-inspect-empty">Select a node to edit its title, type and settings.</div>
       </div>
     );
   }
   const k = kindOf(step.kind); const pill = stepPill(step.status);
+  const fields = SCHEMA[step.kind] ?? [];
   return (
     <div className="fbz-inspect">
       <div className="fbz-inspect-h">
@@ -502,27 +544,78 @@ function Inspector({
         <button className="fbz-inspect-x" onClick={onClose} aria-label="Close">✕</button>
       </div>
       <label className="fbz-fld">
-        <span>Step name</span>
+        <span>Title</span>
         <input className="inp" value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => onRename(step.id, title)} />
+      </label>
+      <label className="fbz-fld">
+        <span>Description</span>
+        <input className="inp" value={desc} placeholder="Short summary" onChange={(e) => setDesc(e.target.value)} onBlur={() => { if (desc !== ((step.config?.description as string) ?? "")) onConfig(step.id, { description: desc }); }} />
       </label>
       <div className="fbz-fld">
         <span>Status</span>
         <div><span className={`pill sm ${pill.c}`}>{pill.l}</span></div>
       </div>
+
+      {fields.length ? (
+        <div className="fbz-cfg">
+          <div className="fbz-fld-l">Configuration</div>
+          {fields.map((f) => (
+            <ConfigField key={f.k} field={f} value={step.config?.[f.k]} pending={pending} onSave={(v) => onConfig(step.id, { [f.k]: v })} />
+          ))}
+        </div>
+      ) : null}
+
       {step.kind === "branch" ? (
         <BranchEditor step={step} templates={templates} pending={pending} onSave={(d, o, v, t, e) => onBranch(step.id, d, o, v, t, e)} />
-      ) : (
-        <div className="fbz-fld">
-          <span>What it does</span>
-          <p className="fbz-fld-help">{subText(step)}</p>
-        </div>
-      )}
-      {step.status !== "done" ? (
-        <button className="fbz-del" disabled={pending} onClick={() => onDelete(step.id)}>Delete step</button>
-      ) : (
-        <p className="fbz-fld-help">Completed steps are locked.</p>
-      )}
+      ) : null}
+
+      <div className="fbz-inspect-foot">
+        <button className="btn-sec sm fbz-dup" disabled={pending} onClick={() => onDuplicate(step.id)}>⧉ Duplicate</button>
+        {step.status !== "done" ? (
+          <button className="fbz-del sm" disabled={pending} onClick={() => onDelete(step.id)}>🗑 Delete</button>
+        ) : null}
+      </div>
+      {step.status === "done" ? <p className="fbz-fld-help" style={{ marginTop: 10 }}>Completed steps are locked.</p> : null}
     </div>
+  );
+}
+
+// A single inspector Configuration field, persisted on change/blur.
+function ConfigField({
+  field, value, pending, onSave,
+}: {
+  field: Field;
+  value: unknown;
+  pending: boolean;
+  onSave: (v: unknown) => void;
+}) {
+  const [v, setV] = useState<string>(value == null ? "" : String(value));
+  useEffect(() => { setV(value == null ? "" : String(value)); }, [value]);
+  if (field.t === "toggle") {
+    const on = value === true || value === "true";
+    return (
+      <button className="fbz-toggle" disabled={pending} onClick={() => onSave(!on)}>
+        <span>{field.l}</span>
+        <span className={`fbz-switch-pill${on ? " on" : ""}`}><span className="fbz-knob" /></span>
+      </button>
+    );
+  }
+  return (
+    <label className="fbz-fld">
+      <span>{field.l}</span>
+      {field.t === "select" ? (
+        <select className="inp" value={v} onChange={(e) => { setV(e.target.value); onSave(e.target.value); }}>
+          <option value="">Choose…</option>
+          {field.o.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+      ) : field.t === "textarea" ? (
+        <textarea className="inp" rows={2} value={v} onChange={(e) => setV(e.target.value)} onBlur={() => onSave(v)} />
+      ) : (
+        <input className="inp" inputMode={field.t === "number" ? "numeric" : undefined} value={v}
+          onChange={(e) => setV(e.target.value)}
+          onBlur={() => onSave(field.t === "number" ? (v === "" ? null : Number(v)) : v)} />
+      )}
+    </label>
   );
 }
 
@@ -717,6 +810,151 @@ function TableView({
       </div>
     </div>
   );
+}
+
+// ---- Preview run modal ----------------------------------------------------
+function cfgStr(s: BuilderStep, key: string): string | null {
+  const v = s.config?.[key];
+  return typeof v === "string" && v.trim() ? v : null;
+}
+function cfgNum(s: BuilderStep, key: string): number | null {
+  const v = s.config?.[key];
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v.trim() && !Number.isNaN(Number(v))) return Number(v);
+  return null;
+}
+function cfgBool(s: BuilderStep, key: string): boolean {
+  return s.config?.[key] === true || s.config?.[key] === "true";
+}
+function estMinutes(steps: BuilderStep[]): number {
+  return steps.reduce((m, s) => m + (s.kind === "workshop" ? cfgNum(s, "duration") ?? 90 : 5), 0);
+}
+function fmtDur(m: number): string {
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60); const mm = m % 60;
+  return mm ? `${h}h ${mm}m` : `${h}h`;
+}
+
+function PreviewModal({ title, ordered, onClose }: { title: string; ordered: BuilderStep[]; onClose: () => void }) {
+  const branch = ordered.find((s) => s.kind === "branch" && s.branch) ?? null;
+  const [path, setPath] = useState<"then" | "else">("then");
+  return (
+    <div className="fbz-pv-scrim" onClick={onClose}>
+      <div className="fbz-pv" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        <div className="fbz-pv-head">
+          <div>
+            <div className="fbz-pv-eye">Preview run</div>
+            <div className="fbz-pv-title">{title}</div>
+          </div>
+          <button className="fbz-pv-x" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        {branch && branch.branch ? (
+          <div className="fbz-pv-branchbar">
+            <span className="fbz-pv-rule">⑂ If {dynLabel(branch.branch.dynamic)} {opLabel(branch.branch.op)} {branch.branch.value ?? "—"}</span>
+            <div className="fbz-pv-toggle">
+              <button className={path === "then" ? "on" : ""} onClick={() => setPath("then")}>Condition met</button>
+              <button className={path === "else" ? "on" : ""} onClick={() => setPath("else")}>Otherwise</button>
+            </div>
+          </div>
+        ) : null}
+        <div className="fbz-pv-body">
+          {ordered.map((s, i) => <PreviewStep key={s.id} step={s} last={i === ordered.length - 1} path={path} />)}
+          <div className="fbz-pv-done">⚑ Run complete · <b>{ordered.length} step{ordered.length === 1 ? "" : "s"}</b> · estimated <b>{fmtDur(estMinutes(ordered))}</b></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewStep({ step, last, path }: { step: BuilderStep; last: boolean; path: "then" | "else" }) {
+  const k = kindOf(step.kind);
+  return (
+    <div className="fbz-pv-step">
+      {!last ? <span className="fbz-pv-line" /> : null}
+      <span className="fbz-pv-dot" style={{ background: k.tone }} />
+      <div className="fbz-pv-card">
+        <div className="fbz-pv-card-h">
+          <span className="fbz-pv-card-t">{step.title}</span>
+          <span className="fbz-pv-card-k" style={{ color: k.tone }}>{k.label}</span>
+        </div>
+        <div className="fbz-pv-card-b"><PreviewBody step={step} path={path} /></div>
+      </div>
+    </div>
+  );
+}
+
+// Per-kind preview body — every field is driven by the step's own config, so
+// the preview reflects what the builder actually set (no placeholder data).
+function PreviewBody({ step: s, path }: { step: BuilderStep; path: "then" | "else" }) {
+  switch (s.kind) {
+    case "assessment": {
+      const instrument = cfgStr(s, "instrument") ?? "Team pulse";
+      return (
+        <>
+          <div className="fbz-pv-sub">{instrument}{cfgBool(s, "anonymous") ? " · anonymous responses" : ""}</div>
+          <div className="fbz-pv-q">Respondents answer each item on a 1–5 scale</div>
+          <div className="fbz-pv-likert">{[1, 2, 3, 4, 5].map((n) => <span key={n}>{n}</span>)}</div>
+        </>
+      );
+    }
+    case "launch": {
+      const min = cfgNum(s, "min_responses"); const days = cfgNum(s, "collect_days");
+      return (
+        <div className="fbz-pv-chips">
+          <span>⏳ Hold for {min ?? "enough"} responses</span>
+          {days ? <span>📅 within {days} days</span> : null}
+        </div>
+      );
+    }
+    case "interpret":
+      return <div className="fbz-pv-sub">Read the aggregate result together before acting.</div>;
+    case "score": {
+      const scale = cfgStr(s, "scale") ?? "1–5"; const agg = cfgStr(s, "aggregation") ?? "Section mean";
+      return <div className="fbz-pv-chips"><span>Scale {scale}</span><span>{agg}</span></div>;
+    }
+    case "workshop": {
+      const dur = cfgNum(s, "duration"); const part = cfgNum(s, "participants");
+      const loc = cfgStr(s, "location"); const fac = cfgStr(s, "facilitator"); const out = cfgStr(s, "output");
+      const any = dur || part || loc || fac;
+      return (
+        <>
+          {any ? (
+            <div className="fbz-pv-chips">
+              {dur ? <span>🕐 {dur} min</span> : null}
+              {part ? <span>👥 {part} people</span> : null}
+              {loc ? <span>📍 {loc}</span> : null}
+              {fac ? <span>★ {fac}</span> : null}
+            </div>
+          ) : <div className="fbz-pv-sub">Run the workshop session on the results.</div>}
+          {out ? <div className="fbz-pv-out"><b>Expected output:</b> {out}</div> : null}
+        </>
+      );
+    }
+    case "commit": {
+      const due = cfgNum(s, "due_days"); const who = cfgStr(s, "assignee") ?? "an owner";
+      return <div className="fbz-pv-sub">Capture the agreed measures · {who}{due ? ` · due in ${due} days` : ""}.</div>;
+    }
+    case "report": {
+      const dest = cfgStr(s, "destination") ?? "the Insight hub";
+      return <div className="fbz-pv-sub">Share the results to {dest}.</div>;
+    }
+    case "repulse": {
+      const days = cfgNum(s, "after_days");
+      return <div className="fbz-pv-sub">Re-measure{days ? ` after ${days} days` : " later"} to track movement.</div>;
+    }
+    case "branch": {
+      if (!s.branch) return <div className="fbz-pv-sub">Set the routing condition.</div>;
+      const target = path === "then" ? (s.branch.thenName ?? "a workshop") : (s.branch.elseName ?? "a workshop");
+      return (
+        <>
+          <div className="fbz-pv-cond"><span>Condition</span><code>if {dynLabel(s.branch.dynamic)} {opLabel(s.branch.op)} {s.branch.value ?? "—"}</code></div>
+          <div className="fbz-pv-outcome">✓ {path === "then" ? "Condition met" : "Otherwise"} → runs {target}</div>
+        </>
+      );
+    }
+    default:
+      return <div className="fbz-pv-sub">{subText(s)}</div>;
+  }
 }
 
 function PaletteMenu({ onPick, pending }: { onPick: (kind: string) => void; pending: boolean }) {
