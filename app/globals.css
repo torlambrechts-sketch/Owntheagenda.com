@@ -2417,3 +2417,11 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .bview-chip:hover{border-color:var(--green)}
 .bview-chip-t{font-size:13px;font-weight:600;color:var(--ink)}
 .bview-chip-m{font-size:11px;color:var(--faint);font-weight:600}
+
+/* ===== Workshop App faithful home — grid rows + live pulse (exact handoff) ===== */
+.wa-row{display:grid;grid-template-columns:minmax(0,1.6fr) 118px 150px 130px 80px minmax(0,1fr) 168px;gap:0}
+.wa-rowline{cursor:default}
+.wa-rowline:hover{background:#faf9f5}
+@keyframes wa-pulse{0%{box-shadow:0 0 0 0 rgba(22,163,74,.5)}70%{box-shadow:0 0 0 5px rgba(22,163,74,0)}100%{box-shadow:0 0 0 0 rgba(22,163,74,0)}}
+.wa-pulse{animation:wa-pulse 1.5s infinite}
+@media(max-width:900px){.wa-row{grid-template-columns:minmax(0,1.6fr) 110px 120px 90px minmax(0,1fr) 150px}.wa-row>div:nth-child(4){display:none}}

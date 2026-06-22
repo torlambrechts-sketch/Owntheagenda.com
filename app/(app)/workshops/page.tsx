@@ -66,6 +66,46 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
       : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
     const nameById = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Member"]));
     const catById = new Map(tplCards.map((t) => [t.id, t.category]));
+    const tplNameById = new Map(tplCards.map((t) => [t.id, t.name]));
+
+    // Per-workshop outcome rollup (participants / actions / decisions) from the
+    // sessions these workshops have run — drives the rich rows + board cards.
+    const wkIds = rows.map((w) => w.id);
+    const part = new Map<string, number>();
+    const acts = new Map<string, number>();
+    const decs = new Map<string, number>();
+    if (wkIds.length) {
+      const { data: sess } = await supabase
+        .from("session")
+        .select("id, workshop_id")
+        .in("workshop_id", wkIds);
+      const sessList = sess ?? [];
+      const wkBySession = new Map(sessList.map((s) => [s.id, s.workshop_id]));
+      const sIds = sessList.map((s) => s.id);
+      if (sIds.length) {
+        const [{ data: pr }, { data: ai }, { data: dc }] = await Promise.all([
+          supabase.from("participant").select("session_id").in("session_id", sIds),
+          supabase.from("action_item").select("session_id").in("session_id", sIds),
+          supabase.from("decision").select("session_id").in("session_id", sIds),
+        ]);
+        // participants: peak attendance across a workshop's sessions
+        const perSession = new Map<string, number>();
+        for (const p of pr ?? []) perSession.set(p.session_id, (perSession.get(p.session_id) ?? 0) + 1);
+        for (const [sid, n] of perSession) {
+          const wid = wkBySession.get(sid);
+          if (wid) part.set(wid, Math.max(part.get(wid) ?? 0, n));
+        }
+        for (const a of ai ?? []) {
+          const wid = a.session_id ? wkBySession.get(a.session_id) : null;
+          if (wid) acts.set(wid, (acts.get(wid) ?? 0) + 1);
+        }
+        for (const d of dc ?? []) {
+          const wid = d.session_id ? wkBySession.get(d.session_id) : null;
+          if (wid) decs.set(wid, (decs.get(wid) ?? 0) + 1);
+        }
+      }
+    }
+
     workshops = rows.map((w) => ({
       id: w.id,
       title: w.title,
@@ -74,6 +114,10 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
       scheduledAt: w.scheduled_at,
       creatorName: w.created_by ? nameById.get(w.created_by) ?? null : null,
       category: w.template_id ? catById.get(w.template_id) ?? null : null,
+      templateName: w.template_id ? tplNameById.get(w.template_id) ?? null : null,
+      participants: part.get(w.id) ?? 0,
+      actions: acts.get(w.id) ?? 0,
+      decisions: decs.get(w.id) ?? 0,
     }));
   }
 
