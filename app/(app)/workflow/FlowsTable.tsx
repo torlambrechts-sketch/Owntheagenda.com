@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import Link from "next/link";
 import { useTableControls } from "@/components/TableControls";
 import type { ProgramView, TaskView, Member } from "./WorkflowClient";
 
@@ -41,6 +40,7 @@ export function FlowsTable({
   pending,
   onToggleTask,
   onAssignTask,
+  onView,
   renderExpanded,
 }: {
   programs: ProgramView[];
@@ -50,6 +50,7 @@ export function FlowsTable({
   pending: boolean;
   onToggleTask: (task: TaskView, status: string) => void;
   onAssignTask: (taskId: string, ownerId: string | null, ownerName: string | null) => void;
+  onView: (p: ProgramView) => void;
   renderExpanded: (p: ProgramView) => ReactNode;
 }) {
   const [statusTab, setStatusTab] = useState("all");
@@ -138,6 +139,7 @@ export function FlowsTable({
                         pending={pending}
                         onToggleTask={onToggleTask}
                         onAssignTask={onAssignTask}
+                        onView={() => onView(p)}
                         expanded={open ? renderExpanded(p) : null}
                       />
                     );
@@ -242,11 +244,13 @@ function FlowRows({
   pending,
   onToggleTask,
   onAssignTask,
+  onView,
   expanded,
 }: {
   id: string;
   open: boolean;
   onToggle: () => void;
+  onView: () => void;
   title: string;
   typeLabel: string;
   team: string;
@@ -302,7 +306,7 @@ function FlowRows({
         </td>
         <td><span className={`pill sm ${statusPill}`}>{statusText}</span></td>
         <td className="r">
-          <Link href={`/workflow/${id}`} className="linkbtn" style={{ marginRight: 10 }} onClick={(e) => e.stopPropagation()}>Views ›</Link>
+          <button className="linkbtn" style={{ marginRight: 10 }} onClick={(e) => { e.stopPropagation(); onView(); }}>View ›</button>
           <span className={`flow-chev${open ? " open" : ""}`}>▾</span>
         </td>
       </tr>

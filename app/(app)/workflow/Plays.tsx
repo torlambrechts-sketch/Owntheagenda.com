@@ -24,7 +24,7 @@ export function Plays({
     teamId: string,
   ) => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [teamFor, setTeamFor] = useState<Record<string, string>>({});
 
   return (

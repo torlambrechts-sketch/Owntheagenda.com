@@ -25,6 +25,8 @@ import { Plays } from "./Plays";
 import { FlowBuilder } from "./FlowBuilder";
 import { FlowComposer, type ComposerStep } from "./FlowComposer";
 import { FlowsTable } from "./FlowsTable";
+import { FlowMiniMap } from "./FlowMiniMap";
+import { SideWindow } from "@/components/SideWindow";
 
 export type StepView = {
   id: string;
@@ -109,6 +111,8 @@ export function WorkflowClient({
   const [tmplFor, setTmplFor] = useState<Record<string, string>>({});
   const [dateFor, setDateFor] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [viewFlow, setViewFlow] = useState<ProgramView | null>(null);
+  const templateName = (id: string) => templates.find((t) => t.id === id)?.name ?? "a workshop";
 
   function flash(m: string) {
     setToast(m);
@@ -335,20 +339,20 @@ export function WorkflowClient({
       </div>
 
       {canManage ? (
+        <Plays
+          teams={teams}
+          pending={pending}
+          onLaunch={(pk, name, tk, n, ak, tid) => run(() => startPlay(workspaceId, tid, pk, name, tk, n, ak))}
+        />
+      ) : null}
+
+      {canManage ? (
         <FlowComposer
           teams={teams}
           assessments={assessments}
           templates={templates.map((t) => ({ id: t.id, name: t.name }))}
           pending={pending}
           onCreate={createComposed}
-        />
-      ) : null}
-
-      {canManage ? (
-        <Plays
-          teams={teams}
-          pending={pending}
-          onLaunch={(pk, name, tk, n, ak, tid) => run(() => startPlay(workspaceId, tid, pk, name, tk, n, ak))}
         />
       ) : null}
 
@@ -368,9 +372,21 @@ export function WorkflowClient({
             run(() => (t.source === "action" ? toggleActionItem(t.id) : setFlowTask(t.id, status)))
           }
           onAssignTask={(taskId, ownerId, ownerName) => run(() => assignFlowTask(taskId, ownerId, ownerName))}
+          onView={setViewFlow}
           renderExpanded={renderStages}
         />
       )}
+
+      <SideWindow
+        open={!!viewFlow}
+        onClose={() => setViewFlow(null)}
+        title={viewFlow?.title ?? "Flow"}
+        subtitle="Flow visualization"
+        size="wide"
+        footer={viewFlow ? <Link className="btn-prim" href={`/workflow/${viewFlow.id}`}>Open full builder →</Link> : null}
+      >
+        {viewFlow ? <FlowMiniMap steps={viewFlow.steps} templateName={templateName} /> : null}
+      </SideWindow>
 
       {toast ? <div className="toast">{toast}</div> : null}
     </>
