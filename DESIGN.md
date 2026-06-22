@@ -101,6 +101,32 @@ the handoff is the app favicon (`app/icon.svg`).
 - Further bespoke module types (mind map, affinity, ranking) remain on the backlog
   (each needs a run-side renderer).
 
+### Workshop App — `Workshop_App.html` handoff ✅
+Adapted **in place** onto `/workshops` (extending, not rebuilding) — app tokens
+and real Supabase data only, no `ui_configurations` layer.
+- **Home upgrade** — `/workshops` ✅: a KPI summary row (live & scheduled, run
+  this quarter, action items, completed — all derived from real `workshop`/
+  `session` rows), a **Table / Board** layout toggle, and a Board layout that
+  shows live & upcoming work as focus cards and finished workshops as a history
+  list. "Manage templates →" links to the new editor.
+- **Template manager + editor** — `/workshops/templates` ✅: lists system
+  frameworks + workspace-owned templates, with a phase-grouped agenda editor
+  (block library by Open/Diverge/Converge/Decide/Close, reorder, per-step title/
+  duration/prompt, phase summary). Reads/writes `template.definition`; system
+  templates are read-only with a "duplicate to edit" path. `saveWorkshopTemplate`
+  / `deleteWorkshopTemplate` server actions (RLS already restricts writes to
+  workspace admins — no migration). Shared `app/(app)/workshops/blocks.ts` maps
+  activities → phases.
+- **Builder view metaphors** — `/workshops/[id]` ✅: Agenda (default rich
+  vertical timeline) + **Table** + **Timeline** (phase lanes) reads of the same
+  blocks.
+- **Run cockpit** — `/run/[id]` ✅ (pre-existing): run-of-show rail + stage +
+  step progress + timer already match the handoff.
+- **Results readout** — `/workshops/[id]/overview` ✅: design-adapted readout,
+  now fronted by a 4-stat header (participation, actions, steps, alignment) from
+  real session/action/assessment data.
+- The handoff's free-form node-graph builder remains served by `/flow/[id]`.
+
 ### Organisation & Security — `Organisation & Security.dc.html` ⛔
 - Not yet adopted from this handoff.
 

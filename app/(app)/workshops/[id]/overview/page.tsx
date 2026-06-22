@@ -213,6 +213,42 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
         </div>
       ) : null}
 
+      {/* Results stats row (Workshop App handoff) — all derived from real data. */}
+      {(attendees.length || actions.length || assessment) ? (
+        <div className="wk-kpis" style={{ marginTop: 0 }}>
+          <div className="wk-kpi">
+            <div className="wk-kpi-v">{attendees.length}</div>
+            <div className="wk-kpi-l">Participation</div>
+            <div className="wk-kpi-s">{attendees.length ? "in the room" : "not run yet"}</div>
+          </div>
+          <div className="wk-kpi">
+            <div className="wk-kpi-v">{actions.length}</div>
+            <div className="wk-kpi-l">Action items</div>
+            <div className="wk-kpi-s">{actions.filter((a) => a.done).length} done</div>
+          </div>
+          <div className="wk-kpi">
+            <div className="wk-kpi-v">{blockList.length}</div>
+            <div className="wk-kpi-l">Agenda steps</div>
+            <div className="wk-kpi-s">{totalMins} min planned</div>
+          </div>
+          <div className="wk-kpi">
+            <div className="wk-kpi-v">
+              {assessment && assessment.scores.length
+                ? (assessment.scores.reduce((s, x) => s + x.mean, 0) / assessment.scores.length).toFixed(1)
+                : "—"}
+            </div>
+            <div className="wk-kpi-l">Alignment</div>
+            <div className="wk-kpi-s">
+              {assessment && assessment.scores.length
+                ? assessment.belowCount
+                  ? `${assessment.belowCount} below band`
+                  : "all in band"
+                : "no assessment"}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="wsd-grid">
         <div className="wsd-main">
           {/* From the assessment */}
