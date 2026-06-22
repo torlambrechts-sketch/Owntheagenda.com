@@ -2404,3 +2404,16 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .wk-fcard-new{align-items:center;justify-content:center;gap:10px;color:var(--green);font-weight:700;font-size:13px;border-style:dashed;cursor:pointer;font-family:inherit;min-height:120px}
 .wk-fcard-new:hover{border-color:var(--green);background:var(--canvas)}
 .wk-fcard-new .wcard-ring{border-color:currentColor;width:42px;height:42px}
+
+/* ===== Workshop builder view metaphors (Workshop App handoff) ===== */
+.bview-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.bview-phase{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--muted)}
+.bview-timeline{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;margin-bottom:16px}
+.bview-lane{flex:1;min-width:180px;background:var(--canvas);border:1px solid var(--line);border-radius:11px;padding:12px}
+.bview-lane-h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--ink);margin-bottom:10px}
+.bview-lane-meta{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);letter-spacing:0;text-transform:none}
+.bview-lane-items{display:flex;flex-direction:column;gap:8px}
+.bview-chip{text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:9px 11px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;gap:2px}
+.bview-chip:hover{border-color:var(--green)}
+.bview-chip-t{font-size:13px;font-weight:600;color:var(--ink)}
+.bview-chip-m{font-size:11px;color:var(--faint);font-weight:600}

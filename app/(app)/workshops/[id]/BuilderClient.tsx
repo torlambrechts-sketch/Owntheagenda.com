@@ -168,6 +168,10 @@ export function BuilderClient({
   const [titleOpen, setTitleOpen] = useState(false);
   const [wsTitle, setWsTitle] = useState(workshop.title);
 
+  // builder view metaphor (Workshop App handoff): the rich vertical agenda
+  // stays the default; Table and Timeline are alternate reads of the same steps.
+  const [bView, setBView] = useState<"agenda" | "table" | "timeline">("agenda");
+
   // schedule editor
   const [schedOpen, setSchedOpen] = useState(false);
   const [schedAt, setSchedAt] = useState("");
@@ -479,11 +483,86 @@ export function BuilderClient({
       ) : null}
 
       {blocks.length ? (
-        <div className="agenda-sum">
-          {blocks.length} step{blocks.length === 1 ? "" : "s"} · runs ~{blocks.reduce((s, b) => s + b.duration, 0)} min
+        <div className="bview-bar">
+          <div className="agenda-sum" style={{ margin: 0 }}>
+            {blocks.length} step{blocks.length === 1 ? "" : "s"} · runs ~{blocks.reduce((s, b) => s + b.duration, 0)} min
+          </div>
+          <div className="wk-layout-seg" role="group" aria-label="Agenda view">
+            <button className={`wk-seg${bView === "agenda" ? " on" : ""}`} onClick={() => setBView("agenda")}>Agenda</button>
+            <button className={`wk-seg${bView === "table" ? " on" : ""}`} onClick={() => setBView("table")}>Table</button>
+            <button className={`wk-seg${bView === "timeline" ? " on" : ""}`} onClick={() => setBView("timeline")}>Timeline</button>
+          </div>
         </div>
       ) : null}
-      <div className="blocks">
+
+      {blocks.length && bView === "table" ? (
+        <div className="tbl-card" style={{ marginBottom: 16 }}>
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th style={{ width: 36 }}>#</th>
+                <th>Step</th>
+                <th style={{ width: 120 }}>Phase</th>
+                <th style={{ width: 90 }}>Duration</th>
+                <th>Connects to</th>
+              </tr>
+            </thead>
+            <tbody>
+              {blocks.map((b, i) => {
+                const act = ACTIVITY[b.activityType] ?? { label: b.activityType, cls: "" };
+                const ph = phaseOf(b.activityType);
+                const next = blocks[i + 1];
+                return (
+                  <tr key={b.id} onClick={() => canManage && openEdit(b)} style={canManage ? { cursor: "pointer" } : undefined}>
+                    <td style={{ color: "var(--faint)", fontWeight: 700 }}>{i + 1}</td>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{b.title}</span>
+                      <span className={`pill sm ${act.cls}`} style={{ marginLeft: 8 }}>{act.label}</span>
+                    </td>
+                    <td>
+                      <span className="bview-phase"><span className="tpl-phase-dot" style={{ background: ph.color }} />{ph.label || "—"}</span>
+                    </td>
+                    <td>{b.duration} min</td>
+                    <td style={{ color: "var(--muted)" }}>{next ? next.title : <span style={{ color: "var(--faint)" }}>End of workshop</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {blocks.length && bView === "timeline" ? (
+        <div className="bview-timeline">
+          {ACT_PHASES.map((phase) => {
+            const items = blocks.filter((b) => phaseOf(b.activityType).label === phase.label);
+            if (!items.length) return null;
+            const mins = items.reduce((s, b) => s + b.duration, 0);
+            return (
+              <div className="bview-lane" key={phase.label}>
+                <div className="bview-lane-h">
+                  <span className="tpl-phase-dot" style={{ background: PHASE_COLOR[phase.label] }} />
+                  {phase.label}
+                  <span className="bview-lane-meta">{items.length} · {mins}m</span>
+                </div>
+                <div className="bview-lane-items">
+                  {items.map((b) => {
+                    const act = ACTIVITY[b.activityType] ?? { label: b.activityType, cls: "" };
+                    return (
+                      <button key={b.id} type="button" className="bview-chip" onClick={() => canManage && openEdit(b)}>
+                        <span className="bview-chip-t">{b.title}</span>
+                        <span className="bview-chip-m">{act.label} · {b.duration}m</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <div className="blocks" style={bView === "agenda" ? undefined : { display: "none" }}>
         {blocks.map((b, i) => {
           const start = acc;
           acc += b.duration;
