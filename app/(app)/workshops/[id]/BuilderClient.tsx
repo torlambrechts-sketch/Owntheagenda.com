@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { ACTIVITY, clock } from "@/lib/util";
@@ -16,6 +17,8 @@ import {
   setBlockSurvey,
 } from "../actions";
 import { sendSurvey } from "../../assessments/actions";
+import { PALETTE, DEFAULT_MINUTES, phaseOf as phaseKey } from "../blocks";
+import { Icon, statusVis, actIcon, PHASE_VIS, WA } from "../visuals";
 
 type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
 export type AssessmentPanel = {
@@ -79,6 +82,92 @@ const ACT_HINT: Partial<Record<Activity, string>> = {
   hmw: "Reframe the problem as “How might we…” and gather ideas, dot-voted live.",
   retrospective: "Cards posted into Start / Stop / Continue columns.",
 };
+
+const VIEW_HINT: Record<string, string> = {
+  table: "Blocks as table rows — click a row to edit it in the panel.",
+  canvas: "Free-form canvas — drag a block left or right to reorder.",
+  agenda: "The full agenda — every block with its configuration.",
+  timeline: "Phases left to right — read the session at a glance.",
+};
+
+// Canvas (node-graph) view of the linear agenda: nodes left-to-right joined by
+// connectors, draggable to reorder. Click a node to edit it in the side panel.
+function AgendaCanvas({
+  blocks, selectedId, canManage, onSelect, onReorder,
+}: {
+  blocks: BlockRow[];
+  selectedId: string | null;
+  canManage: boolean;
+  onSelect: (b: BlockRow) => void;
+  onReorder: (ids: string[]) => void;
+}) {
+  const NODE_W = 210, GAP = 56, STEP = NODE_W + GAP, X0 = 24, Y = 30;
+  const [order, setOrder] = useState<string[] | null>(null);
+  const dragRef = useRef<{ id: string; startX: number; moved: boolean } | null>(null);
+  const ids = order ?? blocks.map((b) => b.id);
+  const byId = new Map(blocks.map((b) => [b.id, b] as const));
+  const list = ids.map((id) => byId.get(id)).filter(Boolean) as BlockRow[];
+
+  function onDown(e: React.PointerEvent, id: string) {
+    if (!canManage) return;
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+    dragRef.current = { id, startX: e.clientX, moved: false };
+    setOrder(blocks.map((b) => b.id));
+  }
+  function onMove(e: React.PointerEvent) {
+    const d = dragRef.current;
+    if (!d) return;
+    const cur = (order ?? blocks.map((b) => b.id)).slice();
+    const from = cur.indexOf(d.id);
+    const dx = e.clientX - d.startX;
+    if (Math.abs(dx) > 4) d.moved = true;
+    const target = Math.max(0, Math.min(cur.length - 1, Math.round((from * STEP + dx) / STEP)));
+    if (target !== from) {
+      cur.splice(from, 1);
+      cur.splice(target, 0, d.id);
+      d.startX = e.clientX; // re-anchor to the dropped position
+      setOrder(cur);
+    }
+  }
+  function onUp() {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d) return;
+    const final = order;
+    setOrder(null);
+    if (d.moved && final && final.join() !== blocks.map((b) => b.id).join()) onReorder(final);
+  }
+
+  const width = Math.max(list.length * STEP + X0 + GAP, 600);
+  return (
+    <div className="wb-canvas" onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onUp}>
+      <div className="wb-canvas-surface" style={{ width, height: 200 }}>
+        <svg width={width} height={200} style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          {list.slice(0, -1).map((b, i) => {
+            const x1 = X0 + i * STEP + NODE_W, x2 = X0 + (i + 1) * STEP, my = Y + 44;
+            return <path key={b.id} d={`M ${x1} ${my} C ${x1 + 28} ${my}, ${x2 - 28} ${my}, ${x2} ${my}`} fill="none" stroke="#cbd5d2" strokeWidth={2} markerEnd="url(#wbarrow)" />;
+          })}
+          <defs><marker id="wbarrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#cbd5d2" /></marker></defs>
+        </svg>
+        {list.map((b, i) => {
+          const pv = PHASE_VIS[phaseKey(b.activityType)];
+          const sel = selectedId === b.id;
+          return (
+            <div key={b.id} onPointerDown={(e) => onDown(e, b.id)} onClick={() => { if (!dragRef.current?.moved) onSelect(b); }}
+              className="wb-node" style={{ left: X0 + i * STEP, top: Y, width: NODE_W, borderColor: sel ? WA.accent : "#e6e2d8", boxShadow: sel ? `0 0 0 2px ${WA.accent}, 0 10px 22px rgba(0,0,0,.12)` : "0 1px 2px rgba(0,0,0,.05),0 4px 10px rgba(0,0,0,.03)", cursor: canManage ? "grab" : "pointer" }}>
+              <div className="wb-node-h">
+                <span className="wb-node-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(b.activityType)} size={13} color={pv.accent} /></span>
+                <span className="wb-node-kind" style={{ color: pv.accent }}>{ACTIVITY[b.activityType]?.label ?? b.activityType}</span>
+              </div>
+              <div className="wb-node-t">{b.title || "Untitled"}</div>
+              <div className="wb-node-s">{b.duration} min</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function toLocalInput(iso: string | null): string {
   const d = iso ? new Date(iso) : new Date(Date.now() + 24 * 3600 * 1000);
@@ -168,9 +257,29 @@ export function BuilderClient({
   const [titleOpen, setTitleOpen] = useState(false);
   const [wsTitle, setWsTitle] = useState(workshop.title);
 
-  // builder view metaphor (Workshop App handoff): the rich vertical agenda
-  // stays the default; Table and Timeline are alternate reads of the same steps.
-  const [bView, setBView] = useState<"agenda" | "table" | "timeline">("agenda");
+  // builder view metaphor (Workshop App handoff): Table / Canvas / Outline /
+  // Timeline reads of the same agenda. Outline is the rich feature-complete list.
+  const [bView, setBView] = useState<"table" | "canvas" | "agenda" | "timeline">("table");
+  const [fullscreen, setFullscreen] = useState(false);
+  // inline title editing in the builder chrome
+  const [titleDraft, setTitleDraft] = useState(workshop.title);
+  async function commitTitle() {
+    const next = titleDraft.trim();
+    if (!next || next === workshop.title) { setTitleDraft(workshop.title); return; }
+    const res = await updateWorkshopTitle(workshop.id, next);
+    if (res.error) { flash(res.error); setTitleDraft(workshop.title); }
+    else { flash("Workshop renamed"); router.refresh(); }
+  }
+  // quick-add a block straight from the builder palette (no side-window)
+  function quickAdd(activityType: Activity) {
+    const def = DEFAULT_MINUTES[activityType] ?? 10;
+    const cfg: Record<string, unknown> =
+      activityType === "retrospective" ? { lanes: ["Start", "Stop", "Continue"] }
+        : activityType === "vote" ? { budget: 3, options: [] }
+          : activityType === "brainstorm" || activityType === "hmw" ? { budget: 3 }
+            : {};
+    run(() => addBlock({ workshopId: workshop.id, title: ACTIVITY[activityType]?.label ?? "Step", activityType, duration: def, prompt: null, linkedDynamic: null, config: cfg }), "Block added");
+  }
 
   // schedule editor
   const [schedOpen, setSchedOpen] = useState(false);
@@ -383,7 +492,7 @@ export function BuilderClient({
   let acc = 0;
 
   return (
-    <>
+    <div className={fullscreen ? "wb-root wb-full" : "wb-root"}>
       <div className={`objbar${workshop.objective ? "" : " empty"}`}>
         <div className="objlab">Objective</div>
         <div className="objtext">
@@ -396,49 +505,67 @@ export function BuilderClient({
         ) : null}
       </div>
 
-      <div className="summary" style={{ marginTop: 8 }}>
-        <div className="stat">
-          <div className="num" style={{ fontSize: 24 }}>
-            {workshop.title}
-          </div>
-          <div className="lab">{teamName}</div>
+      <div className="wb-chrome">
+        <div className="wb-crumb">
+          <Link href="/workshops" className="wb-crumb-l">Workshops</Link>
+          <span className="wb-crumb-sep">›</span>
+          <span className="wb-crumb-id">{teamName || "Team"}</span>
         </div>
-        <div className="vr" />
-        <div className="stat">
-          <div className="num">{totalMin}</div>
-          <div className="lab">Minutes</div>
-        </div>
-        <div className="vr" />
-        <div className="stat">
-          <div className="num">{blocks.length}</div>
-          <div className="lab">Blocks</div>
-        </div>
-        {workshop.scheduledAt ? (
-          <>
-            <div className="vr" />
-            <div className="stat">
-              <div className="num" style={{ fontSize: 15 }}>{fmtSched(workshop.scheduledAt)}</div>
-              <div className="lab">Scheduled</div>
+        <div className="wb-head">
+          <div className="wb-head-l">
+            {canManage ? (
+              <input
+                className="wb-title-inp"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                placeholder="Workshop name"
+              />
+            ) : (
+              <div className="wb-title-static">{workshop.title}</div>
+            )}
+            <div className="wb-chips">
+              <span className="wb-statuspill">{workshop.scheduledAt ? "Scheduled" : "Draft"}</span>
+              <span className="wb-dot">·</span>
+              <span className="wb-chip"><Icon name="Clock" size={13} color={WA.faint2} /> {totalMin} min</span>
+              <span className="wb-dot">·</span>
+              <span className="wb-chip">{blocks.length} blocks</span>
+              {workshop.scheduledAt ? <><span className="wb-dot">·</span><span className="wb-chip"><Icon name="Calendar" size={13} color={WA.faint2} /> {fmtSched(workshop.scheduledAt)}</span></> : null}
+              <span className="wb-dot">·</span>
+              {pending ? <span className="wb-saving"><span className="wb-savedot saving" />Saving…</span> : <span className="wb-saved"><span className="wb-savedot" />All changes saved</span>}
             </div>
-          </>
-        ) : null}
-        <div className="actions">
+          </div>
+          <div className="wb-actions">
+            <button className="wb-btn" onClick={() => setFullscreen((f) => !f)}>{fullscreen ? "Exit full screen" : "Full screen"}</button>
+            {canManage ? <button className="wb-btn" onClick={openSchedule}>{workshop.scheduledAt ? "Reschedule" : "Schedule"}</button> : null}
+            <button className="wb-btn wb-btn-prim" onClick={() => router.push(`/run/${workshop.id}`)}><Icon name="Play" size={14} color="#fff" /> Start session</button>
+          </div>
+        </div>
+        <div className="wb-viewbar">
+          <div className="wb-seg">
+            {([["table", "Table"], ["canvas", "Canvas"], ["agenda", "Outline"], ["timeline", "Timeline"]] as const).map(([k, l]) => (
+              <button key={k} className={`wb-segbtn${bView === k ? " on" : ""}`} onClick={() => setBView(k)}>{l}</button>
+            ))}
+          </div>
+          <span className="wb-hint">{VIEW_HINT[bView]}</span>
           {canManage ? (
-            <button className="btn-sec" onClick={() => { setWsTitle(workshop.title); setTitleOpen(true); }}>
-              Rename
-            </button>
+            <div className="wb-palette">
+              <span className="wb-palette-l">Add block</span>
+              {PALETTE.map((g) => (
+                <span key={g.key} className="wb-palette-grp">
+                  {g.acts.map((a) => {
+                    const pv = PHASE_VIS[g.key];
+                    return (
+                      <button key={a} type="button" className="wb-palette-item" style={{ borderColor: pv.border, background: pv.tint, color: pv.accent }} onClick={() => quickAdd(a)} title={`Add ${ACTIVITY[a]?.label ?? a}`}>
+                        <Icon name={actIcon(a)} size={12} color={pv.accent} />{ACTIVITY[a]?.label ?? a}
+                      </button>
+                    );
+                  })}
+                </span>
+              ))}
+            </div>
           ) : null}
-          {canManage ? (
-            <button className="btn-sec" onClick={openSchedule}>
-              {workshop.scheduledAt ? "Reschedule" : "Schedule"}
-            </button>
-          ) : null}
-          <button
-            className="btn-prim"
-            onClick={() => router.push(`/run/${workshop.id}`)}
-          >
-            Start session ▸
-          </button>
         </div>
       </div>
 
@@ -482,17 +609,12 @@ export function BuilderClient({
         </div>
       ) : null}
 
-      {blocks.length ? (
-        <div className="bview-bar">
-          <div className="agenda-sum" style={{ margin: 0 }}>
-            {blocks.length} step{blocks.length === 1 ? "" : "s"} · runs ~{blocks.reduce((s, b) => s + b.duration, 0)} min
-          </div>
-          <div className="wk-layout-seg" role="group" aria-label="Agenda view">
-            <button className={`wk-seg${bView === "agenda" ? " on" : ""}`} onClick={() => setBView("agenda")}>Agenda</button>
-            <button className={`wk-seg${bView === "table" ? " on" : ""}`} onClick={() => setBView("table")}>Table</button>
-            <button className={`wk-seg${bView === "timeline" ? " on" : ""}`} onClick={() => setBView("timeline")}>Timeline</button>
-          </div>
-        </div>
+      {blocks.length === 0 ? (
+        <div className="empty" style={{ marginTop: 8 }}>No blocks yet — add one from the palette above{canManage ? "" : " (ask a facilitator)"}.</div>
+      ) : null}
+
+      {blocks.length && bView === "canvas" ? (
+        <AgendaCanvas blocks={blocks} selectedId={editId} canManage={canManage} onSelect={openEdit} onReorder={(ids) => run(() => reorderBlocks(workshop.id, ids), "Reordered")} />
       ) : null}
 
       {blocks.length && bView === "table" ? (
@@ -890,6 +1012,6 @@ export function BuilderClient({
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
         <span>{toast}</span>
       </div>
-    </>
+    </div>
   );
 }

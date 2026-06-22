@@ -2471,3 +2471,50 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 
 /* Template editor: stack the block library under the agenda on narrow screens */
 @media(max-width:880px){.tpl-edit-grid{grid-template-columns:1fr!important}.tpl-edit-side{position:static!important}}
+
+/* ===== Workshop builder chrome + canvas (Workshop App handoff, exact palette) ===== */
+.wb-root{position:relative}
+.wb-full{position:fixed;inset:0;z-index:120;background:#F9F7F2;overflow:auto;padding:18px 26px 60px}
+.wb-chrome{background:#fff;border:1px solid #eae8e1;border-radius:13px;padding:14px 18px 0;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.wb-crumb{font-size:12px;color:#737373;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.wb-crumb-l{color:#737373;text-decoration:none}
+.wb-crumb-l:hover{color:#404040}
+.wb-crumb-sep{color:#d4d4d4}
+.wb-crumb-id{color:#525252}
+.wb-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.wb-head-l{min-width:0;flex:1}
+.wb-title-inp{display:block;width:100%;max-width:560px;border:1px solid transparent;border-radius:7px;background:transparent;padding:2px 7px;margin-left:-7px;font-family:var(--font-display);font-size:25px;font-weight:600;letter-spacing:-.015em;color:#171717;outline:none}
+.wb-title-inp:hover{background:#f7f6f1}
+.wb-title-inp:focus{background:#fff;border-color:#d4d4d4}
+.wb-title-static{font-family:var(--font-display);font-size:25px;font-weight:600;letter-spacing:-.015em;color:#171717}
+.wb-chips{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin-top:9px;font-size:12px;color:#525252}
+.wb-chip{display:inline-flex;align-items:center;gap:5px;font-variant-numeric:tabular-nums}
+.wb-dot{color:#d4d4d4}
+.wb-statuspill{font-weight:600;padding:3px 9px;border-radius:999px;background:#f5f5f5;border:1px solid #e5e5e5;color:#404040}
+.wb-saved{display:inline-flex;align-items:center;gap:5px;color:#15803d}
+.wb-saving{display:inline-flex;align-items:center;gap:5px;color:#b45309}
+.wb-savedot{width:6px;height:6px;border-radius:50%;background:#16a34a}
+.wb-savedot.saving{background:#d97706;animation:wa-pulse 1s infinite}
+.wb-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.wb-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid #d4d4d4;background:#fff;border-radius:7px;padding:8px 13px;font-size:13px;font-weight:600;color:#404040;cursor:pointer;font-family:inherit}
+.wb-btn:hover{background:#fafafa}
+.wb-btn-prim{border:none;background:var(--forest);color:#fff}
+.wb-btn-prim:hover{filter:brightness(.94)}
+.wb-viewbar{display:flex;align-items:center;gap:14px;margin-top:14px;padding-bottom:14px;flex-wrap:wrap}
+.wb-seg{display:inline-flex;gap:3px;padding:3px;background:#f1efe8;border-radius:9px}
+.wb-segbtn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:7px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:#6b6f68}
+.wb-segbtn.on{background:#fff;color:#1a3d32;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.wb-hint{font-size:12px;color:#a3a3a3}
+.wb-palette{display:flex;align-items:center;gap:6px;flex-wrap:wrap;width:100%;border-top:1px solid #f1efe8;padding-top:11px}
+.wb-palette-l{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#737373;margin-right:2px}
+.wb-palette-grp{display:inline-flex;gap:6px;flex-wrap:wrap}
+.wb-palette-item{display:inline-flex;align-items:center;gap:5px;border:1px solid;border-radius:7px;padding:4px 9px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.wb-palette-item:hover{filter:brightness(.97)}
+.wb-canvas{background:#F9F7F2;border:1px solid #eae8e1;border-radius:13px;overflow:auto;margin-bottom:16px;padding:8px}
+.wb-canvas-surface{position:relative}
+.wb-node{position:absolute;background:#fff;border:1px solid #e6e2d8;border-radius:12px;padding:11px 13px;user-select:none;touch-action:none}
+.wb-node-h{display:flex;align-items:center;gap:7px}
+.wb-node-ic{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px}
+.wb-node-kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.wb-node-t{margin-top:8px;font-size:13.5px;font-weight:600;color:#171717;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb-node-s{margin-top:2px;font-size:11px;color:#737373}
