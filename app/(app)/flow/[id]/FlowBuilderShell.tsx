@@ -158,6 +158,7 @@ export function FlowBuilderShell({
   const [selId, setSelId] = useState<string | null>(initialSteps[0]?.id ?? null);
   const [addMenu, setAddMenu] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => { setSteps(initialSteps); }, [initialSteps]);
   useEffect(() => { setTitle(initialTitle); }, [initialTitle]);
@@ -330,15 +331,18 @@ export function FlowBuilderShell({
           : "Steps grouped by phase";
 
   return (
-    <div className="fbz">
-      {/* top bar */}
-      <div className="fbz-top">
-        <Link href="/workflow" className="fbz-brand">Own<span>theagenda</span></Link>
-        <span className="fbz-top-vr" />
-        <span className="fbz-top-ctx">Flows · Builder</span>
-        <span className="fbz-top-sp" />
-        {teamName ? <span className="fbz-top-team">{teamName}</span> : null}
-      </div>
+    <div className={`fbz ${fullscreen ? "fullscreen" : "framed"}`}>
+      {/* top bar — only in full-screen, where the app shell is hidden */}
+      {fullscreen ? (
+        <div className="fbz-top">
+          <Link href="/workflow" className="fbz-brand">Own<span>theagenda</span></Link>
+          <span className="fbz-top-vr" />
+          <span className="fbz-top-ctx">Flows · Builder</span>
+          <span className="fbz-top-sp" />
+          {teamName ? <span className="fbz-top-team">{teamName}</span> : null}
+          <button className="fbz-top-exit" onClick={() => setFullscreen(false)}>⤡ Exit full screen</button>
+        </div>
+      ) : null}
 
       {/* builder header */}
       <div className="fbz-head">
@@ -375,6 +379,9 @@ export function FlowBuilderShell({
           </div>
           <div className="fbz-head-acts">
             <Link href={`/workflow/${programId}`} className="btn-sec">✕ Close</Link>
+            <button className="btn-sec" onClick={() => setFullscreen((v) => !v)} title={fullscreen ? "Exit full screen" : "Full screen"}>
+              {fullscreen ? "⤡ Exit full screen" : "⤢ Full screen"}
+            </button>
             <button className="btn-sec" onClick={() => setPreview(true)}>▷ Preview run</button>
             <button className="btn-prim" onClick={() => router.push("/workflow")}>Publish</button>
           </div>

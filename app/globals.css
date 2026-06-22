@@ -2111,8 +2111,15 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 @media(max-width:920px){.dash-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.dash-kpis{grid-template-columns:repeat(2,1fr)}.dash-bar-n{width:110px}}
 /* Full-screen visual Flow Builder (/flow/[id]) */
-.fbz{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--canvas);color:var(--ink)}
+.fbz{display:flex;flex-direction:column;overflow:hidden;background:var(--canvas);color:var(--ink)}
+/* Embedded in the app frame: fill the content area edge-to-edge (cancel the
+   .content padding) below the 54px appbar. */
+.fbz.framed{height:calc(100vh - 54px);margin:-26px calc(-1 * clamp(20px,3vw,40px))}
+/* Expanded: escape the shell entirely. */
+.fbz.fullscreen{position:fixed;inset:0;z-index:200;height:100vh}
 .fbz-top{height:50px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 18px;background:var(--forest);color:#fff}
+.fbz-top-exit{border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.fbz-top-exit:hover{background:rgba(255,255,255,.2)}
 .fbz-brand{font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.005em;color:#fff;text-decoration:none}
 .fbz-brand span{color:rgba(255,255,255,.6)}
 .fbz-top-vr{width:1px;height:20px;background:rgba(255,255,255,.18)}
