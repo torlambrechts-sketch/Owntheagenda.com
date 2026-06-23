@@ -9,6 +9,9 @@ import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 // so we never run the per-survey RPC loop across the whole list.
 export type SectionScore = { key: string; label: string; blurb: string; mean: number; pct: number; band: 0 | 1 | 2 };
 export type DetailQuestion = { key: string; dimension: string; text: string };
+// Per-question roll-up — derived from the same `survey_results` RPC items, only
+// surfaced once results are unmasked. Powers the design's "Question breakdown".
+export type QuestionScore = { key: string; dimension: string; text: string; mean: number; pct: number; band: 0 | 1 | 2 };
 export type AssessmentDetail = {
   surveyId: string;
   instrumentName: string;
@@ -18,12 +21,15 @@ export type AssessmentDetail = {
   questions: DetailQuestion[];
   sections: { key: string; label: string; count: number }[];
   respondents: number;
+  invited: number | null; // team size the survey was sent to — the response-rate denominator
   masked: boolean;
   submissions: string[]; // anonymous submission timestamps (only when unmasked)
   scores: SectionScore[]; // empty when masked / no responses yet
+  questionScores: QuestionScore[]; // per-question means (empty when masked / no responses)
   overall: number | null; // overall mean on the instrument scale
   lowestLabel: string | null;
   belowCount: number;
+  targetLowPct: number; // healthy-band lower edge as a % of the scale (for the band marker)
   linkedWorkshop: { id: string; title: string } | null; // a workshop carrying this survey
   activity: { id: number; label: string; actor: string; at: string }[]; // audit events (admins)
 };
@@ -37,16 +43,18 @@ const ACTION_LABEL: Record<string, string> = {
 
 // Generalised banding by position on the instrument's scale. The design's hard
 // 3.0/1–5 threshold becomes a scale-relative band so it works for 1–7 (the
-// leadership-team instruments) as well as 1–5.
+// leadership-team instruments) as well as 1–5. TARGET_LOW_PCT is the lower edge
+// of the "healthy" band — the design draws its target band from here upward.
+const TARGET_LOW_PCT = 45;
 function bandOf(pct: number): 0 | 1 | 2 {
-  return pct < 45 ? 0 : pct < 62 ? 1 : 2;
+  return pct < TARGET_LOW_PCT ? 0 : pct < 62 ? 1 : 2;
 }
 
 export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: string; detail?: AssessmentDetail }> {
   const supabase = createClient();
   const { data: survey } = await supabase
     .from("survey")
-    .select("id, kind, status")
+    .select("id, kind, status, team_id")
     .eq("id", surveyId)
     .single();
   if (!survey) return { error: "Assessment not found." };
@@ -61,6 +69,17 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
     label: d.label,
     count: inst.items.filter((it) => it.dimension === d.key).length,
   }));
+
+  // Response-rate denominator: how many people the survey was sent to. The survey
+  // runs for a team, so the team's current membership is the invited population.
+  let invited: number | null = null;
+  if (survey.team_id) {
+    const { count } = await supabase
+      .from("team_member")
+      .select("id", { count: "exact", head: true })
+      .eq("team_id", survey.team_id as string);
+    invited = count ?? null;
+  }
 
   // Aggregate results — masked server-side until the minimum responder count is
   // met, so individual answers are never exposed.
@@ -81,6 +100,7 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   }
 
   let scores: SectionScore[] = [];
+  let questionScores: QuestionScore[] = [];
   let overall: number | null = null;
   let lowestLabel: string | null = null;
   let belowCount = 0;
@@ -98,6 +118,17 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       lowestLabel = lowest.label;
       belowCount = scores.filter((s) => s.band === 0).length;
     }
+    // Per-question breakdown from the same RPC item means — Likert/rating items
+    // only (the ones the instrument actually scores), mapped to their text.
+    const meanByItem = new Map((r.items ?? []).map((it) => [it.item_key, it.mean]));
+    questionScores = questions
+      .map((q) => {
+        const mean = meanByItem.get(q.key);
+        if (mean == null) return null;
+        const pct = ((mean - min) / (max - min)) * 100;
+        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct, band: bandOf(pct) };
+      })
+      .filter((q): q is QuestionScore => q != null);
   }
 
   // A workshop carrying this survey (the flow engine pins it on a step's
@@ -149,12 +180,15 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       questions,
       sections,
       respondents: r?.respondents ?? 0,
+      invited,
       masked: r ? r.masked : true,
       submissions,
       scores,
+      questionScores,
       overall: overall == null ? null : Math.round(overall * 100) / 100,
       lowestLabel,
       belowCount,
+      targetLowPct: TARGET_LOW_PCT,
       linkedWorkshop,
       activity,
     },

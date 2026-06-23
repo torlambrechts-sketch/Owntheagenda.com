@@ -78,6 +78,24 @@ export default async function AssessmentSuitePage() {
     date: s.created_at,
   }));
 
+  // Below-band signal for the suite alert — an exact, set-based rollup in SQL
+  // (assessment_below_band_rollup) that mirrors the detail view's banding and
+  // masking. One round-trip regardless of how many assessments exist. Degrades
+  // to no alert if the migration hasn't been applied yet or the call errors.
+  let alert: { sections: number; assessments: number } | null = null;
+  // assessment_below_band_rollup isn't in the committed generated types (kept
+  // un-regenerated to avoid schema drift, as elsewhere), so the call is cast and
+  // guarded — a missing migration or any error simply yields no alert.
+  const rollupRpc = supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: { sections_below: number; assessments_below: number }[] | null; error: unknown }>;
+  const { data: rollup, error: rollupErr } = await rollupRpc("assessment_below_band_rollup", { p_workspace: ctx.workspace.id });
+  if (!rollupErr) {
+    const row = Array.isArray(rollup) ? rollup[0] : null;
+    if (row && row.sections_below > 0) alert = { sections: row.sections_below, assessments: row.assessments_below };
+  }
+
   const openCount = rows.filter((r) => r.status === "open").length;
   const closedCount = rows.filter((r) => r.status === "closed").length;
   const totalResponses = rows.reduce((a, r) => a + r.respondents, 0);
@@ -105,5 +123,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
 }
