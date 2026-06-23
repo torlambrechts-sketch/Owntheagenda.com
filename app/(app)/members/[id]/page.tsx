@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin, initials } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
 import { OrgShell } from "@/components/OrgShell";
+import { MemberDetailManager, type Competence } from "./MemberDetailManager";
 
 // Member assessment profile — the imported design's "Participant" screen,
 // adapted. Activity only (which assessments a person has taken / been assigned,
@@ -42,6 +43,33 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
     .maybeSingle();
   const name = profile?.full_name || profile?.display_name || profile?.email || "Member";
   const role = membership.role as string;
+
+  // HR detail + competence (member_detail / member_competence). Untyped here —
+  // the committed generated types are intentionally not regenerated — so the
+  // reads are cast and degrade to empty if the migration isn't applied yet.
+  const contact = {
+    jobTitle: "",
+    department: "",
+    location: "",
+    phone: "",
+  };
+  try {
+    const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: { job_title: string | null; department: string | null; location: string | null; phone: string | null } | null }> } } } } })
+      .from("member_detail").select("job_title, department, location, phone").eq("workspace_id", wsId).eq("user_id", params.id).maybeSingle();
+    if (data) {
+      contact.jobTitle = data.job_title ?? "";
+      contact.department = data.department ?? "";
+      contact.location = data.location ?? "";
+      contact.phone = data.phone ?? "";
+    }
+  } catch { /* migration not applied — leave blank */ }
+
+  let competences: Competence[] = [];
+  try {
+    const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { eq: (k: string, v: string) => { order: (c: string, o: { ascending: boolean }) => Promise<{ data: { id: string; name: string; issued_at: string | null; expires_at: string | null }[] | null }> } } } } })
+      .from("member_competence").select("id, name, issued_at, expires_at").eq("workspace_id", wsId).eq("user_id", params.id).order("expires_at", { ascending: true });
+    competences = (data ?? []).map((c) => ({ id: c.id, name: c.name, issued: c.issued_at, expires: c.expires_at }));
+  } catch { /* migration not applied */ }
 
   const instruments = await resolveInstruments();
   const nameOfKey = (k: string) => instruments[k]?.name ?? k;
@@ -129,8 +157,16 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
           <div className="a-pt">{name}{self ? " (you)" : ""}</div>
           <div className="a-ps">
             <span className={`pill sm role-${role}`}>{role}</span>
+            {contact.jobTitle ? <span style={{ marginLeft: 10, color: "var(--muted)" }}>{contact.jobTitle}</span> : null}
             {profile?.email ? <span style={{ marginLeft: 10, color: "var(--muted)" }}>{profile.email}</span> : null}
           </div>
+          {contact.department || contact.location || contact.phone ? (
+            <div className="mc-contact">
+              {contact.department ? <span>{contact.department}</span> : null}
+              {contact.location ? <span>{contact.location}</span> : null}
+              {contact.phone ? <span>{contact.phone}</span> : null}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -177,21 +213,25 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
           ) : null}
         </div>
 
-        <div className="a-ovcard">
-          <h3>Workshops</h3>
-          {workshopRows.length ? (
-            <div className="wsd-att">
-              {workshopRows.map((w) => (
-                <Link key={`${w.id}-${w.at}`} href={`/workshops/${w.id}/overview`} className="wsd-att-row" style={{ textDecoration: "none" }}>
-                  <span className="av sm green" aria-hidden>{initials(w.title)}</span>
-                  <span className="wsd-att-nm">{w.title}<small style={{ display: "block", color: "var(--faint)", fontWeight: 400 }}>{fmtDate(w.at) ?? "—"}</small></span>
-                  <span className={`pill sm ${w.led ? "internal" : "draft"}`}>{w.led ? "Facilitator" : "Attended"}</span>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">No workshops yet.</p>
-          )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          <div className="a-ovcard">
+            <h3>Workshops</h3>
+            {workshopRows.length ? (
+              <div className="wsd-att">
+                {workshopRows.map((w) => (
+                  <Link key={`${w.id}-${w.at}`} href={`/workshops/${w.id}/overview`} className="wsd-att-row" style={{ textDecoration: "none" }}>
+                    <span className="av sm green" aria-hidden>{initials(w.title)}</span>
+                    <span className="wsd-att-nm">{w.title}<small style={{ display: "block", color: "var(--faint)", fontWeight: 400 }}>{fmtDate(w.at) ?? "—"}</small></span>
+                    <span className={`pill sm ${w.led ? "internal" : "draft"}`}>{w.led ? "Facilitator" : "Attended"}</span>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">No workshops yet.</p>
+            )}
+          </div>
+
+          <MemberDetailManager userId={params.id} canEdit={admin || self} contact={contact} competences={competences} />
         </div>
       </div>
     </OrgShell>
