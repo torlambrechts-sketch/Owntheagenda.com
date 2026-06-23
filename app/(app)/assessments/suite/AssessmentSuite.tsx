@@ -72,7 +72,7 @@ function ResponseRing({ pct }: { pct: number }) {
   );
 }
 
-export function AssessmentSuite({ rows, kpis, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
+export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
   const canManageRow = (r: SuiteRow) => isAdmin || (!!r.teamId && manageableTeamIds.includes(r.teamId));
   const [view, setView] = useState<View>("overview");
   const [newOpen, setNewOpen] = useState(false);
@@ -150,10 +150,23 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           </div>
           <div className="a-pr">
             <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
+            <Link className="btn-sec" href="/assessments/templates">Templates</Link>
             {isAdmin ? <Link className="btn-sec" href="/builder">Build assessment</Link> : null}
             {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
         </div>
+
+        {alert ? (
+          <div className="as-alert">
+            <span className="as-alert-ic" aria-hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+            </span>
+            <div>
+              <b>{alert.sections} {alert.sections === 1 ? "section" : "sections"}</b> across {alert.assessments} {alert.assessments === 1 ? "assessment" : "assessments"} {alert.sections === 1 ? "is" : "are"} below the healthy band. A follow-up workshop is a candidate — a person reviews before anything is scheduled.
+            </div>
+            <span className="grounded" style={{ marginLeft: "auto", flexShrink: 0 }}>Grounded</span>
+          </div>
+        ) : null}
 
         <div className="as-kpis">
           {kpis.map((k, i) => (

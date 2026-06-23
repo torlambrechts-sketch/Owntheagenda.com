@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { AssessmentSuite, type SuiteRow } from "./suite/AssessmentSuite";
 
 // Assessment Suite — an organisation-wide hub over the assessment *instances*
@@ -78,6 +79,30 @@ export default async function AssessmentSuitePage() {
     date: s.created_at,
   }));
 
+  // Below-band signal for the suite alert. We only score assessments that
+  // actually have responses, cap the set, and run the RPCs in parallel so the
+  // overview stays a fast page. Banding mirrors the detail loader (a section is
+  // "below band" under 45% of its scale); masked results contribute nothing, so
+  // a small response set is never inferable. Errors degrade to "no alert".
+  const instByKind = new Map(Object.values(instruments).map((i) => [i.kind, i]));
+  const toScore = rows.filter((r) => r.respondents > 0).slice(0, 40);
+  let belowSections = 0;
+  const belowAssessments = new Set<string>();
+  await Promise.all(
+    toScore.map(async (r) => {
+      const inst = instByKind.get(r.kind);
+      if (!inst) return;
+      const { data: res } = await supabase.rpc("survey_results", { p_survey: r.id, p_strength_items: strengthItemKeys(inst) });
+      const rr = res as { masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
+      if (!rr || rr.masked) return;
+      const below = dimensionMeans(inst, rr.items ?? [])
+        .filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null)
+        .filter((d) => ((d.mean - inst.scale.min) / (inst.scale.max - inst.scale.min)) * 100 < 45).length;
+      if (below) { belowSections += below; belowAssessments.add(r.id); }
+    }),
+  );
+  const alert = belowSections ? { sections: belowSections, assessments: belowAssessments.size } : null;
+
   const openCount = rows.filter((r) => r.status === "open").length;
   const closedCount = rows.filter((r) => r.status === "closed").length;
   const totalResponses = rows.reduce((a, r) => a + r.respondents, 0);
@@ -105,5 +130,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
 }
