@@ -486,6 +486,17 @@ button { font-family:inherit; }
 .as-rowscore .target{position:absolute;top:0;bottom:0;border-radius:999px;background:rgba(66,114,158,.16);border-left:1px solid var(--role)}
 .as-rowscore .marker{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px var(--line)}
 
+/* member profile — contact row + competence list */
+.mc-contact{margin-top:8px;display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--muted)}
+.mc-contact span{display:inline-flex;align-items:center}
+.mc-list{display:flex;flex-direction:column}
+.mc-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.mc-row:last-child{border-bottom:none}
+.mc-name{font-size:13px;font-weight:600;color:var(--ink)}
+.mc-exp{font-size:11.5px;color:var(--faint);margin-top:1px}
+.mc-exp.is-soon{color:var(--amber)}
+.mc-exp.is-exp{color:var(--rust)}
+
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .wsd-main{display:flex;flex-direction:column;gap:16px;min-width:0}
