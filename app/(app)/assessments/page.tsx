@@ -59,52 +59,55 @@ export default async function AssessmentSuitePage() {
         .limit(200)
     : { data: [] as { id: string; name: string | null; kind: string; status: string; team_id: string; created_at: string }[] };
 
-  const sIds = (surveyRows ?? []).map((s) => s.id);
-  const { data: respRows } = sIds.length
-    ? await supabase.from("survey_response").select("survey_id").in("survey_id", sIds)
-    : { data: [] as { survey_id: string }[] };
-  const respCount = new Map<string, number>();
-  for (const r of respRows ?? []) respCount.set(r.survey_id, (respCount.get(r.survey_id) ?? 0) + 1);
+  // Per-survey metrics in one set-based call: response count + invited (team
+  // size), masking, overall band position, sections below band, and whether a
+  // workshop was triggered. Powers the row Score marker + response-rate bar and
+  // the KPIs/alert exactly, in a single round-trip. Not in the committed
+  // generated types (kept un-regenerated to avoid drift), so it's cast and
+  // guarded — a missing migration or any error degrades to no metrics.
+  type OverviewMetric = { survey_id: string; respondents: number; invited: number; masked: boolean; overall_mean: number | null; overall_pct: number | null; below_count: number; has_workshop: boolean };
+  const overviewRpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: OverviewMetric[] | null; error: unknown }>;
+  const { data: metricRows, error: metricErr } = await overviewRpc("assessment_suite_overview", { p_workspace: ctx.workspace.id });
+  const metrics = new Map<string, OverviewMetric>();
+  if (!metricErr) for (const m of metricRows ?? []) metrics.set(m.survey_id, m);
 
-  const rows: SuiteRow[] = (surveyRows ?? []).map((s) => ({
-    id: s.id,
-    name: instNameByKind.get(s.kind) ?? s.name ?? s.kind,
-    kind: s.kind,
-    category: "Survey",
-    status: s.status,
-    team: teamNameById.get(s.team_id) ?? null,
-    teamId: s.team_id,
-    respondents: respCount.get(s.id) ?? 0,
-    date: s.created_at,
-  }));
+  const rows: SuiteRow[] = (surveyRows ?? []).map((s) => {
+    const m = metrics.get(s.id);
+    return {
+      id: s.id,
+      name: instNameByKind.get(s.kind) ?? s.name ?? s.kind,
+      kind: s.kind,
+      category: "Survey",
+      status: s.status,
+      team: teamNameById.get(s.team_id) ?? null,
+      teamId: s.team_id,
+      respondents: m?.respondents ?? 0,
+      invited: m?.invited ?? null,
+      score: m && !m.masked ? m.overall_mean : null,
+      pct: m && !m.masked ? m.overall_pct : null,
+      masked: m ? m.masked : true,
+      date: s.created_at,
+    };
+  });
 
-  // Below-band signal for the suite alert — an exact, set-based rollup in SQL
-  // (assessment_below_band_rollup) that mirrors the detail view's banding and
-  // masking. One round-trip regardless of how many assessments exist. Degrades
-  // to no alert if the migration hasn't been applied yet or the call errors.
-  let alert: { sections: number; assessments: number } | null = null;
-  // assessment_below_band_rollup isn't in the committed generated types (kept
-  // un-regenerated to avoid schema drift, as elsewhere), so the call is cast and
-  // guarded — a missing migration or any error simply yields no alert.
-  const rollupRpc = supabase.rpc as unknown as (
-    fn: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: { sections_below: number; assessments_below: number }[] | null; error: unknown }>;
-  const { data: rollup, error: rollupErr } = await rollupRpc("assessment_below_band_rollup", { p_workspace: ctx.workspace.id });
-  if (!rollupErr) {
-    const row = Array.isArray(rollup) ? rollup[0] : null;
-    if (row && row.sections_below > 0) alert = { sections: row.sections_below, assessments: row.assessments_below };
-  }
+  // KPIs + alert from the full metric set (every readable survey, not just the
+  // listed page), so the headline numbers stay accurate.
+  const all = Array.from(metrics.values());
+  const withInvited = all.filter((m) => m.invited > 0);
+  const avgRate = withInvited.length
+    ? Math.round((withInvited.reduce((a, m) => a + Math.min(1, m.respondents / m.invited), 0) / withInvited.length) * 100)
+    : null;
+  const sectionsBelow = all.reduce((a, m) => a + m.below_count, 0);
+  const assessmentsBelow = all.filter((m) => m.below_count > 0).length;
+  const workshopsTriggered = all.filter((m) => m.has_workshop).length;
+  const alert = sectionsBelow > 0 ? { sections: sectionsBelow, assessments: assessmentsBelow } : null;
 
   const openCount = rows.filter((r) => r.status === "open").length;
-  const closedCount = rows.filter((r) => r.status === "closed").length;
-  const totalResponses = rows.reduce((a, r) => a + r.respondents, 0);
-  const instrumentsUsed = new Set(rows.map((r) => r.kind)).size;
   const kpis = [
-    { big: String(openCount), title: "Open assessments", sub: `${rows.length} total across ${teamList.length} ${teamList.length === 1 ? "team" : "teams"}` },
-    { big: String(totalResponses), title: "Responses gathered", sub: "all assessments" },
-    { big: String(closedCount), title: "Closed", sub: "results finalised" },
-    { big: String(instrumentsUsed), title: "Instruments in use", sub: "distinct frameworks" },
+    { big: String(openCount), title: "Active assessments", sub: `${rows.length} total across ${teamList.length} ${teamList.length === 1 ? "team" : "teams"}` },
+    { big: avgRate == null ? "—" : `${avgRate}%`, title: "Avg response rate", sub: withInvited.length ? `${withInvited.length} with a target team` : "no responses yet" },
+    { big: String(sectionsBelow), title: "Sections below band", sub: assessmentsBelow ? `${assessmentsBelow} ${assessmentsBelow === 1 ? "assessment" : "assessments"}` : "all within band" },
+    { big: String(workshopsTriggered), title: "Workshops triggered", sub: "from an assessment" },
   ];
 
   if (!teamList.length) {
