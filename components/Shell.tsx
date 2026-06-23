@@ -205,6 +205,9 @@ export function Shell({
         <button className="logo-tile" onClick={toggleCollapsed} title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"}>
           <LogoMark size={40} />
         </button>
+        {collapsed ? (
+          <button className="rail-expand" onClick={toggleCollapsed} title="Expand menu" aria-label="Expand menu">›</button>
+        ) : null}
         {(() => {
           let orgDone = false;
           let insightDone = false;
