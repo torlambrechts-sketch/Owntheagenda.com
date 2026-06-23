@@ -25,6 +25,7 @@ alter table public.member_detail enable row level security;
 drop policy if exists member_detail_select on public.member_detail;
 create policy member_detail_select on public.member_detail
   for select to authenticated using (private.is_workspace_member(workspace_id));
+drop trigger if exists set_member_detail_updated on public.member_detail;
 create trigger set_member_detail_updated before update on public.member_detail
   for each row execute function private.set_updated_at();
 grant select on public.member_detail to authenticated;
