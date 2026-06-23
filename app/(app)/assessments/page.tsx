@@ -71,6 +71,21 @@ export default async function AssessmentSuitePage() {
   const metrics = new Map<string, OverviewMetric>();
   if (!metricErr) for (const m of metricRows ?? []) metrics.set(m.survey_id, m);
 
+  // Fallback: if the metrics RPC is unavailable (e.g. migration not yet
+  // applied), still show real respondent counts via a cheap aggregate so the
+  // overview never regresses to all-zeros — scores/rate just stay hidden.
+  if (metricErr) {
+    const sIds = (surveyRows ?? []).map((s) => s.id);
+    const { data: respRows } = sIds.length
+      ? await supabase.from("survey_response").select("survey_id").in("survey_id", sIds)
+      : { data: [] as { survey_id: string }[] };
+    const count = new Map<string, number>();
+    for (const r of respRows ?? []) count.set(r.survey_id, (count.get(r.survey_id) ?? 0) + 1);
+    for (const s of surveyRows ?? []) {
+      metrics.set(s.id, { survey_id: s.id, respondents: count.get(s.id) ?? 0, invited: 0, masked: true, overall_mean: null, overall_pct: null, below_count: 0, has_workshop: false });
+    }
+  }
+
   const rows: SuiteRow[] = (surveyRows ?? []).map((s) => {
     const m = metrics.get(s.id);
     return {
