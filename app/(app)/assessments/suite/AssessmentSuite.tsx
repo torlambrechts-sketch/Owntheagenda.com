@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { initials } from "@/lib/util";
-import { loadAssessmentDetail, type AssessmentDetail, type SectionScore } from "./actions";
+import { loadAssessmentDetail, type AssessmentDetail, type SectionScore, type QuestionScore } from "./actions";
 import { NewAssessment } from "./NewAssessment";
 
 export type SuiteRow = {
@@ -41,6 +41,35 @@ function fmtDate(iso: string) {
 function fmtDateTime(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// A donut showing the response rate — the design's right-rail signature. Pure
+// SVG so it inherits the design tokens without any extra dependency.
+function ResponseRing({ pct }: { pct: number }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const r = 34;
+  const c = 2 * Math.PI * r;
+  const off = c * (1 - clamped / 100);
+  return (
+    <svg width={96} height={96} viewBox="0 0 92 92" role="img" aria-label={`${Math.round(clamped)} percent responded`}>
+      <circle cx={46} cy={46} r={r} fill="none" stroke="var(--canvas-2)" strokeWidth={9} />
+      <circle
+        cx={46}
+        cy={46}
+        r={r}
+        fill="none"
+        stroke="var(--green)"
+        strokeWidth={9}
+        strokeLinecap="round"
+        strokeDasharray={c}
+        strokeDashoffset={off}
+        transform="rotate(-90 46 46)"
+      />
+      <text x={46} y={52} textAnchor="middle" fontSize={20} fontWeight={600} fill="var(--ink)" fontFamily="var(--font-display)">
+        {Math.round(clamped)}%
+      </text>
+    </svg>
+  );
 }
 
 export function AssessmentSuite({ rows, kpis, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
@@ -197,6 +226,34 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
   }
 
   // ---------------- DETAIL ----------------
+  // Top-line numbers shown above every tab (the design's KPI strip): response
+  // rate, lowest section, overall mean, sections below band. Score figures stay
+  // "—" while results are masked so a small response set is never inferable.
+  const detailKpis: Kpi[] = detail
+    ? [
+        {
+          big: detail.invited != null ? `${detail.respondents}/${detail.invited}` : String(detail.respondents),
+          title: "Responses",
+          sub: detail.invited ? `${Math.round((detail.respondents / detail.invited) * 100)}% response rate` : "anonymous in aggregate",
+        },
+        {
+          big: detail.masked || detail.overall == null ? "—" : detail.overall.toFixed(1),
+          title: "Overall mean",
+          sub: `scale ${detail.scale.min}–${detail.scale.max}`,
+        },
+        {
+          big: detail.masked || !detail.lowestLabel ? "—" : (detail.scores.find((s) => s.label === detail.lowestLabel)?.mean.toFixed(1) ?? "—"),
+          title: "Lowest section",
+          sub: detail.masked ? "hidden until results unlock" : detail.lowestLabel ?? "—",
+        },
+        {
+          big: detail.masked ? "—" : String(detail.belowCount),
+          title: "Sections below band",
+          sub: "candidates for a workshop",
+        },
+      ]
+    : [];
+
   return (
     <>
       <div className="a-phead">
@@ -220,6 +277,16 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
       {detail ? (
         <>
+          <div className="as-kpis">
+            {detailKpis.map((k, i) => (
+              <div className="as-kpi" key={i}>
+                <div className="as-kpi-big" style={k.title === "Sections below band" && !detail.masked && detail.belowCount ? { color: "var(--rust)" } : undefined}>{k.big}</div>
+                <div className="as-kpi-title">{k.title}</div>
+                <div className="as-kpi-sub">{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
           <nav className="as-tabs" aria-label="Assessment detail">
             {([
               ["info", "Information"],
@@ -233,129 +300,185 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
             ))}
           </nav>
 
-          {tab === "info" ? (
-            <div className="a-ov">
+          {/* Two-column body — tab content on the left, a persistent context rail
+              on the right (response ring, details, linked workshop). */}
+          <div className="a-detailgrid">
+            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+              {tab === "info" ? (
+                <>
+                  <div className="a-ovcard">
+                    <h3>About this assessment</h3>
+                    <p>
+                      An anonymous {detail.instrumentName} survey. {detail.questions.length} questions across {detail.sections.length} {detail.sections.length === 1 ? "section" : "sections"},
+                      scored on a {detail.scale.min}–{detail.scale.max} scale. Results stay hidden until enough people respond, then surface as section means — where a section falls below the healthy band, it is a candidate for a follow-up workshop.
+                    </p>
+                  </div>
+                  <div className="tbl-card">
+                    <div className="as-qgroup" style={{ textTransform: "none", letterSpacing: 0, fontSize: 13 }}>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "var(--ink)" }}>Survey sections</span>
+                    </div>
+                    {detail.sections.map((s) => (
+                      <div className="as-qrow" key={s.key} style={{ justifyContent: "space-between" }}>
+                        <span>{s.label}</span>
+                        <span className="a-dimchip" style={{ fontVariantNumeric: "tabular-nums" }}>{s.count} {s.count === 1 ? "question" : "questions"}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+
+              {tab === "questions" ? (
+                <div className="tbl-card">
+                  {detail.sections.map((sec) => (
+                    <div key={sec.key}>
+                      <div className="as-qgroup">{sec.label} <span className="n">{sec.count}</span></div>
+                      {detail.questions.filter((q) => q.dimension === sec.key).map((q, i) => (
+                        <div className="as-qrow" key={q.key}>
+                          <span className="as-qn">{i + 1}</span>
+                          <span>{q.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {tab === "responses" ? (
+                <div className="a-ovcard">
+                  <h3>Responses <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {detail.respondents}{detail.invited != null ? ` / ${detail.invited}` : ""}</span></h3>
+                  {detail.respondents ? (
+                    <>
+                      <p>
+                        {detail.respondents} {detail.respondents === 1 ? "person has" : "people have"} responded.
+                        {detail.masked
+                          ? " Individual submissions stay hidden until the minimum number of responses is reached — answers are never attributed to a person."
+                          : " Responses are anonymous in aggregate; no answer is tied to a person."}
+                      </p>
+                      {detail.submissions.length ? (
+                        <table className="tbl" style={{ marginTop: 6 }}>
+                          <thead>
+                            <tr><th>Respondent</th><th style={{ width: 180 }}>Submitted</th></tr>
+                          </thead>
+                          <tbody>
+                            {detail.submissions.map((when, i) => (
+                              <tr key={i}>
+                                <td><span className="person" style={{ fontWeight: 500 }}><span className="av sm">?</span>Anonymous respondent</span></td>
+                                <td style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtDateTime(when)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      ) : null}
+                    </>
+                  ) : (
+                    <p className="muted">No responses yet. {active?.status === "open" ? "The assessment is open — results will appear here as people respond." : "This assessment is closed with no responses."}</p>
+                  )}
+                </div>
+              ) : null}
+
+              {tab === "results" ? (
+                <SectionResults detail={detail} />
+              ) : null}
+
+              {tab === "workshop" ? (
+                <div className="as-workshop">
+                  <div className="as-ws-eyebrow">{detail.linkedWorkshop ? "Linked workshop" : "Follow-up workshop"}</div>
+                  <div className="as-ws-title">
+                    {detail.linkedWorkshop
+                      ? detail.linkedWorkshop.title
+                      : detail.belowCount
+                        ? `${detail.belowCount} ${detail.belowCount === 1 ? "section is" : "sections are"} below the healthy band`
+                        : "No section is below the band"}
+                  </div>
+                  <p className="as-ws-sub">
+                    {detail.linkedWorkshop
+                      ? "This assessment is carried into a workshop — open it to review the agenda, run the session and track the measures agreed."
+                      : detail.belowCount
+                        ? "A targeted workshop helps the team work through the lowest-scoring sections together — diagnose causes, agree measures and assign owners."
+                        : "Scores look healthy. You can still run a workshop to build on strengths or revisit a theme."}
+                  </p>
+                  {/* Below-band sections that motivate the workshop (the design's
+                      "Why a workshop was triggered" list). */}
+                  {!detail.masked && detail.belowCount ? (
+                    <div style={{ background: "rgba(255,255,255,.08)", borderRadius: 10, padding: "12px 14px", margin: "0 0 16px" }}>
+                      {detail.scores.filter((s) => s.band === 0).map((s) => (
+                        <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 0" }}>
+                          <span style={{ width: 150, flexShrink: 0, fontSize: 13, fontWeight: 600 }}>{s.label}</span>
+                          <span style={{ flex: 1, height: 8, borderRadius: 999, background: "rgba(255,255,255,.16)", overflow: "hidden" }}>
+                            <span style={{ display: "block", height: "100%", borderRadius: 999, width: `${s.pct.toFixed(0)}%`, background: "#e7b3aa" }} />
+                          </span>
+                          <span style={{ width: 34, textAlign: "right", fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.mean.toFixed(1)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                  {detail.linkedWorkshop ? (
+                    <Link className="btn-prim" href={`/workshops/${detail.linkedWorkshop.id}/overview`}>Open workshop →</Link>
+                  ) : (
+                    <Link className="btn-prim" href="/workshops">Start a workshop →</Link>
+                  )}
+                </div>
+              ) : null}
+
+              {tab === "activity" ? (
+                <div className="a-ovcard">
+                  <h3>Activity</h3>
+                  {detail.activity.length ? (
+                    <div className="wsd-log">
+                      {detail.activity.map((e) => (
+                        <div className="wsd-log-row" key={e.id}>
+                          <span className="wsd-log-dot" />
+                          <div>
+                            <div className="wsd-log-l">{e.label}</div>
+                            <div className="wsd-log-m">{e.actor} · {fmtDateTime(e.at)}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">No activity recorded yet. Lifecycle events (opened, closed) appear here — visible to workspace admins.</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+
+            {/* ---- right rail (persistent context) ---- */}
+            <aside className="a-rail">
+              {detail.invited ? (
+                <div className="a-ovcard">
+                  <div className="eyebrow" style={{ marginBottom: 10 }}>Response rate</div>
+                  <div className="a-ring"><ResponseRing pct={(detail.respondents / detail.invited) * 100} /></div>
+                  <div className="a-ringsub">{detail.respondents} of {detail.invited} invited responded</div>
+                </div>
+              ) : null}
+
               <div className="a-ovcard">
-                <h3>About this assessment</h3>
-                <p>
-                  An anonymous {detail.instrumentName} survey. {detail.questions.length} questions across {detail.sections.length} {detail.sections.length === 1 ? "section" : "sections"},
-                  scored on a {detail.scale.min}–{detail.scale.max} scale. Results stay hidden until enough people respond, then surface as section means — where a section falls below the healthy band, it is a candidate for a follow-up workshop.
-                </p>
-                <div className="a-seclbl">Sections</div>
-                <div className="a-dimlist">{detail.sections.map((s) => <span className="a-dimchip" key={s.key}>{s.label}</span>)}</div>
-              </div>
-              <div className="a-ovcard">
-                <h3>Details</h3>
+                <div className="eyebrow" style={{ marginBottom: 10 }}>Details</div>
                 <div className="a-facts">
-                  <Fact k="Type" v={`${active?.category} · ${detail.questions.length}Q`} />
+                  <Fact k="Type" v={`${active?.category ?? "Survey"} · ${detail.questions.length}Q`} />
                   <Fact k="Sections" v={String(detail.sections.length)} />
                   <Fact k="Scale" v={`${detail.scale.min}–${detail.scale.max}`} />
                   <Fact k="Anonymous" v="Yes" />
                   <Fact k="Team" v={active?.team ?? "—"} />
-                  <Fact k="Responses" v={String(detail.respondents)} />
+                  <Fact k="Status" v={active ? (active.status.charAt(0).toUpperCase() + active.status.slice(1)) : "—"} />
                 </div>
               </div>
-            </div>
-          ) : null}
 
-          {tab === "questions" ? (
-            <div className="tbl-card">
-              {detail.sections.map((sec) => (
-                <div key={sec.key}>
-                  <div className="as-qgroup">{sec.label} <span className="n">{sec.count}</span></div>
-                  {detail.questions.filter((q) => q.dimension === sec.key).map((q, i) => (
-                    <div className="as-qrow" key={q.key}>
-                      <span className="as-qn">{i + 1}</span>
-                      <span>{q.text}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          {tab === "responses" ? (
-            <div className="a-ovcard">
-              <h3>Responses <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {detail.respondents}</span></h3>
-              {detail.respondents ? (
-                <>
-                  <p>
-                    {detail.respondents} {detail.respondents === 1 ? "person has" : "people have"} responded.
-                    {detail.masked
-                      ? " Individual submissions stay hidden until the minimum number of responses is reached — answers are never attributed to a person."
-                      : " Responses are anonymous in aggregate; no answer is tied to a person."}
-                  </p>
-                  {detail.submissions.length ? (
-                    <table className="tbl" style={{ marginTop: 6 }}>
-                      <thead>
-                        <tr><th>Respondent</th><th style={{ width: 180 }}>Submitted</th></tr>
-                      </thead>
-                      <tbody>
-                        {detail.submissions.map((when, i) => (
-                          <tr key={i}>
-                            <td><span className="person" style={{ fontWeight: 500 }}><span className="av sm">?</span>Anonymous respondent</span></td>
-                            <td style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtDateTime(when)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : null}
-                </>
-              ) : (
-                <p className="muted">No responses yet. {active?.status === "open" ? "The assessment is open — results will appear here as people respond." : "This assessment is closed with no responses."}</p>
-              )}
-            </div>
-          ) : null}
-
-          {tab === "results" ? (
-            <SectionResults detail={detail} />
-          ) : null}
-
-          {tab === "workshop" ? (
-            <div className="as-workshop">
-              <div className="as-ws-eyebrow">{detail.linkedWorkshop ? "Linked workshop" : "Follow-up workshop"}</div>
-              <div className="as-ws-title">
-                {detail.linkedWorkshop
-                  ? detail.linkedWorkshop.title
-                  : detail.belowCount
-                    ? `${detail.belowCount} ${detail.belowCount === 1 ? "section is" : "sections are"} below the healthy band`
-                    : "No section is below the band"}
-              </div>
-              <p className="as-ws-sub">
-                {detail.linkedWorkshop
-                  ? "This assessment is carried into a workshop — open it to review the agenda, run the session and track the measures agreed."
-                  : detail.belowCount
-                    ? "A targeted workshop helps the team work through the lowest-scoring sections together — diagnose causes, agree measures and assign owners."
-                    : "Scores look healthy. You can still run a workshop to build on strengths or revisit a theme."}
-              </p>
               {detail.linkedWorkshop ? (
-                <Link className="btn-prim" href={`/workshops/${detail.linkedWorkshop.id}/overview`}>Open workshop →</Link>
-              ) : (
-                <Link className="btn-prim" href="/workshops">Start a workshop →</Link>
-              )}
-            </div>
-          ) : null}
-
-          {tab === "activity" ? (
-            <div className="a-ovcard">
-              <h3>Activity</h3>
-              {detail.activity.length ? (
-                <div className="wsd-log">
-                  {detail.activity.map((e) => (
-                    <div className="wsd-log-row" key={e.id}>
-                      <span className="wsd-log-dot" />
-                      <div>
-                        <div className="wsd-log-l">{e.label}</div>
-                        <div className="wsd-log-m">{e.actor} · {fmtDateTime(e.at)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="muted">No activity recorded yet. Lifecycle events (opened, closed) appear here — visible to workspace admins.</p>
-              )}
-            </div>
-          ) : null}
+                <Link href={`/workshops/${detail.linkedWorkshop.id}/overview`} className="as-workshop compact a-railcta" style={{ display: "block", textDecoration: "none" }}>
+                  <div className="as-ws-eyebrow">Linked workshop</div>
+                  <div className="as-ws-title" style={{ fontSize: 15.5 }}>{detail.linkedWorkshop.title}</div>
+                  <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#fff" }}>Open workshop →</div>
+                </Link>
+              ) : !detail.masked && detail.belowCount ? (
+                <button onClick={() => setTab("workshop")} className="as-workshop compact a-railcta" style={{ textAlign: "left", border: "none", width: "100%", cursor: "pointer" }}>
+                  <div className="as-ws-eyebrow">Follow-up</div>
+                  <div className="as-ws-title" style={{ fontSize: 15.5 }}>{detail.belowCount} {detail.belowCount === 1 ? "section" : "sections"} below band</div>
+                  <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#fff" }}>Why a workshop helps →</div>
+                </button>
+              ) : null}
+            </aside>
+          </div>
         </>
       ) : loading ? (
         <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div>
@@ -375,32 +498,72 @@ function SectionResults({ detail }: { detail: AssessmentDetail }) {
   }
   return (
     <>
-      <div className="as-kpis" style={{ marginBottom: 16 }}>
-        <div className="as-kpi"><div className="as-kpi-big">{detail.overall?.toFixed(1)}</div><div className="as-kpi-title">Overall mean</div><div className="as-kpi-sub">scale {detail.scale.min}–{detail.scale.max}</div></div>
-        <div className="as-kpi"><div className="as-kpi-big" style={{ color: detail.belowCount ? "var(--rust)" : "var(--ink)" }}>{detail.belowCount}</div><div className="as-kpi-title">Sections below band</div><div className="as-kpi-sub">candidates for a workshop</div></div>
-        <div className="as-kpi"><div className="as-kpi-big">{detail.respondents}</div><div className="as-kpi-title">Responses</div><div className="as-kpi-sub">anonymous in aggregate</div></div>
-        <div className="as-kpi"><div className="as-kpi-big">{detail.lowestLabel ? detail.scores.find((s) => s.label === detail.lowestLabel)?.mean.toFixed(1) : "—"}</div><div className="as-kpi-title">Lowest section</div><div className="as-kpi-sub">{detail.lowestLabel ?? "—"}</div></div>
-      </div>
       <div className="a-ovcard">
-        <h3>Section scores</h3>
-        {detail.scores.map((s) => <ScoreBar key={s.key} s={s} />)}
-        <div className="as-legend">
-          <span><span className="as-sw" style={{ background: "var(--rust)" }} />{BAND_LABEL[0]}</span>
-          <span><span className="as-sw" style={{ background: "var(--amber)" }} />{BAND_LABEL[1]}</span>
-          <span><span className="as-sw" style={{ background: "var(--green)" }} />{BAND_LABEL[2]}</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <h3 style={{ margin: 0 }}>Section scores</h3>
+          <span style={{ fontSize: 11, color: "var(--faint)" }}>bands, not more-is-better · scale {detail.scale.min}–{detail.scale.max}</span>
+        </div>
+        {detail.scores.map((s) => <ScoreBand key={s.key} s={s} targetLowPct={detail.targetLowPct} />)}
+        <div className="bandlegend" style={{ marginTop: 14 }}>
+          <span><span className="swatch-band" /> Healthy band ≥ {((detail.scale.min + (detail.scale.max - detail.scale.min) * (detail.targetLowPct / 100))).toFixed(1)}</span>
+          <span><span className="swatch-mark" /> Section mean</span>
         </div>
       </div>
+
+      {/* Human-in-the-loop note — a number is never a verdict (DESIGN §6). */}
+      <div className="humannote">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.8">
+          <rect x="3" y="11" width="18" height="11" rx="2" />
+          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+        </svg>
+        <div>
+          Section means show where a team sits in a healthy range — not a score to beat, and never a verdict on a person.
+          {detail.belowCount
+            ? ` ${detail.belowCount} ${detail.belowCount === 1 ? "section is" : "sections are"} below the band and a candidate for a follow-up workshop — a human reviews before anything is scheduled.`
+            : " Every section is within band; results reflect how people feel, not objective fact."}
+          <div className="src">
+            {detail.respondents} responses · anonymous in aggregate · <span className="grounded" style={{ marginLeft: 2 }}>Grounded</span>
+          </div>
+        </div>
+      </div>
+
+      {detail.questionScores.length ? (
+        <div className="a-ovcard">
+          <h3>Question breakdown</h3>
+          {detail.questionScores.map((q) => <QuestionRow key={q.key} q={q} />)}
+        </div>
+      ) : null}
     </>
   );
 }
 
-function ScoreBar({ s }: { s: SectionScore }) {
+// Section score on the band track — a target band from the healthy lower edge up,
+// with the section mean as a marker. Mirrors the AssessmentsClient band signature.
+function ScoreBand({ s, targetLowPct }: { s: SectionScore; targetLowPct: number }) {
   const color = BAND_VARS[s.band];
   return (
-    <div className="as-scorerow">
-      <span className="as-scorename">{s.label}</span>
-      <span className="as-scoretrack"><span className="as-scorefill" style={{ width: `${s.pct.toFixed(0)}%`, background: color }} /></span>
-      <span className="as-scoreval" style={{ color }}>{s.mean.toFixed(1)}</span>
+    <div className="bandrow">
+      <div className="name">{s.label}</div>
+      <div className="bandtrack">
+        <div className="target" style={{ left: `${targetLowPct}%`, right: 0 }} />
+        <div className="marker" style={{ left: `${s.pct.toFixed(0)}%`, background: color }} />
+      </div>
+      <div className="read">
+        <span style={{ color, fontWeight: 700 }}>{s.mean.toFixed(1)}</span>
+        <br />
+        <span style={{ color: "var(--faint)" }}>{BAND_LABEL[s.band]}</span>
+      </div>
+    </div>
+  );
+}
+
+function QuestionRow({ q }: { q: QuestionScore }) {
+  const color = BAND_VARS[q.band];
+  return (
+    <div className="a-qbreak">
+      <span className="q">{q.text}</span>
+      <span className="track"><span style={{ width: `${q.pct.toFixed(0)}%`, background: color }} /></span>
+      <span className="v" style={{ color }}>{q.mean.toFixed(1)}</span>
     </div>
   );
 }

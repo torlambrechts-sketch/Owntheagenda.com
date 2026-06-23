@@ -458,7 +458,24 @@ button { font-family:inherit; }
 .as-ws-title{font-family:var(--font-display);font-size:19px;font-weight:600;margin-bottom:6px}
 .as-ws-sub{font-size:13px;color:rgba(255,255,255,.78);line-height:1.55;margin:0 0 16px}
 .as-workshop .btn-prim{background:#fff;color:var(--forest)}
+.as-workshop.compact{padding:18px 20px;max-width:none}
 @media(max-width:860px){.as-kpis{grid-template-columns:repeat(2,1fr)}}
+
+/* assessment detail — two-column body + persistent context rail */
+.a-detailgrid{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:16px;align-items:start}
+.a-rail{display:flex;flex-direction:column;gap:16px;min-width:0}
+.a-railcta{transition:background .15s ease}
+.a-railcta:hover{background:var(--forest-2)}
+.a-ring{display:flex;justify-content:center;margin:2px 0 8px}
+.a-ringsub{text-align:center;font-size:12.5px;color:var(--muted)}
+/* per-question breakdown row (results tab) */
+.a-qbreak{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid var(--line)}
+.a-qbreak:last-child{border-bottom:none}
+.a-qbreak .q{flex:1;font-size:13px;color:var(--ink)}
+.a-qbreak .track{width:120px;flex-shrink:0;height:6px;border-radius:999px;background:var(--canvas-2);overflow:hidden}
+.a-qbreak .track span{display:block;height:100%;border-radius:999px}
+.a-qbreak .v{width:30px;text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;flex-shrink:0}
+@media(max-width:980px){.a-detailgrid{grid-template-columns:1fr}}
 
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
