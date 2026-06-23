@@ -15,8 +15,17 @@ export type SuiteRow = {
   team: string | null;
   teamId: string | null;
   respondents: number;
+  invited: number | null;
+  score: number | null; // overall mean on the instrument scale; null when masked / no responses
+  pct: number | null; // overall position 0–100 on the scale; null when masked
+  masked: boolean;
   date: string;
 };
+
+// Band index from a 0–100 position (mirrors the detail view: below 45% / mid / above).
+function bandOfPct(pct: number): 0 | 1 | 2 {
+  return pct < 45 ? 0 : pct < 62 ? 1 : 2;
+}
 
 export type Kpi = { big: string; title: string; sub: string };
 
@@ -193,11 +202,12 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
               <thead>
                 <tr>
                   <th>Assessment</th>
-                  <th style={{ width: 110 }}>Type</th>
-                  <th style={{ width: 110 }}>Status</th>
-                  <th style={{ width: 120 }}>Responses</th>
-                  <th style={{ width: 160 }}>Team</th>
-                  <th style={{ width: 70 }} />
+                  <th style={{ width: 96 }}>Type</th>
+                  <th style={{ width: 100 }}>Status</th>
+                  <th style={{ width: 150 }}>Responses</th>
+                  <th style={{ width: 132 }}>Score</th>
+                  <th style={{ width: 140 }}>Team</th>
+                  <th style={{ width: 64 }} />
                 </tr>
               </thead>
               <tbody>
@@ -209,7 +219,12 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                     </td>
                     <td style={{ color: "var(--muted)" }}>{r.category}</td>
                     <td>{statusPill(r.status)}</td>
-                    <td style={{ fontVariantNumeric: "tabular-nums" }}>{r.respondents}</td>
+                    <td>
+                      <RowResponses respondents={r.respondents} invited={r.invited} />
+                    </td>
+                    <td>
+                      <RowScore score={r.score} pct={r.pct} masked={r.masked} respondents={r.respondents} />
+                    </td>
                     <td style={{ color: "var(--muted)" }}>
                       {r.team ? (
                         <span className="person" style={{ fontWeight: 500 }}>
@@ -245,7 +260,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
   const detailKpis: Kpi[] = detail
     ? [
         {
-          big: detail.invited != null ? `${detail.respondents}/${detail.invited}` : String(detail.respondents),
+          big: detail.invited ? `${detail.respondents}/${detail.invited}` : String(detail.respondents),
           title: "Responses",
           sub: detail.invited ? `${Math.round((detail.respondents / detail.invited) * 100)}% response rate` : "anonymous in aggregate",
         },
@@ -477,7 +492,9 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                 </div>
               </div>
 
-              {detail.linkedWorkshop ? (
+              {/* The Workshop tab already shows the linked-workshop card in the
+                  main column, so skip the rail duplicate there. */}
+              {tab === "workshop" ? null : detail.linkedWorkshop ? (
                 <Link href={`/workshops/${detail.linkedWorkshop.id}/overview`} className="as-workshop compact a-railcta" style={{ display: "block", textDecoration: "none" }}>
                   <div className="as-ws-eyebrow">Linked workshop</div>
                   <div className="as-ws-title" style={{ fontSize: 15.5 }}>{detail.linkedWorkshop.title}</div>
@@ -577,6 +594,39 @@ function QuestionRow({ q }: { q: QuestionScore }) {
       <span className="q">{q.text}</span>
       <span className="track"><span style={{ width: `${q.pct.toFixed(0)}%`, background: color }} /></span>
       <span className="v" style={{ color }}>{q.mean.toFixed(1)}</span>
+    </div>
+  );
+}
+
+// Overview "Responses" cell — count over invited with a fill bar (the design's
+// response-rate bar). Falls back to a bare count when the team size is unknown.
+function RowResponses({ respondents, invited }: { respondents: number; invited: number | null }) {
+  if (!invited) {
+    return <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{respondents}</span>;
+  }
+  const pct = Math.min(100, Math.round((respondents / invited) * 100));
+  return (
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 12, color: "var(--muted)", fontVariantNumeric: "tabular-nums", marginBottom: 4 }}>{respondents} / {invited}</div>
+      <span className="as-rowbar"><span style={{ width: `${pct}%` }} /></span>
+    </div>
+  );
+}
+
+// Overview "Score" cell — overall mean with a band marker on a target track
+// (the design's score column). "—" while masked / before any responses.
+function RowScore({ score, pct, masked, respondents }: { score: number | null; pct: number | null; masked: boolean; respondents: number }) {
+  if (score == null || pct == null) {
+    return <span style={{ color: "var(--faint)" }} title={masked && respondents ? "Hidden until enough people respond" : "No responses yet"}>—</span>;
+  }
+  const color = BAND_VARS[bandOfPct(pct)];
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 28, fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums", color }}>{score.toFixed(1)}</span>
+      <span className="as-rowscore">
+        <span className="target" style={{ left: "45%", right: 0 }} />
+        <span className="marker" style={{ left: `${Math.min(100, Math.max(0, pct)).toFixed(0)}%`, background: color }} />
+      </span>
     </div>
   );
 }

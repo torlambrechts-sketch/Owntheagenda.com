@@ -479,6 +479,13 @@ button { font-family:inherit; }
 .as-alert b{color:var(--internal-fg)}
 .as-alert-ic{color:var(--amber);margin-top:1px;flex-shrink:0;display:inline-flex}
 
+/* suite overview table — response-rate bar + score band marker per row */
+.as-rowbar{display:block;height:5px;border-radius:999px;background:var(--canvas-2);overflow:hidden}
+.as-rowbar span{display:block;height:100%;border-radius:999px;background:var(--forest)}
+.as-rowscore{position:relative;flex:1;min-width:54px;height:7px;border-radius:999px;background:var(--canvas-2)}
+.as-rowscore .target{position:absolute;top:0;bottom:0;border-radius:999px;background:rgba(66,114,158,.16);border-left:1px solid var(--role)}
+.as-rowscore .marker{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;border:2px solid #fff;transform:translate(-50%,-50%);box-shadow:0 0 0 1px var(--line)}
+
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .wsd-main{display:flex;flex-direction:column;gap:16px;min-width:0}
