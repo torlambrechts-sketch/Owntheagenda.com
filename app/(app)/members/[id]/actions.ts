@@ -15,7 +15,8 @@ export async function saveMemberDetail(
   detail: { jobTitle: string; department: string; location: string; phone: string },
 ): Promise<{ error?: string }> {
   const ctx = await requireSession();
-  const rpc = createClient().rpc as unknown as Rpc;
+  const supabase = createClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
   const { error } = await rpc("set_member_detail", {
     p_workspace: ctx.workspace.id,
     p_user: userId,
@@ -34,7 +35,8 @@ export async function addCompetence(
   comp: { name: string; issued: string | null; expires: string | null },
 ): Promise<{ error?: string }> {
   const ctx = await requireSession();
-  const rpc = createClient().rpc as unknown as Rpc;
+  const supabase = createClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
   const { error } = await rpc("add_member_competence", {
     p_workspace: ctx.workspace.id,
     p_user: userId,
@@ -49,7 +51,8 @@ export async function addCompetence(
 
 export async function removeCompetence(userId: string, competenceId: string): Promise<{ error?: string }> {
   await requireSession();
-  const rpc = createClient().rpc as unknown as Rpc;
+  const supabase = createClient();
+  const rpc = supabase.rpc.bind(supabase) as unknown as Rpc;
   const { error } = await rpc("delete_member_competence", { p_id: competenceId });
   if (error) return { error: error.message };
   revalidatePath(`/members/${userId}`);

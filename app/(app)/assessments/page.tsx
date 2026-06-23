@@ -66,8 +66,20 @@ export default async function AssessmentSuitePage() {
   // generated types (kept un-regenerated to avoid drift), so it's cast and
   // guarded — a missing migration or any error degrades to no metrics.
   type OverviewMetric = { survey_id: string; respondents: number; invited: number; masked: boolean; overall_mean: number | null; overall_pct: number | null; below_count: number; has_workshop: boolean };
-  const overviewRpc = supabase.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: OverviewMetric[] | null; error: unknown }>;
-  const { data: metricRows, error: metricErr } = await overviewRpc("assessment_suite_overview", { p_workspace: ctx.workspace.id });
+  // Bind to the client: extracting `.rpc` into a variable detaches it from
+  // `supabase`, so the SDK dereferences `this.rest` and throws. Wrapped too, so
+  // any failure (missing fn / returned error / thrown) falls through to the
+  // cheap respondent-count fallback below instead of 500-ing the page.
+  let metricRows: OverviewMetric[] | null = null;
+  let metricErr: unknown = null;
+  try {
+    const callRpc = supabase.rpc.bind(supabase) as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: OverviewMetric[] | null; error: unknown }>;
+    const res = await callRpc("assessment_suite_overview", { p_workspace: ctx.workspace.id });
+    metricRows = res.data;
+    metricErr = res.error;
+  } catch (e) {
+    metricErr = e;
+  }
   const metrics = new Map<string, OverviewMetric>();
   if (!metricErr) for (const m of metricRows ?? []) metrics.set(m.survey_id, m);
 
