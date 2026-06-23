@@ -220,7 +220,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           )}
         </div>
         {loading ? <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div> : null}
-        {newOpen ? <NewAssessment teams={teams} templates={templates} onClose={() => setNewOpen(false)} /> : null}
+        <NewAssessment open={newOpen} teams={teams} templates={templates} onClose={() => setNewOpen(false)} />
       </>
     );
   }
