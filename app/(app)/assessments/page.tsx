@@ -3,7 +3,6 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
-import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { AssessmentSuite, type SuiteRow } from "./suite/AssessmentSuite";
 
 // Assessment Suite — an organisation-wide hub over the assessment *instances*
@@ -79,29 +78,23 @@ export default async function AssessmentSuitePage() {
     date: s.created_at,
   }));
 
-  // Below-band signal for the suite alert. We only score assessments that
-  // actually have responses, cap the set, and run the RPCs in parallel so the
-  // overview stays a fast page. Banding mirrors the detail loader (a section is
-  // "below band" under 45% of its scale); masked results contribute nothing, so
-  // a small response set is never inferable. Errors degrade to "no alert".
-  const instByKind = new Map(Object.values(instruments).map((i) => [i.kind, i]));
-  const toScore = rows.filter((r) => r.respondents > 0).slice(0, 40);
-  let belowSections = 0;
-  const belowAssessments = new Set<string>();
-  await Promise.all(
-    toScore.map(async (r) => {
-      const inst = instByKind.get(r.kind);
-      if (!inst) return;
-      const { data: res } = await supabase.rpc("survey_results", { p_survey: r.id, p_strength_items: strengthItemKeys(inst) });
-      const rr = res as { masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
-      if (!rr || rr.masked) return;
-      const below = dimensionMeans(inst, rr.items ?? [])
-        .filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null)
-        .filter((d) => ((d.mean - inst.scale.min) / (inst.scale.max - inst.scale.min)) * 100 < 45).length;
-      if (below) { belowSections += below; belowAssessments.add(r.id); }
-    }),
-  );
-  const alert = belowSections ? { sections: belowSections, assessments: belowAssessments.size } : null;
+  // Below-band signal for the suite alert — an exact, set-based rollup in SQL
+  // (assessment_below_band_rollup) that mirrors the detail view's banding and
+  // masking. One round-trip regardless of how many assessments exist. Degrades
+  // to no alert if the migration hasn't been applied yet or the call errors.
+  let alert: { sections: number; assessments: number } | null = null;
+  // assessment_below_band_rollup isn't in the committed generated types (kept
+  // un-regenerated to avoid schema drift, as elsewhere), so the call is cast and
+  // guarded — a missing migration or any error simply yields no alert.
+  const rollupRpc = supabase.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: { sections_below: number; assessments_below: number }[] | null; error: unknown }>;
+  const { data: rollup, error: rollupErr } = await rollupRpc("assessment_below_band_rollup", { p_workspace: ctx.workspace.id });
+  if (!rollupErr) {
+    const row = Array.isArray(rollup) ? rollup[0] : null;
+    if (row && row.sections_below > 0) alert = { sections: row.sections_below, assessments: row.assessments_below };
+  }
 
   const openCount = rows.filter((r) => r.status === "open").length;
   const closedCount = rows.filter((r) => r.status === "closed").length;
