@@ -676,6 +676,8 @@ button { font-family:inherit; }
 .rail{background:var(--shell-rail);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:14px}
 .rail .logo-tile{margin-bottom:10px;border:none;background:none;padding:0;cursor:pointer;border-radius:9px;display:flex;align-items:center;justify-content:center}
 .rail .logo-tile:hover{background:rgba(255,255,255,.08)}
+.rail .rail-expand{border:none;background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+.rail .rail-expand:hover{background:rgba(255,255,255,.12);color:#fff}
 .nav .word .nav-collapse{border:none;background:none;color:rgba(255,255,255,.6);cursor:pointer;font-size:18px;line-height:1;width:26px;height:26px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 .nav .word .nav-collapse:hover{background:rgba(255,255,255,.1);color:#fff}
 .rail .ri{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#d8e0d9;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);cursor:pointer;position:relative;text-decoration:none}
