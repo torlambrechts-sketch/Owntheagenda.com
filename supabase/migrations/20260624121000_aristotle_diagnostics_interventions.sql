@@ -172,17 +172,20 @@ declare
   v_pillars jsonb; v_modules jsonb; v_body jsonb; v_phases jsonb;
   v_intro jsonb; v_close jsonb; v_total int; v_targets jsonb; v_spec jsonb;
 begin
-  select kind, team_id into v_kind, v_team from public.survey where id = p_survey;
+  select kind, team_id, definition into v_kind, v_team, v_def from public.survey where id = p_survey;
   if v_kind is null then raise exception 'survey not found' using errcode = '23503'; end if;
   if v_kind <> 'aristotle_team' then
     raise exception 'survey is not a Project Aristotle instrument' using errcode = '22023';
   end if;
   if not private.can_read_team(v_team) then raise exception 'not allowed' using errcode = '42501'; end if;
 
-  select workspace_id into v_ws from public.team where id = v_team;
-  select definition into v_def from public.assessment_template
-    where key = v_kind and (workspace_id = v_ws or workspace_id is null)
-    order by workspace_id nulls last limit 1;
+  -- prefer the survey's frozen definition snapshot; fall back to the live template
+  if v_def is null then
+    select workspace_id into v_ws from public.team where id = v_team;
+    select definition into v_def from public.assessment_template
+      where key = v_kind and (workspace_id = v_ws or workspace_id is null)
+      order by workspace_id nulls last limit 1;
+  end if;
   v_min := coalesce((v_def->'scale'->>'min')::numeric, 1);
   v_max := coalesce((v_def->'scale'->>'max')::numeric, 5);
   v_mid := (v_min + v_max) / 2.0;
