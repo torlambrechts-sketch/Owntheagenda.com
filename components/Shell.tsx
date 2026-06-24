@@ -171,9 +171,12 @@ export function Shell({
   const [wsOpen, setWsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("nav-collapsed") === "1"); } catch { /* no storage */ }
   }, []);
+  // Close the mobile nav drawer whenever the route changes (tapping a link).
+  useEffect(() => { setMobileNavOpen(false); }, [path]);
   function toggleCollapsed() {
     setCollapsed((c) => {
       const next = !c;
@@ -213,7 +216,9 @@ export function Shell({
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
-    <div className={`app${collapsed ? " collapsed" : ""}`}>
+    <div className={`app${collapsed ? " collapsed" : ""}${mobileNavOpen ? " mobile-open" : ""}`}>
+      {/* mobile drawer scrim */}
+      <div className="mobile-scrim" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       {/* icon rail */}
       <nav className="rail" aria-label="Sections">
         <button className="logo-tile" onClick={toggleCollapsed} title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"}>
@@ -302,6 +307,9 @@ export function Shell({
       {/* main */}
       <main className="main">
         <div className="appbar">
+          <button className="mobile-menu-btn" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+          </button>
           <div className="crumb">
             {current ? (
               current.group === current.label ? (

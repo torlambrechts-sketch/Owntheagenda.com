@@ -793,6 +793,36 @@ button { font-family:inherit; }
 .ws-item .sq{width:18px;height:18px;border-radius:5px;background:var(--forest);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none}
 .ws-item.active .sq{background:var(--green)}
 .content{flex:1;overflow:auto;padding:26px clamp(20px,3vw,40px)}
+
+/* ---------- mobile menu drawer + responsive shell ---------- */
+.mobile-menu-btn{display:none;border:none;background:none;color:var(--ink);cursor:pointer;padding:6px;margin-left:-4px;border-radius:8px;line-height:0}
+.mobile-menu-btn:hover{background:var(--canvas-2)}
+.mobile-scrim{display:none}
+@media(max-width:860px){
+  /* rail + nav become an off-canvas drawer; main takes the full width */
+  .app,.app.collapsed{grid-template-columns:1fr}
+  .rail{position:fixed;top:0;left:0;bottom:0;width:60px;z-index:71;transform:translateX(-100%);transition:transform .22s ease}
+  .nav{position:fixed;top:0;left:60px;bottom:0;width:220px;z-index:71;transform:translateX(-280px);transition:transform .22s ease;display:block}
+  .app.collapsed .nav{display:block}
+  .app.mobile-open .rail{transform:translateX(0)}
+  .app.mobile-open .nav{transform:translateX(0)}
+  .mobile-scrim{display:block;position:fixed;inset:0;background:rgba(20,28,22,.45);z-index:70;opacity:0;visibility:hidden;transition:opacity .22s ease}
+  .app.mobile-open .mobile-scrim{opacity:1;visibility:visible}
+  .mobile-menu-btn{display:inline-flex;align-items:center}
+  .nav .word .nav-collapse{display:none}
+  .appbar{gap:10px;padding:0 16px}
+  .content{padding:18px 16px}
+  /* tables scroll horizontally instead of being clipped */
+  .tbl-card{overflow-x:auto}
+  .tbl-card .tbl{min-width:560px}
+  /* page head stacks its actions under the title */
+  .a-phead{flex-wrap:wrap}
+  .a-phead .a-pr{margin-left:0;width:100%;flex-wrap:wrap}
+}
+@media(max-width:560px){
+  .as-kpis{grid-template-columns:1fr}
+  .appbar .right{gap:8px}
+}
 .page-title{font-family:var(--font-display);font-size:30px;font-weight:600;letter-spacing:-.5px;margin:0 0 3px}
 .page-sub{color:var(--muted);font-size:13px;margin:0 0 20px}
 .page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
