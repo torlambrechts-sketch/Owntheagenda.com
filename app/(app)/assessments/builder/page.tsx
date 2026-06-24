@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { isAdmin } from "@/lib/util";
 import { listTemplates } from "@/lib/assessments";
-import { AssessmentNav } from "@/components/AssessmentNav";
 import { BuilderClient, type StarterTemplate } from "./BuilderClient";
 
 // In-shell assessment builder (the handoff's Builder screen) — rendered inside
@@ -36,12 +35,7 @@ export default async function AssessmentBuilderInShell({ searchParams }: { searc
       };
     });
 
-  return (
-    <>
-      <AssessmentNav active="builder" />
-      <BuilderClient mine={mine} demo={searchParams.demo === "1"} />
-    </>
-  );
+  return <BuilderClient mine={mine} demo={searchParams.demo === "1"} />;
 }
 
 function normalizeType(t?: string): "likert" | "yesno" | "single" | "multi" | "text" {

@@ -131,7 +131,11 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
-  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
+  { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
+  { href: "/assessments/builder", label: "Builder", icon: ICONS.assess, group: "Assessments", adminOnly: true },
+  { href: "/assessments/templates", label: "Templates", icon: ICONS.assess, group: "Assessments" },
+  { href: "/assessments/participants", label: "Participants", icon: ICONS.assess, group: "Assessments" },
+  { href: "/assessments/builder?demo=1", label: "Take survey (demo)", icon: ICONS.assess, group: "Assessments" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
@@ -180,7 +184,15 @@ export function Shell({
   }
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
-  const current = NAV.find((n) => active(n.href));
+  // Per-nav-item active. "/assessments" (Overview) must NOT light up on the
+  // Builder/Templates sub-routes; query-only links (Take survey demo) never do.
+  const navItemActive = (href: string) => {
+    if (href.includes("?")) return false;
+    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/participants"));
+    return active(href);
+  };
+  // Breadcrumb: prefer an exact route match, then the longest prefix.
+  const current = NAV.find((n) => !n.href.includes("?") && path === n.href) ?? NAV.find((n) => navItemActive(n.href));
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
@@ -191,7 +203,10 @@ export function Shell({
   // Insight collapses to one rail icon; the text menu keeps the three sub-pages.
   const insightHref = "/insight/leadership-teams";
   const insightActive = active("/insight");
-  const groups = ["Workspace", "Insight", "Effectiveness", "Organization", "Help"].filter((g) =>
+  // Assessments collapses to one rail icon; the text menu keeps its sub-pages.
+  const assessHref = "/assessments";
+  const assessActive = active("/assessments");
+  const groups = ["Workspace", "Insight", "Effectiveness", "Assessments", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
@@ -211,6 +226,7 @@ export function Shell({
         {(() => {
           let orgDone = false;
           let insightDone = false;
+          let assessDone = false;
           return visibleNav.map((n) => {
             if (n.group === "Organization") {
               if (orgDone) return null;
@@ -227,6 +243,15 @@ export function Shell({
               return (
                 <Link key="insight-rail" className={`ri${insightActive ? " active" : ""}`} href={insightHref} title="Insight">
                   {ICONS.health}
+                </Link>
+              );
+            }
+            if (n.group === "Assessments") {
+              if (assessDone) return null;
+              assessDone = true;
+              return (
+                <Link key="assess-rail" className={`ri${assessActive ? " active" : ""}`} href={assessHref} title="Assessments">
+                  {ICONS.assess}
                 </Link>
               );
             }
@@ -264,7 +289,7 @@ export function Shell({
                 <Link
                   key={n.href}
                   href={n.href}
-                  className={active(n.href) ? "active" : ""}
+                  className={navItemActive(n.href) ? "active" : ""}
                 >
                   <span className="dot" />
                   {n.label}
