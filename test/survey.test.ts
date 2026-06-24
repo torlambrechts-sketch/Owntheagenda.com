@@ -3,6 +3,7 @@ import {
   PSYCH_SAFETY_BANG,
   TEAM_EFFECTIVENESS_BANG,
   TEAM_LEARNING_EDMONDSON,
+  ARISTOTLE_TEAM,
   INSTRUMENTS,
   INSTRUMENT_LIST,
   dimensionMeans,
@@ -71,6 +72,53 @@ describe("instrument registry", () => {
   it("has the new effectiveness + learning instruments", () => {
     expect(TEAM_EFFECTIVENESS_BANG.items).toHaveLength(8);
     expect(TEAM_LEARNING_EDMONDSON.items).toHaveLength(5);
+  });
+});
+
+describe("ARISTOTLE_TEAM psychometric contract", () => {
+  const pillars = ["psych_safety", "dependability", "structure_clarity", "meaning", "impact"];
+
+  it("has 5 pillars on a 1–5 Likert scale", () => {
+    expect(ARISTOTLE_TEAM.dimensions.map((d) => d.key).sort()).toEqual([...pillars].sort());
+    expect(ARISTOTLE_TEAM.scale.min).toBe(1);
+    expect(ARISTOTLE_TEAM.scale.max).toBe(5);
+  });
+
+  it("is balanced: 6 items per pillar (30 total)", () => {
+    expect(ARISTOTLE_TEAM.items).toHaveLength(30);
+    for (const p of pillars) {
+      expect(ARISTOTLE_TEAM.items.filter((i) => i.dimension === p)).toHaveLength(6);
+    }
+  });
+
+  it("carries 1–2 reverse-keyed items per pillar for acquiescence control", () => {
+    for (const p of pillars) {
+      const rev = ARISTOTLE_TEAM.items.filter((i) => i.dimension === p && i.reverse).length;
+      expect(rev).toBeGreaterThanOrEqual(1);
+      expect(rev).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("has unique item keys, all referencing declared pillars", () => {
+    const keys = ARISTOTLE_TEAM.items.map((i) => i.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    const dims = new Set(ARISTOTLE_TEAM.dimensions.map((d) => d.key));
+    for (const it of ARISTOTLE_TEAM.items) expect(dims.has(it.dimension)).toBe(true);
+  });
+
+  it("reflects reverse items across the scale midpoint before averaging", () => {
+    // psych_safety: forward ps_1..ps_4 = 5; reverse ps_5,ps_6 raw = 1 → flips to 5.
+    // All six should land on the same pole, so the pillar mean is 5, not diluted.
+    const items = [
+      { item_key: "ps_1", mean: 5, n: 4 },
+      { item_key: "ps_2", mean: 5, n: 4 },
+      { item_key: "ps_3", mean: 5, n: 4 },
+      { item_key: "ps_4", mean: 5, n: 4 },
+      { item_key: "ps_5", mean: 1, n: 4 },
+      { item_key: "ps_6", mean: 1, n: 4 },
+    ];
+    const safety = dimensionMeans(ARISTOTLE_TEAM, items).find((d) => d.key === "psych_safety");
+    expect(safety?.mean).toBe(5);
   });
 });
 

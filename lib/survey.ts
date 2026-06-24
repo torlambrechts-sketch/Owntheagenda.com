@@ -90,14 +90,67 @@ export const TEAM_LEARNING_EDMONDSON: SurveyInstrument = {
   strengthDimension: "learning",
 };
 
+// Project Aristotle (Google re:Work): the five keys to an effective team as
+// one balanced, reverse-scored team pulse — 5 pillars × 6 construct-isolated
+// items, two reverse-keyed per pillar, on a 1–5 Likert scale. This mirrors the
+// `aristotle_team` assessment_template row (the DB is the source of truth); it
+// exists only as a fallback so a momentary read failure never blanks the survey.
+export const ARISTOTLE_TEAM: SurveyInstrument = {
+  kind: "aristotle_team",
+  name: "Project Aristotle — Team Effectiveness",
+  scale: { min: 1, max: 5, minLabel: "Strongly disagree", maxLabel: "Strongly agree" },
+  dimensions: [
+    { key: "psych_safety", label: "Psychological safety", blurb: "Can we take interpersonal risks — speak up, admit mistakes, ask for help — without fear?" },
+    { key: "dependability", label: "Dependability", blurb: "Do we reliably get quality work done, on time, and hold each other to our commitments?" },
+    { key: "structure_clarity", label: "Structure & clarity", blurb: "Are roles, goals, decision rights and processes clear and predictable?" },
+    { key: "meaning", label: "Meaning", blurb: "Is the work personally meaningful, and does it connect to what we care about?" },
+    { key: "impact", label: "Impact", blurb: "Do we believe our work matters and can we see it making a difference?" },
+  ],
+  items: [
+    { key: "ps_1", dimension: "psych_safety", text: "It is safe to take a risk on this team." },
+    { key: "ps_2", dimension: "psych_safety", text: "I can raise problems and tough issues with this team." },
+    { key: "ps_3", dimension: "psych_safety", text: "When I make a mistake on this team, it is not held against me." },
+    { key: "ps_4", dimension: "psych_safety", text: "My unique skills and perspective are valued and drawn on by this team." },
+    { key: "ps_5", dimension: "psych_safety", text: "People on this team would think less of me if I admitted I did not know something.", reverse: true },
+    { key: "ps_6", dimension: "psych_safety", text: "It is difficult to ask other members of this team for help.", reverse: true },
+    { key: "dep_1", dimension: "dependability", text: "When members of this team say they will do something, they follow through." },
+    { key: "dep_2", dimension: "dependability", text: "This team consistently delivers work that meets the quality bar we have agreed." },
+    { key: "dep_3", dimension: "dependability", text: "Members of this team hold each other accountable for our commitments." },
+    { key: "dep_4", dimension: "dependability", text: "I can count on my teammates to do their share of the work." },
+    { key: "dep_5", dimension: "dependability", text: "I often have to chase teammates to get their part of the work done.", reverse: true },
+    { key: "dep_6", dimension: "dependability", text: "Work on this team frequently has to be redone because it was not done right the first time.", reverse: true },
+    { key: "sc_1", dimension: "structure_clarity", text: "I have a clear understanding of my role and responsibilities on this team." },
+    { key: "sc_2", dimension: "structure_clarity", text: "This team has clear goals that I can articulate." },
+    { key: "sc_3", dimension: "structure_clarity", text: "It is clear who has the authority to make which decisions on this team." },
+    { key: "sc_4", dimension: "structure_clarity", text: "Our processes for getting work done are clear and predictable." },
+    { key: "sc_5", dimension: "structure_clarity", text: "There is confusion or overlap about who owns what on this team.", reverse: true },
+    { key: "sc_6", dimension: "structure_clarity", text: "I am often unsure what this team is actually trying to achieve.", reverse: true },
+    { key: "mn_1", dimension: "meaning", text: "The work I do for this team is personally meaningful to me." },
+    { key: "mn_2", dimension: "meaning", text: "My personal values are aligned with the purpose of this team's work." },
+    { key: "mn_3", dimension: "meaning", text: "Being on this team helps me learn and grow in ways I care about." },
+    { key: "mn_4", dimension: "meaning", text: "The contributions I make to this team are genuinely valued." },
+    { key: "mn_5", dimension: "meaning", text: "Most of my work here feels like I am just going through the motions.", reverse: true },
+    { key: "mn_6", dimension: "meaning", text: "The effort I put into this team largely goes unnoticed.", reverse: true },
+    { key: "im_1", dimension: "impact", text: "The work of this team makes a real difference to the organisation." },
+    { key: "im_2", dimension: "impact", text: "I can clearly see how my work connects to outcomes that matter." },
+    { key: "im_3", dimension: "impact", text: "I believe the work we do here actually creates the impact we intend." },
+    { key: "im_4", dimension: "impact", text: "We can point to concrete results that this team has produced." },
+    { key: "im_5", dimension: "impact", text: "It is hard to tell whether the work I do here actually matters.", reverse: true },
+    { key: "im_6", dimension: "impact", text: "A lot of what this team produces ends up having little real effect.", reverse: true },
+  ],
+  strengthDimension: "psych_safety",
+};
+
 export const INSTRUMENTS: Record<string, SurveyInstrument> = {
   [PSYCH_SAFETY_BANG.kind]: PSYCH_SAFETY_BANG,
   [TEAM_EFFECTIVENESS_BANG.kind]: TEAM_EFFECTIVENESS_BANG,
   [TEAM_LEARNING_EDMONDSON.kind]: TEAM_LEARNING_EDMONDSON,
+  [ARISTOTLE_TEAM.kind]: ARISTOTLE_TEAM,
 };
 
 // Instruments offered in the standalone "send an assessment" picker.
 export const INSTRUMENT_LIST: SurveyInstrument[] = [
+  ARISTOTLE_TEAM,
   PSYCH_SAFETY_BANG,
   TEAM_EFFECTIVENESS_BANG,
   TEAM_LEARNING_EDMONDSON,

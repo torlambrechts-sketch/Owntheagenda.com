@@ -1416,6 +1416,14 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["workshop"]["Row"]
       }
+      aristotle_diagnostic: {
+        Args: { p_survey: string }
+        Returns: Json
+      }
+      create_workshop_from_diagnostic: {
+        Args: { p_survey: string; p_team: string; p_title?: string }
+        Returns: Database["public"]["Tables"]["workshop"]["Row"]
+      }
       start_session: {
         Args: { p_workshop: string }
         Returns: Database["public"]["Tables"]["session"]["Row"]
