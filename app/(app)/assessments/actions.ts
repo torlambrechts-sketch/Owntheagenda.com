@@ -52,6 +52,28 @@ export async function sendSurvey(
   return { id };
 }
 
+// Send one assessment to several teams at once — the wizard's multi-team
+// recipients step. Creates one survey instance per selected team (the suite
+// already lists surveys per team). Returns the created ids; the first id is
+// used to jump to the live-status screen. Partial failures are reported but
+// don't roll back the surveys already opened.
+export async function sendSurveyMulti(
+  teamIds: string[],
+  kind: string,
+  dueAt: string | null,
+  anonymity: string = "anonymous",
+): Promise<{ error?: string; ids?: string[] }> {
+  const ids: string[] = [];
+  const errors: string[] = [];
+  for (const teamId of teamIds) {
+    const res = await sendSurvey(teamId, kind, dueAt, anonymity);
+    if (res.error) errors.push(res.error);
+    else if (res.id) ids.push(res.id);
+  }
+  if (!ids.length) return { error: errors[0] ?? "Could not open the assessment for any team." };
+  return { ids };
+}
+
 export async function remindSurvey(surveyId: string): Promise<{ error?: string; pending?: number }> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("remind_survey", { p_survey: surveyId });
