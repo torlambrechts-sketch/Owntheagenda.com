@@ -1205,6 +1205,52 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      diagnostic_rule: {
+        Row: {
+          id: string
+          template_key: string
+          dimension_key: string
+          critical_at: number
+          trigger_at: number
+          strong_at: number
+          failure_mode: string
+          failure_label: string
+          structural_flag: string
+          narrative: string
+          ord: number
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      intervention_module: {
+        Row: {
+          id: string
+          key: string
+          name: string
+          source: string | null
+          default_duration: number
+          summary: string | null
+          definition: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      dimension_intervention: {
+        Row: {
+          id: string
+          template_key: string
+          dimension_key: string
+          module_key: string
+          ord: number
+          rationale: string | null
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       individual_response: {
         Row: {
           id: string
