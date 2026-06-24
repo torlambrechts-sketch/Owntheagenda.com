@@ -21,6 +21,22 @@ export async function buildFromTemplate(
   return { id: (data as any)?.id as string };
 }
 
+// Create an empty draft workshop (no blocks, no session) and land in the builder.
+// Backs the "Blank" mode of the New-workshop slide-over.
+export async function createBlankWorkshop(
+  teamId: string,
+  title: string,
+): Promise<{ id?: string; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_blank_workshop", {
+    p_team: teamId,
+    p_title: title,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/workshops");
+  return { id: data as string };
+}
+
 // Run an on-demand session: create an ad-hoc workshop with one starting module
 // and start it. Returns the workshop id to navigate straight into the run.
 export async function quickStart(

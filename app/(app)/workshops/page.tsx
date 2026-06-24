@@ -21,9 +21,10 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     .select("id, name, lead_user_id")
     .eq("workspace_id", ctx.workspace.id)
     .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .order("created_at", { ascending: true });
   const team = teams?.[0] ?? null;
+  // All teams the user can target when creating a workshop (New-workshop modal).
+  const teamOptions = (teams ?? []).map((t) => ({ id: t.id, name: t.name }));
 
   const { data: templates } = await supabase
     .from("template")
@@ -306,6 +307,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           canvasItems={canvasItems}
           initialTab={initialTab}
           kpis={kpis}
+          teamOptions={teamOptions}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>

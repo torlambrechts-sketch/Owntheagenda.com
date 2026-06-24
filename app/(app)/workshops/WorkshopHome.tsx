@@ -5,19 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CATEGORY, ACTIVITY, initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
-import { buildFromTemplate, deleteWorkshop, quickStart } from "./actions";
+import { buildFromTemplate, createBlankWorkshop, deleteWorkshop, scheduleWorkshop, updateWorkshopTitle } from "./actions";
 import { Icon, catVis, statusVis, WA } from "./visuals";
 import type { TemplateCard, WorkshopRow, Recommendation } from "./WorkshopsClient";
 
-const QUICK_MODULES = [
-  { kind: "canvas", label: "Canvas", blurb: "Freeform board — notes, shapes, connectors" },
-  { kind: "brainstorm", label: "Brainstorm", blurb: "Gather ideas, then cluster" },
-  { kind: "vote", label: "Vote", blurb: "Dot-vote to prioritize" },
-  { kind: "discuss", label: "Discuss", blurb: "A guided discussion prompt" },
-  { kind: "feedback", label: "Feedback", blurb: "Sort thoughts into lanes" },
-  { kind: "checkin", label: "Check-in", blurb: "A quick round to open" },
-  { kind: "outcome", label: "Outcomes", blurb: "Capture decisions & actions" },
-  { kind: "manual", label: "Notes", blurb: "Facilitator notes / freeform" },
+type NwMode = "assessment" | "template" | "blank";
+const NW_MODES: { key: NwMode; icon: string; title: string; blurb: string }[] = [
+  { key: "assessment", icon: "Sparkles", title: "From assessment", blurb: "Auto-suggest an agenda from results" },
+  { key: "template", icon: "Layers", title: "From template", blurb: "Start from a curated agenda" },
+  { key: "blank", icon: "PenLine", title: "Blank", blurb: "Empty phase columns" },
 ];
 
 // Filter tabs map the mockup's labels onto the app's workshop_status values.
@@ -53,6 +49,7 @@ export function WorkshopHome({
   surveyInsts = [],
   scienceByCategory = {},
   kpis = [],
+  teamOptions = [],
 }: {
   teamId: string;
   canManage: boolean;
@@ -62,6 +59,7 @@ export function WorkshopHome({
   surveyInsts?: { kind: string; name: string }[];
   scienceByCategory?: Record<string, string>;
   kpis?: { label: string; value: string; sub: string }[];
+  teamOptions?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -70,29 +68,69 @@ export function WorkshopHome({
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  // Unified "new workshop" modal — one surface, three modes (design isPrep).
+  // "New workshop" slide-over — Start point (assessment / template / blank),
+  // details (name / team / date), then create and land in the builder.
   const [newOpen, setNewOpen] = useState(false);
-  const [newMode, setNewMode] = useState<"blank" | "template" | "assessment">("blank");
-  const [quickKind, setQuickKind] = useState("canvas");
-  const [quickInst, setQuickInst] = useState("");
-  const [quickTitle, setQuickTitle] = useState("");
+  const [nwMode, setNwMode] = useState<NwMode>("assessment");
+  const [nwName, setNwName] = useState("");
+  const [nwTeam, setNwTeam] = useState(teamId);
+  const [nwDate, setNwDate] = useState("");
+  const [nwTemplate, setNwTemplate] = useState<string | null>(null);
   const [preview, setPreview] = useState<TemplateCard | null>(null);
 
-  function openNew(mode: "blank" | "template" | "assessment") {
-    setNewMode(mode);
+  function openNew(mode: NwMode) {
+    setNwMode(mode);
+    setNwName("");
+    setNwTeam(teamId);
+    setNwDate("");
+    setNwTemplate(null);
     setNewOpen(true);
+  }
+
+  // The template whose agenda we'll seed (for the preview + assessment grounding).
+  const seedTemplate =
+    nwMode === "template"
+      ? templates.find((t) => t.id === nwTemplate) ?? null
+      : nwMode === "assessment" && recommendation
+        ? templates.find((t) => t.id === recommendation.templateId) ?? null
+        : null;
+
+  const canCreate =
+    nwMode === "blank" ||
+    (nwMode === "template" && !!nwTemplate) ||
+    (nwMode === "assessment" && !!recommendation);
+
+  function createWorkshop() {
+    if (!canCreate) {
+      flash(nwMode === "template" ? "Pick a template first" : "No assessment recommendation yet — try a template or blank");
+      return;
+    }
+    const title = nwName.trim();
+    startTransition(async () => {
+      let id: string | undefined;
+      let err: string | undefined;
+      if (nwMode === "template" && nwTemplate) {
+        const r = await buildFromTemplate(nwTeam, nwTemplate);
+        id = r.id; err = r.error;
+      } else if (nwMode === "assessment" && recommendation) {
+        const r = await buildFromTemplate(nwTeam, recommendation.templateId, recommendation.pulseId ?? undefined);
+        id = r.id; err = r.error;
+      } else {
+        const r = await createBlankWorkshop(nwTeam, title || "Untitled workshop");
+        id = r.id; err = r.error;
+      }
+      if (err) { flash(err); return; }
+      if (!id) { flash("Could not create the workshop"); return; }
+      // buildFromTemplate names the workshop after the template; honour a custom name.
+      if (title && nwMode !== "blank") await updateWorkshopTitle(id, title);
+      if (nwDate) await scheduleWorkshop(id, `${nwDate}T09:00`);
+      router.push(`/workshops/${id}`);
+    });
   }
 
   function flash(m: string) {
     setToast(m);
     setTimeout(() => setToast(null), 2400);
-  }
-  function runQuick() {
-    startTransition(async () => {
-      const res = await quickStart(teamId, quickTitle, quickKind, quickKind === "survey" ? quickInst : undefined);
-      if (res.error) flash(res.error);
-      else if (res.workshopId) router.push(`/run/${res.workshopId}`);
-    });
   }
   function use(templateId: string, pulseId?: string | null) {
     startTransition(async () => {
@@ -145,7 +183,7 @@ export function WorkshopHome({
             <button onClick={() => openNew("template")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <Icon name="Wand2" size={15} color="#404040" /> Build workshop
             </button>
-            <button onClick={() => openNew("blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={() => openNew(recommendation ? "assessment" : "blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <Icon name="Plus" size={16} color="#fff" /> New workshop
             </button>
           </>
@@ -319,105 +357,114 @@ export function WorkshopHome({
         <WorkshopBoard workshops={visible} canManage={canManage} onNew={() => openNew("blank")} />
       )}
 
-      {/* ---- unified "new workshop" modal: Assessment / Template / Blank ---- */}
+      {/* ---- "New workshop" slide-over: start point → details → create ---- */}
       <SideWindow
         open={newOpen}
         onClose={() => setNewOpen(false)}
         title="New workshop"
         subtitle="Start from an assessment, a template, or a blank canvas"
-        footer={newMode === "template" ? (
-          <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
-        ) : (
+        footer={
           <>
+            <span style={{ fontSize: 12, color: WA.faint2, marginRight: "auto" }}>
+              {nwMode === "blank" ? "Opens an empty builder" : seedTemplate ? `Seeds ${seedTemplate.steps} blocks` : ""}
+            </span>
             <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
             <div className="right">
-              <button className="btn-prim" disabled={pending || (newMode === "assessment" && !quickInst)} onClick={runQuick}>
-                {newMode === "assessment" ? "Send & start ▸" : "Start session ▸"}
+              <button className="btn-prim" disabled={pending || !canCreate} onClick={createWorkshop}>
+                <Icon name="Wand2" size={15} color="#fff" /> Create workshop
               </button>
             </div>
           </>
-        )}
+        }
       >
-        <div className="nwmodes">
-          {([["assessment", "Assessment"], ["template", "Template"], ["blank", "Blank"]] as const).map(([k, l]) => (
-            <button
-              key={k}
-              type="button"
-              className={`nwmode${newMode === k ? " on" : ""}`}
-              onClick={() => {
-                setNewMode(k);
-                if (k === "assessment") { setQuickKind("survey"); }
-                else if (k === "blank" && quickKind === "survey") { setQuickKind("canvas"); setQuickInst(""); }
-              }}
-            >{l}</button>
+        {/* Start point — three mode cards */}
+        <div className="nw-eyebrow">Start point</div>
+        <div className="nw-modes">
+          {NW_MODES.map((m) => (
+            <button key={m.key} type="button" className={`nw-mode${nwMode === m.key ? " on" : ""}`} onClick={() => setNwMode(m.key)}>
+              {m.key === "assessment" ? <span className="nw-mode-badge">Recommended</span> : null}
+              <Icon name={m.icon} size={18} color={nwMode === m.key ? WA.accent : WA.faint} />
+              <span className="nw-mode-t">{m.title}</span>
+              <span className="nw-mode-s">{m.blurb}</span>
+            </button>
           ))}
         </div>
 
-        {recommendation && newMode !== "template" ? (
-          <div className="nwseed">
-            <Icon name="Sparkles" size={13} color="#5b5536" />
-            <span><b>{recommendation.dynamicLabel}</b> {recommendation.belowBand ? "is below target" : "is the team's lowest reading"} — an assessment-led session is suggested.</span>
-          </div>
-        ) : null}
-
-        {newMode !== "template" ? (
-          <div className="field">
-            <label htmlFor="qs-title">Session name <span className="opt">(optional)</span></label>
-            <input className="inp" id="qs-title" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} placeholder="Quick session" />
-          </div>
-        ) : null}
-
-        {newMode === "blank" ? (
-          <div className="field">
-            <label>Starting module</label>
-            <div className="quickmods">
-              {QUICK_MODULES.map((m) => (
-                <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => { setQuickKind(m.kind); setQuickInst(""); }}>
-                  <span className="quickmod-t">{m.label}</span>
-                  <span className="quickmod-s">{m.blurb}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        {newMode === "assessment" ? (
-          surveyInsts.length ? (
-            <div className="field">
-              <label>Pick an assessment</label>
-              <div className="quickmods">
-                {surveyInsts.map((sv) => (
-                  <button key={sv.kind} type="button" className={`quickmod${quickInst === sv.kind ? " on" : ""}`} onClick={() => { setQuickKind("survey"); setQuickInst(sv.kind); }}>
-                    <span className="quickmod-t">{sv.name}</span>
-                    <span className="quickmod-s">Anonymous team survey</span>
-                  </button>
-                ))}
+        {/* Mode-specific body */}
+        {nwMode === "assessment" ? (
+          recommendation ? (
+            <>
+              <div className="nw-eyebrow">From your assessment</div>
+              <div className="nw-assessment">
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div className="nw-assess-t">{recommendation.dynamicLabel}</div>
+                  <div className="nw-assess-s">{recommendation.belowBand ? "below target" : "lowest reading"} · {recommendation.why}</div>
+                </div>
+                {recommendation.pct != null ? (
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div className="nw-assess-score" style={{ color: recommendation.belowBand ? "var(--rust)" : "var(--amber)" }}>{recommendation.pct}%</div>
+                    <div className="nw-assess-scale">vs {recommendation.targetLow}%+</div>
+                  </div>
+                ) : null}
               </div>
-            </div>
+              {seedTemplate ? (
+                <div className="nw-seedcard">
+                  <div className="nw-seed-h"><Icon name="Sparkles" size={13} color="#5b5536" /> We’ll seed {seedTemplate.steps} blocks</div>
+                  <div className="nw-seed-sub">From <b>{seedTemplate.name}</b>, targeting {recommendation.dynamicLabel}. Adjust everything in the builder.</div>
+                  <div className="nw-seed-list">
+                    {(seedTemplate.phases ?? []).map((p, i) => (
+                      <div className="nw-seed-row" key={i}><span className="nw-seed-dot" />{p.title}<span className="nw-seed-meta">{ACTIVITY[p.type]?.label ?? p.type} · {p.minutes}m</span></div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </>
           ) : (
-            <div className="form-note">No team assessments available yet — build one in Assessments, or start from a template or blank canvas.</div>
+            <div className="form-note">No assessment reading for this team yet{surveyInsts.length ? " — run one from Assessments first" : ""}. Pick <b>Template</b> or <b>Blank</b> to start now.</div>
           )
         ) : null}
 
-        {newMode === "template" ? (
-          <div className="field">
-            <label>Start from a proven framework</label>
-            {Array.from(new Set(templates.map((t) => t.category))).map((cat) => (
-              <div key={cat} style={{ marginBottom: 14 }}>
-                <div className="a-gt" style={{ marginBottom: 8 }}>{CATEGORY[cat] ?? cat}</div>
-                <div className="browse-list">
-                  {templates.filter((t) => t.category === cat).map((t) => (
-                    <button key={t.id} type="button" className="browse-row" disabled={pending} onClick={() => { setNewOpen(false); use(t.id); }}>
-                      <span className="browse-nm">{t.name}</span>
-                      <span className="browse-meta">{t.steps} steps · {t.minutes} min</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="form-note" style={{ marginTop: 4 }}>Tip: click a template card on the page to preview its full agenda first.</div>
-          </div>
+        {nwMode === "template" ? (
+          <>
+            <div className="nw-eyebrow">Choose template</div>
+            <div className="nw-tpl-list">
+              {templates.map((t) => {
+                const v = catVis(t.category);
+                const on = nwTemplate === t.id;
+                return (
+                  <button key={t.id} type="button" className={`nw-tpl-row${on ? " on" : ""}`} onClick={() => setNwTemplate(t.id)}>
+                    <span className="nw-tpl-ic" style={{ background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={15} color={v.accent} /></span>
+                    <span className="nw-tpl-body"><span className="nw-tpl-t">{t.name}</span><span className="nw-tpl-m">{t.minutes} min · {t.steps} blocks</span></span>
+                    {on ? <span className="nw-tpl-check"><Icon name="Check" size={13} color="#fff" /></span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </>
         ) : null}
+
+        {nwMode === "blank" ? (
+          <div className="nw-blanknote">You’ll start with empty phase columns — <b>Open · Explore · Decide · Close</b> — and build the agenda block by block in the builder.</div>
+        ) : null}
+
+        {/* Details */}
+        <div className="nw-eyebrow">Details</div>
+        <div className="field">
+          <label htmlFor="nw-name">Workshop name {nwMode === "blank" ? null : <span className="opt">(optional)</span>}</label>
+          <input className="inp" id="nw-name" value={nwName} onChange={(e) => setNwName(e.target.value)} placeholder="e.g. Q3 leadership alignment" />
+        </div>
+        <div className="two">
+          <div className="field">
+            <label>Team</label>
+            <select className="inp" value={nwTeam} onChange={(e) => setNwTeam(e.target.value)}>
+              {teamOptions.length ? teamOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>) : <option value={teamId}>This team</option>}
+            </select>
+          </div>
+          <div className="field">
+            <label>Date <span className="opt">(optional)</span></label>
+            <input className="inp" type="date" value={nwDate} onChange={(e) => setNwDate(e.target.value)} />
+          </div>
+        </div>
       </SideWindow>
 
       {preview ? (

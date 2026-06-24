@@ -56,6 +56,7 @@ export function WorkshopsClient({
   canvasItems = [],
   initialTab = "workshops",
   kpis = [],
+  teamOptions = [],
 }: {
   teamId: string;
   canManage: boolean;
@@ -68,6 +69,7 @@ export function WorkshopsClient({
   canvasItems?: GalleryItem[];
   initialTab?: WkTab;
   kpis?: { label: string; value: string; sub: string }[];
+  teamOptions?: { id: string; name: string }[];
 }) {
   const [tab, setTab] = useState<WkTab>(initialTab);
 
@@ -89,6 +91,7 @@ export function WorkshopsClient({
           surveyInsts={surveyInsts}
           scienceByCategory={scienceByCategory}
           kpis={kpis}
+          teamOptions={teamOptions}
         />
       ) : tab === "sessions" ? (
         sessions.length ? <SessionsTable rows={sessions} /> : <div className="empty">No sessions yet — start a workshop to run your first.</div>
