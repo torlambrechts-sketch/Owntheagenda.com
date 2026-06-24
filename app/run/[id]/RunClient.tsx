@@ -85,6 +85,7 @@ export function RunClient({
   instruments,
   session: initialSession,
   isFacilitator,
+  initialRole,
   userId,
   userName,
   initialParticipants,
@@ -99,6 +100,7 @@ export function RunClient({
   instruments: Record<string, SurveyInstrument>;
   session: SessionState;
   isFacilitator: boolean;
+  initialRole?: "facilitator" | "participant";
   userId: string;
   userName: string;
   initialParticipants: Participant[];
@@ -117,8 +119,10 @@ export function RunClient({
   const [now, setNow] = useState(() => Date.now());
   const [summary, setSummary] = useState<number[]>([0, 0, 0, 0, 0]);
   const [myValue, setMyValue] = useState<number | null>(null);
+  // Honour the launcher's role choice, but a non-facilitator can only ever take
+  // the participant view.
   const [view, setView] = useState<"facilitator" | "participant">(
-    isFacilitator ? "facilitator" : "participant",
+    isFacilitator ? (initialRole ?? "facilitator") : "participant",
   );
   const [actText, setActText] = useState("");
   const [actOwnerId, setActOwnerId] = useState("");

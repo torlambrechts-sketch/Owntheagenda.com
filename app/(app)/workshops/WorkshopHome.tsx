@@ -381,7 +381,7 @@ export function WorkshopHome({
         <div className="nw-eyebrow">Start point</div>
         <div className="nw-modes">
           {NW_MODES.map((m) => (
-            <button key={m.key} type="button" className={`nw-mode${nwMode === m.key ? " on" : ""}`} onClick={() => setNwMode(m.key)}>
+            <button key={m.key} type="button" className={`nw-mode${nwMode === m.key ? " on" : ""}`} onClick={() => { setNwMode(m.key); if (m.key === "assessment") setNwTeam(teamId); }}>
               {m.key === "assessment" ? <span className="nw-mode-badge">Recommended</span> : null}
               <Icon name={m.icon} size={18} color={nwMode === m.key ? WA.accent : WA.faint} />
               <span className="nw-mode-t">{m.title}</span>
@@ -455,8 +455,8 @@ export function WorkshopHome({
         </div>
         <div className="two">
           <div className="field">
-            <label>Team</label>
-            <select className="inp" value={nwTeam} onChange={(e) => setNwTeam(e.target.value)}>
+            <label>Team {nwMode === "assessment" ? <span className="opt">(from assessment)</span> : null}</label>
+            <select className="inp" value={nwTeam} disabled={nwMode === "assessment"} onChange={(e) => setNwTeam(e.target.value)}>
               {teamOptions.length ? teamOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>) : <option value={teamId}>This team</option>}
             </select>
           </div>

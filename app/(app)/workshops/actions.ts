@@ -253,20 +253,18 @@ export async function reorderBlocks(
 }
 
 // Persist a full kanban layout: each item carries its new phase column, and the
-// array order is the new linear agenda order (ord). Used by the builder board's
-// drag-between-columns so phase + order stay in sync in one round-trip.
+// array order is the new linear agenda order (ord). One round-trip via an RPC
+// that is gated by can_manage_workshop and scoped to the workshop server-side.
 export async function setAgendaLayout(
   workshopId: string,
   items: { id: string; phase: string | null }[],
 ): Promise<{ error?: string }> {
   const supabase = createClient();
-  for (let i = 0; i < items.length; i++) {
-    const { error } = await supabase
-      .from("block")
-      .update({ ord: i + 1, phase: items[i].phase })
-      .eq("id", items[i].id);
-    if (error) return { error: error.message };
-  }
+  const { error } = await supabase.rpc("set_agenda_layout", {
+    p_workshop: workshopId,
+    p_items: items.map((it) => ({ id: it.id, phase: it.phase ?? "" })),
+  });
+  if (error) return { error: error.message };
   revalidatePath(`/workshops/${workshopId}`);
   return {};
 }

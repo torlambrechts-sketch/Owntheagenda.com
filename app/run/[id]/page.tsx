@@ -9,9 +9,13 @@ import { RunClient, type RunBlock, type Participant, type Action } from "./RunCl
 
 export default async function RunPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { role?: string };
 }) {
+  const initialRole: "facilitator" | "participant" | undefined =
+    searchParams?.role === "participant" ? "participant" : searchParams?.role === "facilitator" ? "facilitator" : undefined;
   const ctx = await requireSession();
   const supabase = createClient();
 
@@ -144,6 +148,7 @@ export default async function RunPage({
         isDryRun: session.is_dry_run,
       }}
       isFacilitator={session.facilitator_id === ctx.userId}
+      initialRole={initialRole}
       userId={ctx.userId}
       userName={userName}
       initialParticipants={participants}
