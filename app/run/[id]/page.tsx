@@ -141,6 +141,7 @@ export default async function RunPage({
         timerRunning: session.timer_running,
         timerEndsAt: session.timer_ends_at,
         timerRemaining: session.timer_remaining,
+        isDryRun: session.is_dry_run,
       }}
       isFacilitator={session.facilitator_id === ctx.userId}
       userId={ctx.userId}

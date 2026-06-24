@@ -172,6 +172,7 @@ export default async function WorkshopOverviewPage({
     .from("session")
     .select("id, status, started_at")
     .eq("workshop_id", workshop.id)
+    .eq("is_dry_run", false)
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();

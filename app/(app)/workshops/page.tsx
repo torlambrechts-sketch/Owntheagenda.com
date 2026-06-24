@@ -79,7 +79,8 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
       const { data: sess } = await supabase
         .from("session")
         .select("id, workshop_id")
-        .in("workshop_id", wkIds);
+        .in("workshop_id", wkIds)
+        .eq("is_dry_run", false);
       const sessList = sess ?? [];
       const wkBySession = new Map(sessList.map((s) => [s.id, s.workshop_id]));
       const sIds = sessList.map((s) => s.id);
@@ -185,6 +186,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     .from("session")
     .select("id, workshop_id, status, started_at, ended_at")
     .eq("workspace_id", wsId)
+    .eq("is_dry_run", false)
     .order("started_at", { ascending: false })
     .limit(100);
   const sList = sessionRows ?? [];

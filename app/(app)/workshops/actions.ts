@@ -56,6 +56,19 @@ export async function quickStart(
   return { workshopId: data as string };
 }
 
+// Launch a live (or dry-run) session from the "Run a workshop" launcher.
+// A dry run rehearses without recording to the workshop record.
+export async function launchRun(
+  workshopId: string,
+  dry: boolean,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("start_session", { p_workshop: workshopId, p_dry: dry });
+  if (error) return { error: error.message };
+  revalidatePath(`/run/${workshopId}`);
+  return {};
+}
+
 // Attach a specific open assessment to a survey step (or null to detach → auto-match).
 export async function setBlockSurvey(
   workshopId: string,

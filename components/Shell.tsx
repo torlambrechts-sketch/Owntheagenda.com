@@ -130,6 +130,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
+  { href: "/workshops/run", label: "Run workshop", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
   { href: "/assessments/builder", label: "Builder", icon: ICONS.assess, group: "Assessments", adminOnly: true },

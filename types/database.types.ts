@@ -854,6 +854,7 @@ export type Database = {
           share_token: string | null
           shared_at: string | null
           is_prep: boolean
+          is_dry_run: boolean
           prework_all: boolean
           pre_pulse_id: string | null
           post_pulse_id: string | null
@@ -1536,7 +1537,7 @@ export type Database = {
         Returns: Database["public"]["Tables"]["workshop"]["Row"]
       }
       start_session: {
-        Args: { p_workshop: string }
+        Args: { p_workshop: string; p_dry?: boolean }
         Returns: Database["public"]["Tables"]["session"]["Row"]
       }
       open_prework: {

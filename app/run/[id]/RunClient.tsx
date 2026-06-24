@@ -42,6 +42,7 @@ type SessionState = {
   timerRunning: boolean;
   timerEndsAt: string | null;
   timerRemaining: number;
+  isDryRun?: boolean;
 };
 
 function mmss(total: number) {
@@ -382,7 +383,10 @@ export function RunClient({
         <button className="runbtn" title="Previous step" disabled={!acting || session.currentBlockOrd <= 1}
           onClick={() => phase(session.currentBlockOrd - 1)}>‹</button>
         <div className="phase">
-          <div className="step">Step {session.currentBlockOrd} of {N}</div>
+          <div className="step">
+            Step {session.currentBlockOrd} of {N}
+            {session.isDryRun ? <span className="rb-dry" title="Rehearsal — not recorded to the workshop">Dry run</span> : null}
+          </div>
           <div className="name">
             {block?.title}
             {block?.linkedDynamic ? (
