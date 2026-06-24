@@ -110,7 +110,7 @@ export default async function WorkshopOverviewPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, owner_name, survey_id, config")
+    .select("id, ord, title, activity_type, duration, prompt, owner_name, phase, survey_id, config")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
   const blockList = blocks ?? [];
@@ -235,7 +235,7 @@ export default async function WorkshopOverviewPage({
   // Group the agenda into facilitation phases (Open → Diverge → … → Close),
   // preserving block order and carrying the running clock through each block.
   const phaseGroups = PHASES.map((ph) => {
-    const items = blockList.filter((b) => phaseOf(b.activity_type) === ph.key);
+    const items = blockList.filter((b) => ((b.phase as ReturnType<typeof phaseOf> | null) ?? phaseOf(b.activity_type)) === ph.key);
     const mins = items.reduce((a, b) => a + (b.duration ?? 0), 0);
     return { ...ph, items, mins };
   }).filter((g) => g.items.length);

@@ -151,6 +151,7 @@ export async function addBlock(input: {
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
   ownerName?: string | null;
+  phase?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -172,6 +173,7 @@ export async function addBlock(input: {
     prompt: input.prompt || null,
     linked_dynamic: input.linkedDynamic || null,
     owner_name: input.ownerName?.trim() || null,
+    phase: input.phase ?? null,
     config: (input.config ?? {}) as never,
   });
   if (error) return { error: error.message };
@@ -188,6 +190,7 @@ export async function updateBlock(input: {
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
   ownerName?: string | null;
+  phase?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -200,6 +203,7 @@ export async function updateBlock(input: {
       prompt: input.prompt || null,
       linked_dynamic: input.linkedDynamic || null,
       owner_name: input.ownerName?.trim() || null,
+      phase: input.phase ?? null,
       config: (input.config ?? {}) as never,
     })
     .eq("id", input.blockId);
@@ -229,6 +233,25 @@ export async function reorderBlocks(
       .from("block")
       .update({ ord: i + 1 })
       .eq("id", ids[i]);
+    if (error) return { error: error.message };
+  }
+  revalidatePath(`/workshops/${workshopId}`);
+  return {};
+}
+
+// Persist a full kanban layout: each item carries its new phase column, and the
+// array order is the new linear agenda order (ord). Used by the builder board's
+// drag-between-columns so phase + order stay in sync in one round-trip.
+export async function setAgendaLayout(
+  workshopId: string,
+  items: { id: string; phase: string | null }[],
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  for (let i = 0; i < items.length; i++) {
+    const { error } = await supabase
+      .from("block")
+      .update({ ord: i + 1, phase: items[i].phase })
+      .eq("id", items[i].id);
     if (error) return { error: error.message };
   }
   revalidatePath(`/workshops/${workshopId}`);

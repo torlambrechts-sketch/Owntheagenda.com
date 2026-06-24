@@ -40,7 +40,7 @@ export default async function BuilderPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, owner_name, config, survey_id")
+    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, owner_name, phase, config, survey_id")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
 
@@ -52,6 +52,7 @@ export default async function BuilderPage({
     prompt: b.prompt,
     linkedDynamic: b.linked_dynamic,
     ownerName: b.owner_name,
+    phase: (b.phase ?? null) as BlockRow["phase"],
     config: (b.config ?? {}) as BlockRow["config"],
   }));
 

@@ -800,6 +800,7 @@ export type Database = {
           config: Json
           survey_id: string | null
           owner_name: string | null
+          phase: string | null
           created_at: string
           updated_at: string
         }
@@ -815,6 +816,7 @@ export type Database = {
           config?: Json
           survey_id?: string | null
           owner_name?: string | null
+          phase?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -830,6 +832,7 @@ export type Database = {
           config?: Json
           survey_id?: string | null
           owner_name?: string | null
+          phase?: string | null
           created_at?: string
           updated_at?: string
         }

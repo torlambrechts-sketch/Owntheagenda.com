@@ -2669,6 +2669,26 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .wb-palette-grp{display:inline-flex;gap:6px;flex-wrap:wrap}
 .wb-palette-item{display:inline-flex;align-items:center;gap:5px;border:1px solid;border-radius:7px;padding:4px 9px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .wb-palette-item:hover{filter:brightness(.97)}
+/* builder kanban board — drag blocks between phase columns */
+.wb-board{display:grid;grid-template-columns:repeat(5,minmax(168px,1fr));gap:12px;margin-bottom:16px;align-items:start}
+.wb-col{display:flex;flex-direction:column;background:#fff;border:1px solid #eae8e1;border-radius:12px;min-height:120px}
+.wb-col-drop{outline:1px dashed transparent}
+.wb-col-h{display:flex;align-items:center;gap:8px;padding:12px 13px;border-bottom:1px solid #f1efe8}
+.wb-col-t{font-family:var(--font-serif,Georgia),serif;font-size:14px;font-weight:700;color:#2a2a26}
+.wb-col-m{margin-left:auto;font-size:11px;font-weight:700;color:#a6a698;font-variant-numeric:tabular-nums}
+.wb-col-body{display:flex;flex-direction:column;gap:8px;padding:11px;flex:1}
+.wb-card{background:#faf9f4;border:1px solid #ece9df;border-radius:9px;padding:9px 10px;cursor:pointer}
+.wb-card:hover{border-color:#d8d4c6}
+.wb-card.on{border-color:var(--green);box-shadow:0 0 0 2px rgba(26,61,50,.12)}
+.wb-card-h{display:flex;align-items:center;gap:8px}
+.wb-card-ic{flex:none;width:22px;height:22px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center}
+.wb-card-t{flex:1;min-width:0;font-size:13px;font-weight:600;color:#2a2a26;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wb-card-x{flex:none;border:none;background:transparent;cursor:pointer;padding:2px;display:inline-flex;border-radius:5px}
+.wb-card-x:hover{background:#f1efe8}
+.wb-card-m{font-size:11px;color:#a6a698;margin-top:4px;font-variant-numeric:tabular-nums}
+.wb-col-add{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border:1px dashed #d8d4c6;border-radius:9px;background:transparent;color:#8a8a7e;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.wb-col-add:hover{border-color:var(--green);color:var(--green)}
+@media(max-width:1100px){.wb-board{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .wb-canvas{background:#F9F7F2;border:1px solid #eae8e1;border-radius:13px;overflow:auto;margin-bottom:16px;padding:8px}
 .wb-canvas-surface{position:relative}
 .wb-node{position:absolute;background:#fff;border:1px solid #e6e2d8;border-radius:12px;padding:11px 13px;user-select:none;touch-action:none}

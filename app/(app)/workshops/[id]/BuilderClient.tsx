@@ -11,13 +11,14 @@ import {
   updateBlock,
   deleteBlock,
   reorderBlocks,
+  setAgendaLayout,
   updateWorkshopTitle,
   scheduleWorkshop,
   setWorkshopObjectives,
   setBlockSurvey,
 } from "../actions";
 import { sendSurvey } from "../../assessments/actions";
-import { PALETTE, DEFAULT_MINUTES, phaseOf as phaseKey } from "../blocks";
+import { PALETTE, DEFAULT_MINUTES, PHASES, PHASE_LABEL, phaseOf as phaseKey, type PhaseKey } from "../blocks";
 import { Icon, statusVis, actIcon, PHASE_VIS, WA } from "../visuals";
 
 type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
@@ -44,8 +45,19 @@ export type BlockRow = {
   prompt: string | null;
   linkedDynamic: Enums<"team_dynamic"> | null;
   ownerName: string | null;
+  phase: PhaseKey | null;
   config: BlockConfig;
 };
+
+// Effective facilitation phase: explicit override, else derived from activity.
+function effectivePhase(b: { phase: PhaseKey | null; activityType: Activity }): PhaseKey {
+  return b.phase ?? phaseKey(b.activityType);
+}
+// First natural activity of a phase — used by the board's per-column "Add block".
+function defaultActivityFor(ph: PhaseKey): Activity {
+  const grp = PALETTE.find((p) => p.key === ph);
+  return (grp?.acts[0] ?? "canvas") as Activity;
+}
 
 // A grounded agenda block suggested from the team's weakest pulse dynamic.
 export type BlockSuggestion = {
@@ -97,6 +109,7 @@ const ACT_HINT: Partial<Record<Activity, string>> = {
 };
 
 const VIEW_HINT: Record<string, string> = {
+  board: "Phase columns — drag blocks between phases, click to edit, add per column.",
   table: "Blocks as table rows — click a row to edit it in the panel.",
   canvas: "Free-form canvas — drag a block left or right to reorder.",
   agenda: "The full agenda — every block with its configuration.",
@@ -259,6 +272,7 @@ export function BuilderClient({
   const [duration, setDuration] = useState(10);
   const [prompt, setPrompt] = useState("");
   const [owner, setOwner] = useState("");
+  const [phase, setPhase] = useState<PhaseKey | "">("");
   const [dyn, setDyn] = useState<Dyn>("");
   const [lanesText, setLanesText] = useState("");
   const [optionsText, setOptionsText] = useState("");
@@ -275,8 +289,10 @@ export function BuilderClient({
 
   // builder view metaphor (Workshop App handoff): Table / Canvas / Outline /
   // Timeline reads of the same agenda. Outline is the rich feature-complete list.
-  const [bView, setBView] = useState<"table" | "canvas" | "agenda" | "timeline">("table");
+  const [bView, setBView] = useState<"board" | "table" | "canvas" | "agenda" | "timeline">("board");
   const [fullscreen, setFullscreen] = useState(false);
+  // kanban drag state — id of the block being dragged
+  const [dragId, setDragId] = useState<string | null>(null);
   // inline title editing in the builder chrome
   const [titleDraft, setTitleDraft] = useState(workshop.title);
   async function commitTitle() {
@@ -287,14 +303,16 @@ export function BuilderClient({
     else { flash("Workshop renamed"); router.refresh(); }
   }
   // quick-add a block straight from the builder palette (no side-window)
-  function quickAdd(activityType: Activity) {
+  function quickAdd(activityType: Activity, intoPhase?: PhaseKey) {
     const def = DEFAULT_MINUTES[activityType] ?? 10;
     const cfg: Record<string, unknown> =
       activityType === "retrospective" ? { lanes: ["Start", "Stop", "Continue"] }
         : activityType === "vote" ? { budget: 3, options: [] }
           : activityType === "brainstorm" || activityType === "hmw" ? { budget: 3 }
             : {};
-    run(() => addBlock({ workshopId: workshop.id, title: ACTIVITY[activityType]?.label ?? "Step", activityType, duration: def, prompt: null, linkedDynamic: null, config: cfg }), "Block added");
+    // Pin the phase only when adding into a column that isn't the activity's natural one.
+    const ph = intoPhase && intoPhase !== phaseKey(activityType) ? intoPhase : null;
+    run(() => addBlock({ workshopId: workshop.id, title: ACTIVITY[activityType]?.label ?? "Step", activityType, duration: def, prompt: null, linkedDynamic: null, phase: ph, config: cfg }), "Block added");
   }
   // Add a grounded suggestion straight into the agenda, carrying its linked
   // dynamic and prompt so the block stays tied to the pulse it targets.
@@ -383,6 +401,7 @@ export function BuilderClient({
     setDuration(10);
     setPrompt("");
     setOwner("");
+    setPhase("");
     setDyn("");
     setLanesText("");
     setOptionsText("");
@@ -401,6 +420,7 @@ export function BuilderClient({
     setDuration(b.duration);
     setPrompt(b.prompt ?? "");
     setOwner(b.ownerName ?? "");
+    setPhase(b.phase ?? "");
     setDyn(b.linkedDynamic ?? "");
     setLanesText((b.config?.lanes ?? []).join("\n"));
     setOptionsText((b.config?.options ?? []).join("\n"));
@@ -502,6 +522,8 @@ export function BuilderClient({
       prompt: prompt || null,
       linkedDynamic: (dyn || null) as Enums<"team_dynamic"> | null,
       ownerName: owner || null,
+      // Persist the phase only when it diverges from the activity's natural phase.
+      phase: phase && phase !== phaseKey(activity) ? phase : null,
       config: buildConfig(),
     };
     const res = editId
@@ -511,6 +533,40 @@ export function BuilderClient({
     setOpen(false);
     flash(editId ? "Step updated" : "Step added");
     router.refresh();
+  }
+  // ---- kanban: drag a block into a phase column ----
+  // Recompute the full linear order as the flattened (phase-order, within-column)
+  // sequence so ord stays aligned with the board's reading order.
+  function dropInto(targetPhase: PhaseKey, beforeId: string | null) {
+    const id = dragId;
+    setDragId(null);
+    if (!id) return;
+    const moved = blocks.find((b) => b.id === id);
+    if (!moved) return;
+    // Build each column's ordered id list from current effective phases.
+    const cols = new Map<PhaseKey, string[]>();
+    for (const ph of PHASES) cols.set(ph.key, []);
+    for (const b of blocks) {
+      if (b.id === id) continue;
+      cols.get(effectivePhase(b))!.push(b.id);
+    }
+    const target = cols.get(targetPhase)!;
+    const at = beforeId ? target.indexOf(beforeId) : target.length;
+    target.splice(at < 0 ? target.length : at, 0, id);
+    // Flatten in phase order → new ord; set phase override where it diverges.
+    const layout: { id: string; phase: string | null }[] = [];
+    for (const ph of PHASES) {
+      for (const bid of cols.get(ph.key)!) {
+        const b = bid === id ? moved : blocks.find((x) => x.id === bid)!;
+        const natural = phaseKey(b.activityType);
+        layout.push({ id: bid, phase: ph.key === natural ? null : ph.key });
+      }
+    }
+    // No-op guard: same order and same phases as now.
+    const sameOrder = layout.map((l) => l.id).join() === blocks.map((b) => b.id).join();
+    const samePhase = layout.every((l) => (l.phase ?? phaseKey(blocks.find((b) => b.id === l.id)!.activityType)) === effectivePhase(blocks.find((b) => b.id === l.id)!));
+    if (sameOrder && samePhase) return;
+    run(() => setAgendaLayout(workshop.id, layout), "Agenda updated");
   }
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
@@ -604,7 +660,7 @@ export function BuilderClient({
         </div>
         <div className="wb-viewbar">
           <div className="wb-seg">
-            {([["table", "Table"], ["canvas", "Canvas"], ["agenda", "Outline"], ["timeline", "Timeline"]] as const).map(([k, l]) => (
+            {([["board", "Board"], ["table", "Table"], ["canvas", "Canvas"], ["agenda", "Outline"], ["timeline", "Timeline"]] as const).map(([k, l]) => (
               <button key={k} className={`wb-segbtn${bView === k ? " on" : ""}`} onClick={() => setBView(k)}>{l}</button>
             ))}
           </div>
@@ -695,8 +751,65 @@ export function BuilderClient({
         </div>
       ) : null}
 
-      {blocks.length === 0 ? (
+      {blocks.length === 0 && bView !== "board" ? (
         <div className="empty" style={{ marginTop: 8 }}>No blocks yet — add one from the palette above{canManage ? "" : " (ask a facilitator)"}.</div>
+      ) : null}
+
+      {bView === "board" ? (
+        <div className="wb-board">
+          {PHASES.map((ph) => {
+            const items = blocks.filter((b) => effectivePhase(b) === ph.key);
+            const mins = items.reduce((s, b) => s + b.duration, 0);
+            const pv = PHASE_VIS[ph.key];
+            return (
+              <div
+                key={ph.key}
+                className={`wb-col${dragId ? " wb-col-drop" : ""}`}
+                onDragOver={canManage ? (e) => { e.preventDefault(); } : undefined}
+                onDrop={canManage ? () => dropInto(ph.key, null) : undefined}
+              >
+                <div className="wb-col-h">
+                  <span className="tpl-phase-dot" style={{ background: pv.accent }} />
+                  <span className="wb-col-t">{ph.label}</span>
+                  <span className="wb-col-m">{items.length}{mins ? ` · ${mins}m` : ""}</span>
+                </div>
+                <div className="wb-col-body">
+                  {items.map((b) => {
+                    const sel = editId === b.id;
+                    return (
+                      <div
+                        key={b.id}
+                        className={`wb-card${sel ? " on" : ""}`}
+                        draggable={canManage}
+                        onDragStart={canManage ? () => setDragId(b.id) : undefined}
+                        onDragEnd={() => setDragId(null)}
+                        onDragOver={canManage ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
+                        onDrop={canManage ? (e) => { e.stopPropagation(); dropInto(ph.key, b.id); } : undefined}
+                        onClick={() => canManage && openEdit(b)}
+                      >
+                        <div className="wb-card-h">
+                          <span className="wb-card-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(b.activityType)} size={12} color={pv.accent} /></span>
+                          <span className="wb-card-t">{b.title || "Untitled"}</span>
+                          {canManage ? (
+                            <button className="wb-card-x" title="Remove" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this step?")) run(() => deleteBlock(workshop.id, b.id), "Step removed"); }}>
+                              <Icon name="X" size={12} color={WA.faint} />
+                            </button>
+                          ) : null}
+                        </div>
+                        <div className="wb-card-m">{ACTIVITY[b.activityType]?.label ?? b.activityType} · {b.duration}m{b.ownerName ? ` · ${b.ownerName}` : ""}</div>
+                      </div>
+                    );
+                  })}
+                  {canManage ? (
+                    <button className="wb-col-add" onClick={() => quickAdd(defaultActivityFor(ph.key), ph.key)}>
+                      <Icon name="Plus" size={13} color={WA.faint} /> Add block
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : null}
 
       {blocks.length && bView === "canvas" ? (
@@ -969,11 +1082,22 @@ export function BuilderClient({
           <label>Facilitator prompt <span className="opt">(optional)</span></label>
           <textarea className="inp" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="The question you'll read aloud…" />
         </div>
-        <div className="field">
-          <label>Owner <span className="opt">(optional)</span></label>
-          <input className="inp" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="Who runs this block?" />
-          <div className="form-note">The person leading this block in the room — shown on the agenda and run cockpit.</div>
+        <div className="two">
+          <div className="field">
+            <label>Phase</label>
+            <select className="inp" value={phase} onChange={(e) => setPhase(e.target.value as PhaseKey | "")}>
+              <option value="">Auto · {PHASE_LABEL[phaseKey(activity)]}</option>
+              {PHASES.map((p) => (
+                <option key={p.key} value={p.key}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Owner <span className="opt">(optional)</span></label>
+            <input className="inp" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="Who runs this?" />
+          </div>
         </div>
+        <div className="form-note" style={{ marginTop: -8 }}>Phase sets the board column; “Auto” follows the activity type. Owner shows on the agenda and run cockpit.</div>
         <div className="field">
           <label>Link to a team dynamic <span className="opt">(optional)</span></label>
           <select className="inp" value={dyn} onChange={(e) => setDyn(e.target.value as Dyn)}>
