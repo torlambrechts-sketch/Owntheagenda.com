@@ -519,6 +519,28 @@ button { font-family:inherit; }
 .ab2-pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;background:var(--forest);color:#fff}
 .ab2-pvbody{padding:20px 22px;max-height:64vh;overflow:auto}
 
+/* new-assessment wizard (Side Window) */
+.sw-steps{display:flex;gap:4px;margin-bottom:20px}
+.sw-step{flex:1;display:flex;align-items:center;gap:7px;padding:0 0 11px;border:none;background:none;border-bottom:2px solid var(--line);cursor:pointer;font-family:inherit;color:var(--muted)}
+.sw-step:disabled{cursor:default}
+.sw-step.on{border-bottom-color:var(--forest);color:var(--ink)}
+.sw-step.done{border-bottom-color:var(--open-bg)}
+.sw-step span:last-child{font-size:11.5px;font-weight:600;white-space:nowrap}
+.sw-step-n{width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;flex-shrink:0;background:var(--surface);border:1px solid var(--line-2);color:var(--faint)}
+.sw-step.on .sw-step-n{background:var(--forest);border-color:var(--forest);color:#fff}
+.sw-step.done .sw-step-n{background:var(--open-bg);border-color:var(--open-bg);color:var(--open-fg)}
+.sw-choice{display:flex;align-items:center;gap:12px;text-align:left;border:1.5px solid var(--line);background:var(--surface);border-radius:9px;padding:13px 15px;cursor:pointer;font-family:inherit}
+.sw-choice.on{border-color:var(--green);background:var(--open-bg)}
+.sw-choice-nm{flex:1;font-size:13.5px;font-weight:600;color:var(--ink)}
+.sw-choice-ck{color:var(--green);font-weight:700}
+.sw-team{display:flex;align-items:center;gap:11px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:11px 13px;cursor:pointer;font-size:13px;color:var(--ink)}
+.sw-team.on{border-color:var(--green);background:var(--open-bg)}
+.sw-launch{font-size:13px;color:var(--muted);line-height:1.5;background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.sw-review{display:flex;flex-direction:column;gap:0}
+.sw-rev-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.sw-rev-k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.sw-rev-v{font-size:13.5px;color:var(--ink);margin-top:3px}
+
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .wsd-main{display:flex;flex-direction:column;gap:16px;min-width:0}

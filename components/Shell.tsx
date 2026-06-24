@@ -134,8 +134,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
   { href: "/assessments/builder", label: "Builder", icon: ICONS.assess, group: "Assessments", adminOnly: true },
   { href: "/assessments/templates", label: "Templates", icon: ICONS.assess, group: "Assessments" },
-  { href: "/assessments/participants", label: "Participants", icon: ICONS.assess, group: "Assessments" },
-  { href: "/assessments/builder?demo=1", label: "Take survey (demo)", icon: ICONS.assess, group: "Assessments" },
+  { href: "/assessments/take", label: "Take assessment", icon: ICONS.assess, group: "Assessments" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
@@ -188,7 +187,7 @@ export function Shell({
   // Builder/Templates sub-routes; query-only links (Take survey demo) never do.
   const navItemActive = (href: string) => {
     if (href.includes("?")) return false;
-    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/participants"));
+    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take"));
     return active(href);
   };
   // Breadcrumb: prefer an exact route match, then the longest prefix.
