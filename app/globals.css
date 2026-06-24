@@ -1833,6 +1833,11 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .rec .btn-prim{flex:none}
 .rb-grounded{display:inline-flex;align-items:center;gap:5px;margin-left:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#bfe3cc;background:rgba(255,255,255,.12);border-radius:20px;padding:3px 9px;vertical-align:middle}
 .rb-dry{display:inline-flex;align-items:center;margin-left:8px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#a8862f;background:#f3e9cf;border:1px solid #e6d5a8;border-radius:20px;padding:2px 8px;vertical-align:middle}
+.rb-live{display:inline-flex;align-items:center;gap:5px;margin-left:8px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#bbf7d0;background:rgba(22,163,74,.22);border:1px solid rgba(187,247,208,.5);border-radius:20px;padding:2px 8px;vertical-align:middle}
+.rb-live-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:timerup 1.4s ease infinite}
+/* run cockpit progress strip (comp header element) */
+.run-progress{flex:none;height:4px;background:var(--line);overflow:hidden}
+.run-progress-fill{height:100%;background:linear-gradient(90deg,var(--green),#4ade80);border-radius:0 3px 3px 0;transition:width .35s cubic-bezier(.22,.61,.36,1)}
 
 /* Notifications (appbar bell) --------------------------------------- */
 .bell-wrap{position:relative}

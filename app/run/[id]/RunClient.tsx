@@ -385,6 +385,7 @@ export function RunClient({
         <div className="phase">
           <div className="step">
             Step {session.currentBlockOrd} of {N}
+            <span className="rb-live"><span className="rb-live-dot" />Live</span>
             {session.isDryRun ? <span className="rb-dry" title="Rehearsal — not recorded to the workshop">Dry run</span> : null}
           </div>
           <div className="name">
@@ -479,6 +480,10 @@ export function RunClient({
           <div className="roletag">Participant</div>
         )}
         {acting ? <button className="exitbtn" onClick={endSession}>Close ▸</button> : null}
+      </div>
+
+      <div className="run-progress" aria-hidden>
+        <div className="run-progress-fill" style={{ width: `${Math.round((Math.min(session.currentBlockOrd, N) / Math.max(N, 1)) * 100)}%` }} />
       </div>
 
       {blocks.length > 1 ? (
