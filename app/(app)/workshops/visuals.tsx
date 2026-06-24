@@ -36,6 +36,7 @@ const PATHS: Record<string, ReactNode> = {
   FileEdit: (<><path d="M4 13.5V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2h-5.5" /><polyline points="14 2 14 8 20 8" /><path d="M10.42 12.61a2.1 2.1 0 1 1 2.97 2.97L7.95 21 4 22l.99-3.95 5.43-5.44Z" /></>),
   X: (<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>),
   Check: (<><path d="M20 6 9 17l-5-5" /></>),
+  Wand2: (<><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" /><path d="m14 7 3 3" /><path d="M5 6v4" /><path d="M19 14v4" /><path d="M10 2v2" /><path d="M7 8H3" /><path d="M21 16h-4" /><path d="M11 3H9" /></>),
 };
 
 export function Icon({ name, size = 16, color = "currentColor", sw = 1.75 }: { name: string; size?: number; color?: string; sw?: number }) {

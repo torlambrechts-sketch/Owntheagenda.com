@@ -750,6 +750,7 @@ export type Database = {
           status: Database["public"]["Enums"]["workshop_status"]
           scheduled_at: string | null
           objective: string | null
+          objectives: string[]
           created_by: string | null
           created_at: string
           updated_at: string
@@ -764,6 +765,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workshop_status"]
           scheduled_at?: string | null
           objective?: string | null
+          objectives?: string[]
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -778,6 +780,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workshop_status"]
           scheduled_at?: string | null
           objective?: string | null
+          objectives?: string[]
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -796,6 +799,7 @@ export type Database = {
           linked_dynamic: Database["public"]["Enums"]["team_dynamic"] | null
           config: Json
           survey_id: string | null
+          owner_name: string | null
           created_at: string
           updated_at: string
         }
@@ -810,6 +814,7 @@ export type Database = {
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
           config?: Json
           survey_id?: string | null
+          owner_name?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -824,6 +829,7 @@ export type Database = {
           linked_dynamic?: Database["public"]["Enums"]["team_dynamic"] | null
           config?: Json
           survey_id?: string | null
+          owner_name?: string | null
           created_at?: string
           updated_at?: string
         }

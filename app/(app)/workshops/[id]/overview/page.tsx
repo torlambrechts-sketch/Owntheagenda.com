@@ -5,12 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin, initials, ACTIVITY } from "@/lib/util";
 import { resolveInstrument } from "@/lib/assessments";
 import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { PHASES, phaseOf } from "../../blocks";
 
 // Read-only workshop *overview* — the hub that closes the assessment → workshop
 // → run loop. Distinct from the builder (/workshops/[id], edit mode): it shows
 // what assessment frames the session, the agenda as a timeline, the output
 // captured so far, and who took part. Adapted from the imported design into the
 // app's own design language.
+//
+// Two lenses, switched via ?as=participant: the facilitator view (manage / run)
+// and the participant view (how to prepare, RSVP) — same data, framed for the
+// reader.
 
 function bandOf(pct: number): 0 | 1 | 2 {
   return pct < 45 ? 0 : pct < 62 ? 1 : 2;
@@ -28,6 +33,22 @@ function fmtClock(d: Date) {
 function fmtWhen(iso: string) {
   const d = new Date(iso);
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+// A Google Calendar "add event" link — the RSVP / add-to-calendar action in the
+// participant lens. Carries the title, the scheduled window and the objective.
+function calendarUrl(title: string, startIso: string | null, minutes: number, details: string): string {
+  const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
+  const params = new URLSearchParams({ text: title });
+  if (details) params.set("details", details);
+  if (startIso) {
+    const start = new Date(startIso);
+    if (!isNaN(start.getTime())) {
+      const end = new Date(start.getTime() + Math.max(minutes, 30) * 60000);
+      const z = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      params.set("dates", `${z(start)}/${z(end)}`);
+    }
+  }
+  return `${base}&${params.toString()}`;
 }
 
 // Human labels for the audit actions surfaced here.
@@ -50,13 +71,20 @@ const STATUS_PILL: Record<string, { label: string; cls: string }> = {
   done: { label: "Finished", cls: "draft" },
 };
 
-export default async function WorkshopOverviewPage({ params }: { params: { id: string } }) {
+export default async function WorkshopOverviewPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { as?: string };
+}) {
   const ctx = await requireSession();
   const supabase = createClient();
+  const mode: "facilitator" | "participant" = searchParams.as === "participant" ? "participant" : "facilitator";
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, status, team_id, workspace_id, scheduled_at, objective")
+    .select("id, title, status, team_id, workspace_id, scheduled_at, objective, objectives, created_by")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -68,13 +96,32 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
     .maybeSingle();
   const canManage = isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
+  // Host = the workshop creator (falls back to the team lead).
+  const hostId = workshop.created_by ?? team?.lead_user_id ?? null;
+  let hostName = "Your facilitator";
+  if (hostId) {
+    const { data: hp } = await supabase
+      .from("profile")
+      .select("full_name, display_name, email")
+      .eq("id", hostId)
+      .maybeSingle();
+    if (hp) hostName = hp.full_name || hp.display_name || hp.email || hostName;
+  }
+
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, survey_id, config")
+    .select("id, ord, title, activity_type, duration, prompt, owner_name, survey_id, config")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
   const blockList = blocks ?? [];
   const totalMins = blockList.reduce((a, b) => a + (b.duration ?? 0), 0);
+
+  // Ordered, structured objectives (legacy single objective is the fallback).
+  const objectives = (workshop.objectives ?? []).length
+    ? (workshop.objectives ?? [])
+    : workshop.objective
+      ? [workshop.objective]
+      : [];
 
   // ----- "From the assessment": the survey that frames this workshop -----
   // The flow engine pins the carried survey onto a step's survey_id; we take the
@@ -185,6 +232,23 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
   let clock = workshop.scheduled_at ? new Date(workshop.scheduled_at) : null;
   if (clock && isNaN(clock.getTime())) clock = null;
 
+  // Group the agenda into facilitation phases (Open → Diverge → … → Close),
+  // preserving block order and carrying the running clock through each block.
+  const phaseGroups = PHASES.map((ph) => {
+    const items = blockList.filter((b) => phaseOf(b.activity_type) === ph.key);
+    const mins = items.reduce((a, b) => a + (b.duration ?? 0), 0);
+    return { ...ph, items, mins };
+  }).filter((g) => g.items.length);
+
+  const calHref = calendarUrl(
+    workshop.title,
+    workshop.scheduled_at,
+    totalMins,
+    objectives.length ? `Objectives:\n- ${objectives.join("\n- ")}` : "",
+  );
+
+  const here = `/workshops/${workshop.id}/overview`;
+
   return (
     <div>
       <Link href="/workshops" className="linkbtn" style={{ fontSize: 12 }}>‹ Workshops</Link>
@@ -201,15 +265,50 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
           </div>
         </div>
         <div className="a-pr">
+          {/* facilitator ⇄ participant lens */}
+          <div className="ov-modetabs">
+            <Link className={`ov-modetab${mode === "facilitator" ? " on" : ""}`} href={here}>Facilitator</Link>
+            <Link className={`ov-modetab${mode === "participant" ? " on" : ""}`} href={`${here}?as=participant`}>Participant</Link>
+          </div>
           <span className={`pill ${st.cls}`}>{st.label}</span>
-          {canManage ? <Link className="btn-sec" href={`/workshops/${workshop.id}`}>✎ Edit</Link> : null}
-          {canManage ? <Link className="btn-prim" href={`/run/${workshop.id}`}>▶ Run session</Link> : null}
+          {mode === "facilitator" ? (
+            <>
+              {canManage ? <Link className="btn-sec" href={`/workshops/${workshop.id}`}>✎ Edit</Link> : null}
+              {canManage ? <Link className="btn-prim" href={`/run/${workshop.id}`}>▶ Run session</Link> : null}
+            </>
+          ) : (
+            <a className="btn-prim" href={calHref} target="_blank" rel="noopener noreferrer">＋ RSVP · Add to calendar</a>
+          )}
         </div>
       </div>
 
-      {workshop.objective ? (
+      {/* Participant welcome — only in the participant lens. */}
+      {mode === "participant" ? (
+        <div className="ov-host">
+          <span className="av sm green">{initials(hostName)}</span>
+          <div>
+            <div className="ov-host-by"><span className="muted">Hosted by</span> <strong>{hostName}</strong></div>
+            <div className="ov-host-blurb">You’re invited to this session. Here’s what we’ll cover and how to prepare — no pre-work required beyond showing up ready to think together.</div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Objectives — structured list, shown in both lenses. */}
+      {objectives.length ? (
+        <div className="a-ovcard" style={{ marginBottom: 18 }}>
+          <h3>{objectives.length > 1 ? "Objectives" : "Objective"}</h3>
+          <div className="ov-objlist">
+            {objectives.map((o, i) => (
+              <div className="ov-obj" key={i}>
+                <span className="ov-obj-check" aria-hidden>✓</span>
+                <span>{o}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : mode === "facilitator" && canManage ? (
         <div className="a-note" style={{ marginBottom: 18 }}>
-          <strong>Objective:</strong> {workshop.objective}
+          No objectives set yet. <Link className="linkbtn" href={`/workshops/${workshop.id}`}>Add them in the builder ›</Link>
         </div>
       ) : null}
 
@@ -275,64 +374,91 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
             </div>
           ) : null}
 
-          {/* Agenda timeline */}
+          {/* Agenda — grouped by facilitation phase */}
           <div className="a-ovcard">
-            <h3>Agenda</h3>
+            <h3>Agenda {blockList.length ? <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {blockList.length} blocks · {totalMins} min</span> : null}</h3>
             {blockList.length ? (
-              <div className="wsd-timeline">
-                {blockList.map((b, i) => {
-                  const label = ACTIVITY[b.activity_type]?.label ?? b.activity_type;
-                  const startStr = clock ? fmtClock(clock) : null;
-                  if (clock) clock = new Date(clock.getTime() + (b.duration ?? 0) * 60000);
-                  return (
-                    <div className="wsd-step" key={b.id}>
-                      {i < blockList.length - 1 ? <span className="wsd-line" /> : null}
-                      <span className="wsd-dot" />
-                      <div className="wsd-step-body">
-                        <div className="wsd-step-h">
-                          <span className="wsd-step-t">{b.title}</span>
-                          <span className="wsd-step-meta">{label}{b.duration ? ` · ${b.duration}m` : ""}{startStr ? ` · ${startStr}` : ""}</span>
-                        </div>
-                        {b.prompt ? <div className="wsd-step-p">{b.prompt}</div> : null}
-                      </div>
+              <div className="ov-phases">
+                {phaseGroups.map((g) => (
+                  <div className="ov-phase" key={g.key}>
+                    <div className="ov-phase-h">
+                      <span className="tpl-phase-dot" style={{ background: g.accent }} />
+                      <span className="ov-phase-t">{g.label}</span>
+                      <span className="ov-phase-m">{g.items.length} · {g.mins}m</span>
                     </div>
-                  );
-                })}
+                    <div className="wsd-timeline">
+                      {g.items.map((b) => {
+                        const label = ACTIVITY[b.activity_type]?.label ?? b.activity_type;
+                        const startStr = clock ? fmtClock(clock) : null;
+                        if (clock) clock = new Date(clock.getTime() + (b.duration ?? 0) * 60000);
+                        return (
+                          <div className="wsd-step" key={b.id}>
+                            <span className="wsd-dot" />
+                            <div className="wsd-step-body">
+                              <div className="wsd-step-h">
+                                <span className="wsd-step-t">{b.title}</span>
+                                <span className="wsd-step-meta">
+                                  {label}{b.duration ? ` · ${b.duration}m` : ""}{startStr ? ` · ${startStr}` : ""}
+                                  {b.owner_name ? ` · ${b.owner_name}` : ""}
+                                </span>
+                              </div>
+                              {b.prompt ? <div className="wsd-step-p">{b.prompt}</div> : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="muted">No steps yet. <Link className="linkbtn" href={`/workshops/${workshop.id}`}>Add steps in the builder ›</Link></p>
+              <p className="muted">No steps yet. {canManage ? <Link className="linkbtn" href={`/workshops/${workshop.id}`}>Add steps in the builder ›</Link> : null}</p>
             )}
           </div>
 
-          {/* Output captured */}
-          <div className="a-ovcard">
-            <h3>Output — measures captured {actions.length ? <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {actions.length}</span> : null}</h3>
-            {actions.length ? (
-              <table className="tbl">
-                <thead>
-                  <tr><th>Measure</th><th style={{ width: 150 }}>Owner</th><th style={{ width: 120 }}>Due</th><th style={{ width: 90 }}>Status</th></tr>
-                </thead>
-                <tbody>
-                  {actions.map((a) => (
-                    <tr key={a.id}>
-                      <td>{a.text}</td>
-                      <td style={{ color: "var(--muted)" }}>{a.owner ?? "—"}</td>
-                      <td style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtDate(a.due) ?? "—"}</td>
-                      <td><span className={`pill sm ${a.done ? "open" : "draft"}`}>{a.done ? "Done" : "Open"}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="muted">No measures captured yet — they appear here as the team agrees actions during the session.</p>
-            )}
-          </div>
+          {/* Output captured — facilitator lens only */}
+          {mode === "facilitator" ? (
+            <div className="a-ovcard">
+              <h3>Output — measures captured {actions.length ? <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {actions.length}</span> : null}</h3>
+              {actions.length ? (
+                <table className="tbl">
+                  <thead>
+                    <tr><th>Measure</th><th style={{ width: 150 }}>Owner</th><th style={{ width: 120 }}>Due</th><th style={{ width: 90 }}>Status</th></tr>
+                  </thead>
+                  <tbody>
+                    {actions.map((a) => (
+                      <tr key={a.id}>
+                        <td>{a.text}</td>
+                        <td style={{ color: "var(--muted)" }}>{a.owner ?? "—"}</td>
+                        <td style={{ color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{fmtDate(a.due) ?? "—"}</td>
+                        <td><span className={`pill sm ${a.done ? "open" : "draft"}`}>{a.done ? "Done" : "Open"}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="muted">No measures captured yet — they appear here as the team agrees actions during the session.</p>
+              )}
+            </div>
+          ) : null}
         </div>
 
-        {/* Attendees */}
         <div className="wsd-aside">
+          {/* How to prepare — participant lens only */}
+          {mode === "participant" ? (
+            <div className="a-ovcard">
+              <h3>How to prepare</h3>
+              <div className="ov-prep">
+                <div className="ov-prep-row"><span className="ov-obj-check" aria-hidden>✓</span><span>Block the full {totalMins ? `${totalMins} min` : "session"} — we start on time.</span></div>
+                <div className="ov-prep-row"><span className="ov-obj-check" aria-hidden>✓</span><span>Come ready to speak candidly — what’s said here stays here.</span></div>
+                <div className="ov-prep-row"><span className="ov-obj-check" aria-hidden>✓</span><span>Think about the objectives above before we meet.</span></div>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Attendees */}
           <div className="a-ovcard">
-            <h3>Attendees {attendees.length ? <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {attendees.length}</span> : null}</h3>
+            <h3>{mode === "participant" ? "Who’s coming" : "Attendees"} {attendees.length ? <span style={{ fontWeight: 500, color: "var(--faint)" }}>· {attendees.length}</span> : null}</h3>
             {attendees.length ? (
               <div className="wsd-att">
                 {attendees.map((p, i) => (
@@ -348,7 +474,8 @@ export default async function WorkshopOverviewPage({ params }: { params: { id: s
             )}
           </div>
 
-          {activity.length ? (
+          {/* Activity log — facilitator lens only */}
+          {mode === "facilitator" && activity.length ? (
             <div className="a-ovcard">
               <h3>Activity</h3>
               <div className="wsd-log">
