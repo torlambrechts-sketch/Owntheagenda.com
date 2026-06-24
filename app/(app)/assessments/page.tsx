@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
+import { AssessmentNav } from "@/components/AssessmentNav";
 import { AssessmentSuite, type SuiteRow } from "./suite/AssessmentSuite";
 
 // Assessment Suite — an organisation-wide hub over the assessment *instances*
@@ -140,6 +141,7 @@ export default async function AssessmentSuitePage() {
   if (!teamList.length) {
     return (
       <>
+        <AssessmentNav active="overview" />
         <div className="a-phead">
           <div>
             <div className="a-pt">Assessment suite</div>
@@ -153,5 +155,10 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
+  return (
+    <>
+      <AssessmentNav active="overview" />
+      <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />
+    </>
+  );
 }
