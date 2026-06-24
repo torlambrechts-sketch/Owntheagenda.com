@@ -188,7 +188,7 @@ export function Shell({
   // The logo tile is the natural thing to tap: on a phone it opens the menu
   // drawer; on desktop it collapses/expands the text nav as before.
   function onLogoClick() {
-    if (typeof window !== "undefined" && window.matchMedia("(max-width:860px)").matches) {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width:980px)").matches) {
       setMobileNavOpen((o) => !o);
     } else {
       toggleCollapsed();
