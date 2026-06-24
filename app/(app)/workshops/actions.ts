@@ -95,6 +95,24 @@ export async function setWorkshopObjective(
   return {};
 }
 
+// Structured, ordered objectives list. `objective` (legacy single column) is
+// kept in sync with the first entry so existing readers stay correct.
+export async function setWorkshopObjectives(
+  id: string,
+  objectives: string[],
+): Promise<{ error?: string }> {
+  const clean = objectives.map((o) => o.trim()).filter(Boolean);
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("workshop")
+    .update({ objectives: clean, objective: clean[0] ?? null })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath(`/workshops/${id}`);
+  revalidatePath(`/workshops/${id}/overview`);
+  return {};
+}
+
 export async function updateWorkshopTitle(
   id: string,
   title: string,
@@ -116,6 +134,7 @@ export async function addBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  ownerName?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -136,6 +155,7 @@ export async function addBlock(input: {
     duration: input.duration,
     prompt: input.prompt || null,
     linked_dynamic: input.linkedDynamic || null,
+    owner_name: input.ownerName?.trim() || null,
     config: (input.config ?? {}) as never,
   });
   if (error) return { error: error.message };
@@ -151,6 +171,7 @@ export async function updateBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  ownerName?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -162,6 +183,7 @@ export async function updateBlock(input: {
       duration: input.duration,
       prompt: input.prompt || null,
       linked_dynamic: input.linkedDynamic || null,
+      owner_name: input.ownerName?.trim() || null,
       config: (input.config ?? {}) as never,
     })
     .eq("id", input.blockId);

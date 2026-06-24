@@ -70,12 +70,18 @@ export function WorkshopHome({
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [quickOpen, setQuickOpen] = useState(false);
+  // Unified "new workshop" modal — one surface, three modes (design isPrep).
+  const [newOpen, setNewOpen] = useState(false);
+  const [newMode, setNewMode] = useState<"blank" | "template" | "assessment">("blank");
   const [quickKind, setQuickKind] = useState("canvas");
   const [quickInst, setQuickInst] = useState("");
   const [quickTitle, setQuickTitle] = useState("");
   const [preview, setPreview] = useState<TemplateCard | null>(null);
-  const [browseOpen, setBrowseOpen] = useState(false);
+
+  function openNew(mode: "blank" | "template" | "assessment") {
+    setNewMode(mode);
+    setNewOpen(true);
+  }
 
   function flash(m: string) {
     setToast(m);
@@ -134,13 +140,15 @@ export function WorkshopHome({
           <button onClick={() => setLayout("A")} style={seg(layout === "A")}><Icon name="List" size={14} color={layout === "A" ? WA.accent : "#6b6f68"} />List</button>
           <button onClick={() => setLayout("B")} style={seg(layout === "B")}><Icon name="LayoutGrid" size={14} color={layout === "B" ? WA.accent : "#6b6f68"} />Board</button>
         </div>
-        <button onClick={() => setBrowseOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-          <Icon name="Layers" size={15} color="#404040" /> Browse templates
-        </button>
         {canManage ? (
-          <button onClick={() => setQuickOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-            <Icon name="Plus" size={16} color="#fff" /> New workshop
-          </button>
+          <>
+            <button onClick={() => openNew("template")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Icon name="Wand2" size={15} color="#404040" /> Build workshop
+            </button>
+            <button onClick={() => openNew("blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              <Icon name="Plus" size={16} color="#fff" /> New workshop
+            </button>
+          </>
         ) : null}
       </div>
 
@@ -308,47 +316,106 @@ export function WorkshopHome({
           })}
         </div>
       ) : (
-        <WorkshopBoard workshops={visible} canManage={canManage} onNew={() => setQuickOpen(true)} />
+        <WorkshopBoard workshops={visible} canManage={canManage} onNew={() => openNew("blank")} />
       )}
 
-      {/* ---- side windows ---- */}
+      {/* ---- unified "new workshop" modal: Assessment / Template / Blank ---- */}
       <SideWindow
-        open={quickOpen}
-        onClose={() => setQuickOpen(false)}
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
         title="New workshop"
-        subtitle="Start a live session now — add steps as you go"
-        size="compact"
-        footer={<>
-          <button className="btn-sec" onClick={() => setQuickOpen(false)}>Cancel</button>
-          <div className="right"><button className="btn-prim" disabled={pending || (quickKind === "survey" && !quickInst)} onClick={runQuick}>Start session ▸</button></div>
-        </>}
-      >
-        <div className="field">
-          <label htmlFor="qs-title">Session name <span className="opt">(optional)</span></label>
-          <input className="inp" id="qs-title" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} placeholder="Quick session" />
-        </div>
-        <div className="field">
-          <label>Starting module</label>
-          <div className="quickmods">
-            {QUICK_MODULES.map((m) => (
-              <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => { setQuickKind(m.kind); setQuickInst(""); }}>
-                <span className="quickmod-t">{m.label}</span>
-                <span className="quickmod-s">{m.blurb}</span>
+        subtitle="Start from an assessment, a template, or a blank canvas"
+        footer={newMode === "template" ? (
+          <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
+        ) : (
+          <>
+            <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
+            <div className="right">
+              <button className="btn-prim" disabled={pending || (newMode === "assessment" && !quickInst)} onClick={runQuick}>
+                {newMode === "assessment" ? "Send & start ▸" : "Start session ▸"}
               </button>
-            ))}
-          </div>
+            </div>
+          </>
+        )}
+      >
+        <div className="nwmodes">
+          {([["assessment", "Assessment"], ["template", "Template"], ["blank", "Blank"]] as const).map(([k, l]) => (
+            <button
+              key={k}
+              type="button"
+              className={`nwmode${newMode === k ? " on" : ""}`}
+              onClick={() => {
+                setNewMode(k);
+                if (k === "assessment") { setQuickKind("survey"); }
+                else if (k === "blank" && quickKind === "survey") { setQuickKind("canvas"); setQuickInst(""); }
+              }}
+            >{l}</button>
+          ))}
         </div>
-        {surveyInsts.length ? (
+
+        {recommendation && newMode !== "template" ? (
+          <div className="nwseed">
+            <Icon name="Sparkles" size={13} color="#5b5536" />
+            <span><b>{recommendation.dynamicLabel}</b> {recommendation.belowBand ? "is below target" : "is the team's lowest reading"} — an assessment-led session is suggested.</span>
+          </div>
+        ) : null}
+
+        {newMode !== "template" ? (
           <div className="field">
-            <label>Or an assessment</label>
+            <label htmlFor="qs-title">Session name <span className="opt">(optional)</span></label>
+            <input className="inp" id="qs-title" value={quickTitle} onChange={(e) => setQuickTitle(e.target.value)} placeholder="Quick session" />
+          </div>
+        ) : null}
+
+        {newMode === "blank" ? (
+          <div className="field">
+            <label>Starting module</label>
             <div className="quickmods">
-              {surveyInsts.map((sv) => (
-                <button key={sv.kind} type="button" className={`quickmod${quickKind === "survey" && quickInst === sv.kind ? " on" : ""}`} onClick={() => { setQuickKind("survey"); setQuickInst(sv.kind); }}>
-                  <span className="quickmod-t">{sv.name}</span>
-                  <span className="quickmod-s">Anonymous team survey</span>
+              {QUICK_MODULES.map((m) => (
+                <button key={m.kind} type="button" className={`quickmod${quickKind === m.kind ? " on" : ""}`} onClick={() => { setQuickKind(m.kind); setQuickInst(""); }}>
+                  <span className="quickmod-t">{m.label}</span>
+                  <span className="quickmod-s">{m.blurb}</span>
                 </button>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {newMode === "assessment" ? (
+          surveyInsts.length ? (
+            <div className="field">
+              <label>Pick an assessment</label>
+              <div className="quickmods">
+                {surveyInsts.map((sv) => (
+                  <button key={sv.kind} type="button" className={`quickmod${quickInst === sv.kind ? " on" : ""}`} onClick={() => { setQuickKind("survey"); setQuickInst(sv.kind); }}>
+                    <span className="quickmod-t">{sv.name}</span>
+                    <span className="quickmod-s">Anonymous team survey</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="form-note">No team assessments available yet — build one in Assessments, or start from a template or blank canvas.</div>
+          )
+        ) : null}
+
+        {newMode === "template" ? (
+          <div className="field">
+            <label>Start from a proven framework</label>
+            {Array.from(new Set(templates.map((t) => t.category))).map((cat) => (
+              <div key={cat} style={{ marginBottom: 14 }}>
+                <div className="a-gt" style={{ marginBottom: 8 }}>{CATEGORY[cat] ?? cat}</div>
+                <div className="browse-list">
+                  {templates.filter((t) => t.category === cat).map((t) => (
+                    <button key={t.id} type="button" className="browse-row" disabled={pending} onClick={() => { setNewOpen(false); use(t.id); }}>
+                      <span className="browse-nm">{t.name}</span>
+                      <span className="browse-meta">{t.steps} steps · {t.minutes} min</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div className="form-note" style={{ marginTop: 4 }}>Tip: click a template card on the page to preview its full agenda first.</div>
           </div>
         ) : null}
       </SideWindow>
@@ -375,22 +442,6 @@ export function WorkshopHome({
         </SideWindow>
       ) : null}
 
-      <SideWindow open={browseOpen} onClose={() => setBrowseOpen(false)} title="All templates" subtitle={`${templates.length} proven frameworks — pick one to preview`}>
-        {Array.from(new Set(templates.map((t) => t.category))).map((cat) => (
-          <div key={cat} style={{ marginBottom: 16 }}>
-            <div className="a-gt" style={{ marginBottom: 8 }}>{CATEGORY[cat] ?? cat}</div>
-            <div className="browse-list">
-              {templates.filter((t) => t.category === cat).map((t) => (
-                <button key={t.id} type="button" className="browse-row" onClick={() => { setBrowseOpen(false); setPreview(t); }}>
-                  <span className="browse-nm">{t.name}</span>
-                  <span className="browse-meta">{t.steps} steps · {t.minutes} min</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-      </SideWindow>
-
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
         <span>{toast}</span>
@@ -399,73 +450,61 @@ export function WorkshopHome({
   );
 }
 
-// ===== Layout B: focus cards + completed history =====
+// ===== Layout B: status-grouped kanban board (design isHomeBoard) =====
+const BOARD_COLUMNS: { key: string; title: string; dot: string; match: (s: string) => boolean }[] = [
+  { key: "active", title: "Active", dot: "#3f7d5a", match: (s) => s === "live" },
+  { key: "upcoming", title: "Upcoming", dot: "#c9a227", match: (s) => s === "scheduled" || s === "draft" },
+  { key: "done", title: "Completed", dot: "#9a9a8c", match: (s) => s === "done" },
+];
+
 function WorkshopBoard({ workshops, canManage, onNew }: { workshops: WorkshopRow[]; canManage: boolean; onNew: () => void }) {
-  const focus = workshops.filter((w) => w.status === "live" || w.status === "scheduled" || w.status === "draft");
-  const history = workshops.filter((w) => w.status === "done");
-
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 12, marginBottom: 20 }}>
-        {focus.map((w) => {
-          const v = catVis(w.category);
-          const s = statusVis(w.status);
-          const live = w.status === "live";
-          return (
-            <div key={w.id} style={{ display: "flex", flexDirection: "column", gap: 10, background: "#fff", border: `1px solid ${live ? "#c5d3c8" : WA.cardBorder}`, borderRadius: 13, padding: "16px 17px", boxShadow: live ? "0 0 0 2px rgba(26,61,50,.08), 0 6px 18px rgba(58,77,63,.07)" : "0 1px 2px rgba(0,0,0,.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 10, background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={19} color={v.accent} /></span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 999, background: s.bg, border: `1px solid ${s.border}`, color: s.text }}><span className={s.live ? "wa-pulse" : undefined} style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot }} />{s.label}</span>
-              </div>
-              <div>
-                <Link href={`/workshops/${w.id}`} style={{ fontSize: 15, fontWeight: 600, color: WA.ink, textDecoration: "none", lineHeight: 1.3 }}>{w.title}</Link>
-                <div style={{ fontSize: 12, color: WA.faint, marginTop: 3 }}>{w.templateName ?? "Workshop"} · {fmtWhen(w)}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: "auto", paddingTop: 4 }}>
-                <Link href={live ? `/run/${w.id}` : `/workshops/${w.id}`} style={{ flex: 1, textAlign: "center", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, background: WA.accent, color: "#fff", borderRadius: 7, padding: "8px 12px", fontSize: 12.5, fontWeight: 600, textDecoration: "none" }}>
-                  <Icon name={live ? "Play" : "PenLine"} size={14} color="#fff" />{live ? "Enter live" : "Open agenda"}
-                </Link>
-                <Link href={`/workshops/${w.id}/overview`} aria-label="Overview" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 38, border: "1px solid #d4d4d4", borderRadius: 7, color: WA.muted, textDecoration: "none" }}>
-                  <Icon name="ChartColumnBig" size={15} color={WA.muted} />
-                </Link>
-              </div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 24 }}>
+      {BOARD_COLUMNS.map((col) => {
+        const items = workshops.filter((w) => col.match(w.status));
+        return (
+          <div key={col.key} style={{ background: WA.kpiBg, borderRadius: 13, padding: 13, minHeight: 200 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px 11px" }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: col.dot }} />
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: WA.ink }}>{col.title}</span>
+              <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: WA.faint2, fontVariantNumeric: "tabular-nums" }}>{items.length}</span>
             </div>
-          );
-        })}
-        {canManage ? (
-          <button onClick={onNew} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, minHeight: 130, background: "transparent", border: "1.5px dashed #cbd5d2", borderRadius: 13, color: WA.accent, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
-            <span style={{ width: 42, height: 42, borderRadius: "50%", border: "2px solid currentColor", display: "inline-flex", alignItems: "center", justifyContent: "center" }}><Icon name="Plus" size={20} color={WA.accent} /></span>
-            New workshop
-          </button>
-        ) : null}
-      </div>
-
-      <div style={{ fontFamily: WA.serif, fontSize: 18, fontWeight: 600, color: WA.ink, marginBottom: 12 }}>Completed <span style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 500, color: WA.faint2 }}>· {history.length}</span></div>
-      {history.length === 0 ? (
-        <div style={{ padding: 30, textAlign: "center", color: WA.faint, fontSize: 13, background: "#fff", border: `1px solid ${WA.cardBorder}`, borderRadius: 13 }}>No finished workshops yet.</div>
-      ) : (
-        <div style={{ background: "#fff", border: `1px solid ${WA.cardBorder}`, borderRadius: 13, overflow: "hidden" }}>
-          {history.map((w) => {
-            const v = catVis(w.category);
-            const chips = outcomeChips(w);
-            return (
-              <div key={w.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 18px", borderBottom: `1px solid ${WA.rowHair}` }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, background: v.tint, border: `1px solid ${v.border}`, color: v.accent, flexShrink: 0 }}><Icon name={v.icon} size={16} color={v.accent} /></span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <Link href={`/workshops/${w.id}/overview`} style={{ fontSize: 14, fontWeight: 600, color: WA.ink, textDecoration: "none" }}>{w.title}</Link>
-                  <div style={{ fontSize: 11.5, color: WA.faint2, marginTop: 1 }}>{w.editedLabel}{w.creatorName ? ` · ${w.creatorName}` : ""}</div>
-                </div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  {chips.map((o, i) => (
-                    <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 600, color: WA.muted, background: "#f3f4f1", border: "1px solid #e8e6df", borderRadius: 6, padding: "2px 7px" }}><Icon name={o.icon} size={11} color={WA.faint} />{o.label}</span>
-                  ))}
-                </div>
-                <Link href={`/workshops/${w.id}/overview`} style={{ fontSize: 12.5, fontWeight: 600, color: WA.accent, textDecoration: "none", whiteSpace: "nowrap" }}>Results →</Link>
-              </div>
-            );
-          })}
-        </div>
-      )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {items.map((w) => {
+                const v = catVis(w.category);
+                const s = statusVis(w.status);
+                const live = w.status === "live";
+                const href = live ? `/run/${w.id}` : w.status === "done" ? `/workshops/${w.id}/overview` : `/workshops/${w.id}`;
+                return (
+                  <Link key={w.id} href={href} style={{ display: "block", background: "#fff", border: `1px solid ${live ? "#c5d3c8" : WA.cardBorder}`, borderRadius: 11, padding: "12px 13px", textDecoration: "none", boxShadow: live ? "0 0 0 2px rgba(26,61,50,.07)" : "0 1px 2px rgba(0,0,0,.03)" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={16} color={v.accent} /></span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: WA.ink, lineHeight: 1.25 }}>{w.title}</div>
+                        <div style={{ marginTop: 3, fontSize: 11, color: WA.faint2 }}>#{w.id.slice(0, 4).toUpperCase()}{w.templateName ? ` · ${w.templateName}` : ""}</div>
+                      </div>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 999, background: s.bg, border: `1px solid ${s.border}`, color: s.text, flexShrink: 0 }}><span className={s.live ? "wa-pulse" : undefined} style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot }} />{s.label}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 11, paddingTop: 10, borderTop: `1px solid ${WA.hair}`, fontSize: 11.5, color: WA.faint }}>
+                      {w.creatorName ? <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "#e7efe9", color: WA.accent, fontSize: 9, fontWeight: 700 }}>{initials(w.creatorName)}</span> : null}
+                      <span>{fmtWhen(w)}</span>
+                      <span style={{ marginLeft: "auto" }}>{w.participants ? `${w.participants} ppl` : ""}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+              {items.length === 0 ? (
+                <div style={{ padding: "18px 8px", textAlign: "center", fontSize: 12, color: WA.faint2 }}>Nothing here yet.</div>
+              ) : null}
+              {col.key === "upcoming" && canManage ? (
+                <button onClick={onNew} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "10px", background: "transparent", border: "1.5px dashed #cbd5d2", borderRadius: 11, color: WA.accent, fontWeight: 600, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit" }}>
+                  <Icon name="Plus" size={15} color={WA.accent} /> New workshop
+                </button>
+              ) : null}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

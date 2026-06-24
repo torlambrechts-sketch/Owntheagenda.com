@@ -13,7 +13,7 @@ import {
   reorderBlocks,
   updateWorkshopTitle,
   scheduleWorkshop,
-  setWorkshopObjective,
+  setWorkshopObjectives,
   setBlockSurvey,
 } from "../actions";
 import { sendSurvey } from "../../assessments/actions";
@@ -43,7 +43,20 @@ export type BlockRow = {
   duration: number;
   prompt: string | null;
   linkedDynamic: Enums<"team_dynamic"> | null;
+  ownerName: string | null;
   config: BlockConfig;
+};
+
+// A grounded agenda block suggested from the team's weakest pulse dynamic.
+export type BlockSuggestion = {
+  id: string;
+  title: string;
+  activityType: Activity;
+  duration: number;
+  prompt: string | null;
+  linkedDynamic: Enums<"team_dynamic">;
+  dynamicLabel: string;
+  why: string;
 };
 
 const DYN: [Dyn, string][] = [
@@ -185,13 +198,15 @@ export function BuilderClient({
   canManage,
   blocks,
   assessments,
+  suggestions = [],
 }: {
-  workshop: { id: string; title: string; scheduledAt: string | null; objective: string | null };
+  workshop: { id: string; title: string; scheduledAt: string | null; objective: string | null; objectives: string[] };
   teamId: string;
   teamName: string;
   canManage: boolean;
   blocks: BlockRow[];
   assessments: AssessmentPanel[];
+  suggestions?: BlockSuggestion[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -243,6 +258,7 @@ export function BuilderClient({
   const [activity, setActivity] = useState<Activity>("canvas");
   const [duration, setDuration] = useState(10);
   const [prompt, setPrompt] = useState("");
+  const [owner, setOwner] = useState("");
   const [dyn, setDyn] = useState<Dyn>("");
   const [lanesText, setLanesText] = useState("");
   const [optionsText, setOptionsText] = useState("");
@@ -280,6 +296,19 @@ export function BuilderClient({
             : {};
     run(() => addBlock({ workshopId: workshop.id, title: ACTIVITY[activityType]?.label ?? "Step", activityType, duration: def, prompt: null, linkedDynamic: null, config: cfg }), "Block added");
   }
+  // Add a grounded suggestion straight into the agenda, carrying its linked
+  // dynamic and prompt so the block stays tied to the pulse it targets.
+  function addSuggestion(s: BlockSuggestion) {
+    const cfg: Record<string, unknown> =
+      s.activityType === "retrospective" ? { lanes: ["Start", "Stop", "Continue"] }
+        : s.activityType === "vote" ? { budget: 3, options: [] }
+          : s.activityType === "brainstorm" || s.activityType === "hmw" ? { budget: 3 }
+            : {};
+    run(() => addBlock({ workshopId: workshop.id, title: s.title, activityType: s.activityType, duration: s.duration, prompt: s.prompt, linkedDynamic: s.linkedDynamic, config: cfg }), "Suggested block added");
+  }
+  // Suggestions already represented on the agenda (by linked dynamic) are hidden.
+  const usedDynamics = new Set(blocks.map((b) => b.linkedDynamic).filter(Boolean) as string[]);
+  const openSuggestions = suggestions.filter((s) => !usedDynamics.has(s.linkedDynamic));
 
   // schedule editor
   const [schedOpen, setSchedOpen] = useState(false);
@@ -298,15 +327,34 @@ export function BuilderClient({
     }
   }
 
-  // objective editor (anti-theatre: a session that makes decisions needs one)
+  // objectives editor (anti-theatre: a session that makes decisions needs one).
+  // Stored as an ordered list; the legacy single objective is the first entry.
+  const objectives = workshop.objectives.length
+    ? workshop.objectives
+    : workshop.objective
+      ? [workshop.objective]
+      : [];
   const [objOpen, setObjOpen] = useState(false);
-  const [obj, setObj] = useState(workshop.objective ?? "");
-  async function saveObjective() {
-    const res = await setWorkshopObjective(workshop.id, obj);
+  const [objDraft, setObjDraft] = useState<string[]>([]);
+  function openObjectives() {
+    setObjDraft(objectives.length ? [...objectives] : [""]);
+    setObjOpen(true);
+  }
+  function setObjAt(i: number, v: string) {
+    setObjDraft((d) => d.map((x, j) => (j === i ? v : x)));
+  }
+  function addObjRow() {
+    setObjDraft((d) => [...d, ""]);
+  }
+  function removeObjRow(i: number) {
+    setObjDraft((d) => (d.length <= 1 ? [""] : d.filter((_, j) => j !== i)));
+  }
+  async function saveObjectives() {
+    const res = await setWorkshopObjectives(workshop.id, objDraft);
     if (res.error) flash(res.error);
     else {
       setObjOpen(false);
-      flash("Objective saved");
+      flash("Objectives saved");
       router.refresh();
     }
   }
@@ -334,6 +382,7 @@ export function BuilderClient({
     setActivity("canvas");
     setDuration(10);
     setPrompt("");
+    setOwner("");
     setDyn("");
     setLanesText("");
     setOptionsText("");
@@ -351,6 +400,7 @@ export function BuilderClient({
     setActivity(b.activityType);
     setDuration(b.duration);
     setPrompt(b.prompt ?? "");
+    setOwner(b.ownerName ?? "");
     setDyn(b.linkedDynamic ?? "");
     setLanesText((b.config?.lanes ?? []).join("\n"));
     setOptionsText((b.config?.options ?? []).join("\n"));
@@ -451,6 +501,7 @@ export function BuilderClient({
       duration: Number(duration) || 5,
       prompt: prompt || null,
       linkedDynamic: (dyn || null) as Enums<"team_dynamic"> | null,
+      ownerName: owner || null,
       config: buildConfig(),
     };
     const res = editId
@@ -476,6 +527,7 @@ export function BuilderClient({
       duration: b.duration,
       prompt: b.prompt ?? null,
       linkedDynamic: b.linkedDynamic ?? null,
+      ownerName: b.ownerName ?? null,
       config: (b.config ?? {}) as Record<string, unknown>,
     }), "Duplicated");
   }
@@ -493,14 +545,22 @@ export function BuilderClient({
 
   return (
     <div className={fullscreen ? "wb-root wb-full" : "wb-root"}>
-      <div className={`objbar${workshop.objective ? "" : " empty"}`}>
-        <div className="objlab">Objective</div>
+      <div className={`objbar${objectives.length ? "" : " empty"}`}>
+        <div className="objlab">{objectives.length > 1 ? "Objectives" : "Objective"}</div>
         <div className="objtext">
-          {workshop.objective || "Set a single objective — what must be true when this session ends?"}
+          {objectives.length === 0 ? (
+            "Set the objectives — what must be true when this session ends?"
+          ) : objectives.length === 1 ? (
+            objectives[0]
+          ) : (
+            <ul className="objlist">
+              {objectives.map((o, i) => <li key={i}>{o}</li>)}
+            </ul>
+          )}
         </div>
         {canManage ? (
-          <button className="btn-sec" onClick={() => { setObj(workshop.objective ?? ""); setObjOpen(true); }}>
-            {workshop.objective ? "Edit" : "Set objective"}
+          <button className="btn-sec" onClick={openObjectives}>
+            {objectives.length ? "Edit" : "Set objectives"}
           </button>
         ) : null}
       </div>
@@ -609,6 +669,32 @@ export function BuilderClient({
         </div>
       ) : null}
 
+      {canManage && openSuggestions.length ? (
+        <div className="card aspanel wb-suggest">
+          <div className="eyebrow" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+            <Icon name="Sparkles" size={13} color="var(--amber)" /> Suggested from assessment
+          </div>
+          <div className="form-note" style={{ marginTop: 0, marginBottom: 10 }}>
+            Grounded in {teamName || "the team"}’s lowest pulse readings — click to drop a targeted block into the agenda.
+          </div>
+          <div className="wb-suggest-row">
+            {openSuggestions.map((s) => {
+              const pv = PHASE_VIS[phaseKey(s.activityType)];
+              return (
+                <button key={s.id} type="button" className="wb-suggest-chip" onClick={() => addSuggestion(s)} disabled={pending} title={`Targets ${s.dynamicLabel} — ${s.why}`}>
+                  <span className="wb-suggest-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(s.activityType)} size={13} color={pv.accent} /></span>
+                  <span className="wb-suggest-body">
+                    <span className="wb-suggest-t">{s.title}</span>
+                    <span className="wb-suggest-m">{s.dynamicLabel} · {s.duration} min</span>
+                  </span>
+                  <Icon name="Plus" size={13} color="var(--amber)" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
       {blocks.length === 0 ? (
         <div className="empty" style={{ marginTop: 8 }}>No blocks yet — add one from the palette above{canManage ? "" : " (ask a facilitator)"}.</div>
       ) : null}
@@ -640,6 +726,7 @@ export function BuilderClient({
                     <td>
                       <span style={{ fontWeight: 600 }}>{b.title}</span>
                       <span className={`pill sm ${act.cls}`} style={{ marginLeft: 8 }}>{act.label}</span>
+                      {b.ownerName ? <span className="bview-owner" style={{ marginLeft: 8 }}>· {b.ownerName}</span> : null}
                     </td>
                     <td>
                       <span className="bview-phase"><span className="tpl-phase-dot" style={{ background: ph.color }} />{ph.label || "—"}</span>
@@ -738,6 +825,12 @@ export function BuilderClient({
                 ) : null}
                 {cfgHint ? (
                   <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 2 }}>{cfgHint}</div>
+                ) : null}
+                {b.ownerName ? (
+                  <div className="bview-owner" style={{ marginTop: 2 }}>
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></svg>
+                    {b.ownerName}
+                  </div>
                 ) : null}
                 {b.activityType === "vote" && (b.config?.options?.length ?? 0) === 0 ? (
                   <div className="bwarn">⚠ No options yet — add options so the team can vote (or seed them live in the run).</div>
@@ -877,6 +970,11 @@ export function BuilderClient({
           <textarea className="inp" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="The question you'll read aloud…" />
         </div>
         <div className="field">
+          <label>Owner <span className="opt">(optional)</span></label>
+          <input className="inp" value={owner} onChange={(e) => setOwner(e.target.value)} placeholder="Who runs this block?" />
+          <div className="form-note">The person leading this block in the room — shown on the agenda and run cockpit.</div>
+        </div>
+        <div className="field">
           <label>Link to a team dynamic <span className="opt">(optional)</span></label>
           <select className="inp" value={dyn} onChange={(e) => setDyn(e.target.value as Dyn)}>
             {DYN.map((d) => (
@@ -985,26 +1083,40 @@ export function BuilderClient({
         </SideWindow>
       ) : null}
 
-      {/* objective */}
+      {/* objectives */}
       <SideWindow
         open={objOpen}
         onClose={() => setObjOpen(false)}
-        title="Session objective"
+        title="Session objectives"
         subtitle={workshop.title}
         size="compact"
         footer={
           <>
             <button className="btn-sec" onClick={() => setObjOpen(false)}>Cancel</button>
             <div className="right">
-              <button className="btn-prim" onClick={saveObjective}>Save</button>
+              <button className="btn-prim" disabled={pending} onClick={saveObjectives}>Save</button>
             </div>
           </>
         }
       >
         <div className="field">
           <label>What must be true when this session ends?</label>
-          <textarea className="inp" rows={3} value={obj} onChange={(e) => setObj(e.target.value)} placeholder="e.g. Decide Q2 scope and name owners" />
-          <div className="form-note">A clear single objective is required before a session that makes decisions can close.</div>
+          <div className="objedit">
+            {objDraft.map((o, i) => (
+              <div className="objedit-row" key={i}>
+                <span className="objedit-n">{i + 1}</span>
+                <input
+                  className="inp"
+                  value={o}
+                  onChange={(e) => setObjAt(i, e.target.value)}
+                  placeholder={i === 0 ? "e.g. Decide Q2 scope and name owners" : "Another objective…"}
+                />
+                <button type="button" className="icon-btn danger" title="Remove" onClick={() => removeObjRow(i)}>✕</button>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="addlink" style={{ marginTop: 8 }} onClick={addObjRow}>+ Add objective</button>
+          <div className="form-note">At least one clear objective is required before a decision-making session can close. The first is the headline.</div>
         </div>
       </SideWindow>
 
