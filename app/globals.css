@@ -497,6 +497,28 @@ button { font-family:inherit; }
 .mc-exp.is-soon{color:var(--amber)}
 .mc-exp.is-exp{color:var(--rust)}
 
+/* in-shell assessment builder (editor) */
+.ab-titleinp{width:100%;max-width:620px;border:none;border-bottom:1.5px solid var(--line);padding:2px 0 8px;font-family:var(--font-display);font-size:27px;font-weight:600;color:var(--ink);outline:none;background:transparent}
+.ab-titleinp:focus{border-color:var(--green)}
+.ab2-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media(max-width:980px){.ab2-grid{grid-template-columns:1fr}}
+.ab2-sechead{display:flex;align-items:center;gap:10px;padding:13px 16px;background:var(--canvas);border-bottom:1px solid var(--line)}
+.ab2-grip{color:var(--faint);cursor:grab;flex-shrink:0;font-size:14px}
+.ab2-secname{flex:1;min-width:0;border:none;background:transparent;font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink);outline:none}
+.ab2-qbadge{font-size:11px;font-weight:700;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 9px;flex-shrink:0;font-variant-numeric:tabular-nums}
+.ab2-q{padding:14px 16px;border-bottom:1px solid var(--line)}
+.ab2-qrow{display:flex;align-items:center;gap:11px}
+.ab2-qn{width:24px;height:24px;border-radius:6px;background:var(--canvas-2);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;font-variant-numeric:tabular-nums}
+.ab2-qctl{display:flex;align-items:center;gap:11px;margin-top:11px;padding-left:35px}
+.ab2-addsec{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1.5px dashed var(--line-2);background:transparent;border-radius:10px;padding:15px;font-size:13px;font-weight:700;color:var(--forest);cursor:pointer;font-family:inherit}
+.ab2-addsec:hover{border-color:var(--forest);background:var(--canvas)}
+.ab2-toggle{position:relative;width:40px;height:23px;border-radius:999px;border:none;cursor:pointer;flex-shrink:0;margin-top:1px;transition:background .15s}
+.ab2-toggle span{position:absolute;top:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.na-overlay2{position:fixed;inset:0;background:rgba(44,59,48,.34);display:flex;align-items:flex-start;justify-content:center;padding:6vh 20px 20px;z-index:80;overflow-y:auto}
+.na-modal2{width:100%;max-width:640px;background:var(--surface);border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.3);overflow:hidden}
+.ab2-pvhead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 22px;background:var(--forest);color:#fff}
+.ab2-pvbody{padding:20px 22px;max-height:64vh;overflow:auto}
+
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
 .wsd-main{display:flex;flex-direction:column;gap:16px;min-width:0}

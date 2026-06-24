@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/workspace";
 import { isAdmin } from "@/lib/util";
 import { listTemplates } from "@/lib/assessments";
+import { AssessmentNav } from "@/components/AssessmentNav";
 import { TemplatesManager, type TemplateCard } from "./TemplatesManager";
 
 // Templates — the management surface for assessment blueprints (the design's
@@ -40,5 +41,10 @@ export default async function TemplatesPage() {
     };
   });
 
-  return <TemplatesManager cards={cards} isAdmin={admin} />;
+  return (
+    <>
+      <AssessmentNav active="templates" />
+      <TemplatesManager cards={cards} isAdmin={admin} />
+    </>
+  );
 }

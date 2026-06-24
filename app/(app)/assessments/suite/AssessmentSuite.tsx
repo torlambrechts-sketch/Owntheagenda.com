@@ -159,8 +159,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
           </div>
           <div className="a-pr">
             <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
-            <Link className="btn-sec" href="/assessments/templates">Templates</Link>
-            {isAdmin ? <Link className="btn-sec" href="/builder">Build assessment</Link> : null}
+            {isAdmin ? <Link className="btn-sec" href="/assessments/builder">Build assessment</Link> : null}
             {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
         </div>
