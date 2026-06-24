@@ -106,7 +106,7 @@ export default async function MemberProfilePage({ params }: { params: { id: stri
   const sessionIds = (parts ?? []).map((p) => p.session_id as string);
   const facilitatorBySession = new Map((parts ?? []).map((p) => [p.session_id as string, p.is_facilitator as boolean]));
   const { data: sessions } = sessionIds.length
-    ? await supabase.from("session").select("id, workshop_id, started_at").in("id", sessionIds)
+    ? await supabase.from("session").select("id, workshop_id, started_at").in("id", sessionIds).eq("is_dry_run", false)
     : { data: [] as { id: string; workshop_id: string; started_at: string | null }[] };
   const workshopIds = Array.from(new Set((sessions ?? []).map((s) => s.workshop_id)));
   const { data: workshops } = workshopIds.length

@@ -110,20 +110,6 @@ export async function scheduleWorkshop(
   return {};
 }
 
-export async function setWorkshopObjective(
-  id: string,
-  objective: string,
-): Promise<{ error?: string }> {
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("workshop")
-    .update({ objective: objective.trim() || null })
-    .eq("id", id);
-  if (error) return { error: error.message };
-  revalidatePath(`/workshops/${id}`);
-  return {};
-}
-
 // Structured, ordered objectives list. `objective` (legacy single column) is
 // kept in sync with the first entry so existing readers stay correct.
 export async function setWorkshopObjectives(
