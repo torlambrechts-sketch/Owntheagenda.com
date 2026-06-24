@@ -87,6 +87,16 @@ export function WorkshopHome({
     setNewOpen(true);
   }
 
+  // "Build workshop" — create an empty draft and go straight to the builder
+  // (no slide-over). "New workshop" is the slide-over with start-point choices.
+  function buildDirect() {
+    startTransition(async () => {
+      const r = await createBlankWorkshop(teamId, "");
+      if (r.error) { flash(r.error); return; }
+      if (r.id) router.push(`/workshops/${r.id}`);
+    });
+  }
+
   // The template whose agenda we'll seed (for the preview + assessment grounding).
   const seedTemplate =
     nwMode === "template"
@@ -180,7 +190,7 @@ export function WorkshopHome({
         </div>
         {canManage ? (
           <>
-            <button onClick={() => openNew("template")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={buildDirect} disabled={pending} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: pending ? "default" : "pointer", fontFamily: "inherit", opacity: pending ? 0.6 : 1 }}>
               <Icon name="Wand2" size={15} color="#404040" /> Build workshop
             </button>
             <button onClick={() => openNew(recommendation ? "assessment" : "blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
