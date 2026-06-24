@@ -62,7 +62,7 @@ test.describe("Workshops design migration", () => {
     await page.goto("/workshops/run");
     await expect(page.getByRole("heading", { name: "Run a workshop" })).toBeVisible();
     await expect(page.getByText("E2E Sample Workshop")).toBeVisible();
-    await expect(page.getByText("Facilitator")).toBeVisible();
-    await expect(page.getByText("Dry run")).toBeVisible();
+    await expect(page.locator(".rs-role", { hasText: "Facilitator" })).toBeVisible();
+    await expect(page.locator(".rs-dry-t")).toBeVisible(); // the Dry-run toggle (not the intro copy)
   });
 });
