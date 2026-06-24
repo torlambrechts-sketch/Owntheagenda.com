@@ -185,6 +185,15 @@ export function Shell({
       return next;
     });
   }
+  // The logo tile is the natural thing to tap: on a phone it opens the menu
+  // drawer; on desktop it collapses/expands the text nav as before.
+  function onLogoClick() {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width:860px)").matches) {
+      setMobileNavOpen((o) => !o);
+    } else {
+      toggleCollapsed();
+    }
+  }
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
   // Per-nav-item active. "/assessments" (Overview) must NOT light up on the
@@ -222,11 +231,11 @@ export function Shell({
       <div className="mobile-scrim" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       {/* icon rail */}
       <nav className="rail" aria-label="Sections">
-        <button className="logo-tile" onClick={toggleCollapsed} title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"}>
+        <button className="logo-tile" onClick={onLogoClick} title="Menu" aria-label="Menu">
           <LogoMark size={40} />
         </button>
         {collapsed ? (
-          <button className="rail-expand" onClick={toggleCollapsed} title="Expand menu" aria-label="Expand menu">›</button>
+          <button className="rail-expand" onClick={onLogoClick} title="Expand menu" aria-label="Expand menu">›</button>
         ) : null}
         {(() => {
           let orgDone = false;
