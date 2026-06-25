@@ -78,7 +78,7 @@ export function NewAssessment({
   function next() {
     setError(null);
     if (step === 0 && !kind && !title.trim()) { setError("Pick a template or give the assessment a title."); return; }
-    if (step === 1 && teamIds.length === 0 && emailList.length === 0) { setError("Select at least one team or add an email."); return; }
+    if (step === 1 && teamIds.length === 0) { setError("Select at least one team — an assessment is owned by a team (you can add individual emails as well)."); return; }
     if (step === 2 && enabledChannels.length === 0) { setError("Choose at least one delivery channel."); return; }
     if (step === 3 && launch === "scheduled" && !startAt) { setError("Set a start date, or choose “Start now”."); return; }
     if (step < 4) { setStep((s) => (s + 1) as Step); return; }

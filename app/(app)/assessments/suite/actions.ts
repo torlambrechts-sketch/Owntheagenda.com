@@ -124,14 +124,19 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       belowCount = scores.filter((s) => s.band === 0).length;
     }
     // Per-question breakdown from the same RPC item means — Likert/rating items
-    // only (the ones the instrument actually scores), mapped to their text.
+    // only (the ones the instrument actually scores), mapped to their text. A
+    // rating-10 item bands on its own 1–10 scale so its bar matches its mean,
+    // while Likert items band on the instrument scale.
     const meanByItem = new Map((r.items ?? []).map((it) => [it.item_key, it.mean]));
+    const typeByItem = new Map(inst.items.map((it) => [it.key, it.type ?? "likert"]));
     questionScores = questions
       .map((q) => {
         const mean = meanByItem.get(q.key);
         if (mean == null) return null;
-        const pct = ((mean - min) / (max - min)) * 100;
-        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct, band: bandOf(pct) };
+        const pct = typeByItem.get(q.key) === "rating10"
+          ? ((mean - 1) / 9) * 100
+          : ((mean - min) / (max - min)) * 100;
+        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct: Math.max(0, Math.min(100, pct)), band: bandOf(pct) };
       })
       .filter((q): q is QuestionScore => q != null);
   }

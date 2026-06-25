@@ -305,7 +305,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                       </td>
                       <td className="r">
                         {canManageRow(r) ? (
-                          <button className="icon-btn" title="Edit" onClick={(e) => { e.stopPropagation(); setNewOpen(true); }}>
+                          <button className="icon-btn" title="Open & manage" onClick={(e) => { e.stopPropagation(); open(r); }}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
                           </button>
                         ) : null}
