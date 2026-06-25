@@ -20,6 +20,7 @@ import {
 import { sendSurvey } from "../../assessments/actions";
 import { PALETTE, DEFAULT_MINUTES, PHASES, PHASE_LABEL, phaseOf as phaseKey, type PhaseKey } from "../blocks";
 import { Icon, statusVis, actIcon, PHASE_VIS, WA } from "../visuals";
+import { CONFIG_FIELDS, configText, configList } from "../blockConfig";
 
 type Cand = { id: string; name: string; dueAt: string | null; responded: number; total: number };
 export type AssessmentPanel = {
@@ -285,6 +286,10 @@ export function BuilderClient({
   const [capture, setCapture] = useState(false);
   const [autoAdvance, setAutoAdvance] = useState(false);
   const [prework, setPrework] = useState(false);
+  // Generic per-type "Run content" values (driven by CONFIG_FIELDS). Stored as a
+  // map keyed by the field key; merged into the saved config alongside the
+  // legacy keys (budget/lanes/options/…).
+  const [runConfig, setRunConfig] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
 
   // title editor
@@ -416,6 +421,7 @@ export function BuilderClient({
     setCapture(false);
     setAutoAdvance(false);
     setPrework(false);
+    setRunConfig(seedRunConfig("canvas", null));
     setError(null);
     setOpen(true);
   }
@@ -435,14 +441,66 @@ export function BuilderClient({
     setCapture(!!b.config?.capture);
     setAutoAdvance(!!b.config?.autoAdvance);
     setPrework(!!b.config?.prework);
+    setRunConfig(seedRunConfig(b.activityType, b.config as Record<string, unknown> | null));
     setError(null);
     setOpen(true);
+  }
+  // Prefill the generic Run-content fields for a type from the block's existing
+  // config, falling back to the type default via configText / configList.
+  function seedRunConfig(type: Activity, config: Record<string, unknown> | null): Record<string, unknown> {
+    const fields = CONFIG_FIELDS[type] ?? [];
+    const next: Record<string, unknown> = {};
+    for (const f of fields) {
+      next[f.key] = f.kind === "list" ? configList(type, config, f.key) : configText(type, config, f.key);
+    }
+    return next;
+  }
+  function setRunText(key: string, value: string) {
+    setRunConfig((c) => ({ ...c, [key]: value }));
+  }
+  function setRunListItem(key: string, i: number, value: string) {
+    setRunConfig((c) => {
+      const list = Array.isArray(c[key]) ? [...(c[key] as string[])] : [];
+      list[i] = value;
+      return { ...c, [key]: list };
+    });
+  }
+  function addRunListItem(key: string, seed: string) {
+    setRunConfig((c) => {
+      const list = Array.isArray(c[key]) ? [...(c[key] as string[])] : [];
+      list.push(seed);
+      return { ...c, [key]: list };
+    });
+  }
+  function removeRunListItem(key: string, i: number) {
+    setRunConfig((c) => {
+      const list = Array.isArray(c[key]) ? [...(c[key] as string[])] : [];
+      list.splice(i, 1);
+      return { ...c, [key]: list };
+    });
+  }
+  // The generic per-type "Run content" values, cleaned for persistence: list
+  // items are trimmed of blanks. Merged additively over the legacy config so it
+  // never drops budget/lanes/options that other types still rely on.
+  function runConfigForSave(): Record<string, unknown> {
+    const fields = CONFIG_FIELDS[activity] ?? [];
+    const out: Record<string, unknown> = {};
+    for (const f of fields) {
+      const v = runConfig[f.key];
+      if (f.kind === "list") {
+        out[f.key] = (Array.isArray(v) ? (v as string[]) : []).map((s) => s.trim()).filter(Boolean);
+      } else {
+        out[f.key] = typeof v === "string" ? v : "";
+      }
+    }
+    return out;
   }
   function buildConfig(): Record<string, unknown> {
     const lanes = lanesText.split("\n").map((s) => s.trim()).filter(Boolean);
     const options = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
     const b = Math.max(1, Number(budget) || 3);
-    const base: Record<string, unknown> = autoAdvance ? { autoAdvance: true } : {};
+    const run = runConfigForSave();
+    const base: Record<string, unknown> = { ...run, ...(autoAdvance ? { autoAdvance: true } : {}) };
     if (activity === "feedback") return { ...base, lanes };
     if (activity === "retrospective") return { ...base, lanes: lanes.length ? lanes : ["Start", "Stop", "Continue"] };
     if (activity === "vote") return { ...base, options, budget: b };
@@ -1043,6 +1101,9 @@ export function BuilderClient({
             <select className="inp" value={activity} onChange={(e) => {
               const a = e.target.value as Activity;
               setActivity(a);
+              // Switch the generic Run-content fields to the new type, seeding
+              // from the type defaults (no existing block config in this state).
+              setRunConfig(seedRunConfig(a, null));
               if (a === "retrospective" && !lanesText.trim()) setLanesText("Start\nStop\nContinue");
               if (a === "hmw" && !prompt.trim()) setPrompt("How might we …");
               // Don't carry the auto-filled HMW framing into a different module.
@@ -1128,6 +1189,50 @@ export function BuilderClient({
           <label>Facilitator prompt <span className="opt">(optional)</span></label>
           <textarea className="inp" value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="The question you'll read aloud…" />
         </div>
+        {(CONFIG_FIELDS[activity]?.length ?? 0) > 0 ? (
+          <div className="field" style={{ borderTop: "1px solid var(--line)", paddingTop: 14, marginTop: 4 }}>
+            <div className="eyebrow" style={{ marginBottom: 10 }}>
+              Run content · {ACTIVITY[activity]?.label ?? activity}
+            </div>
+            {CONFIG_FIELDS[activity]!.map((f) => {
+              if (f.kind === "list") {
+                const list = Array.isArray(runConfig[f.key]) ? (runConfig[f.key] as string[]) : [];
+                return (
+                  <div className="field" key={f.key}>
+                    <label>{f.label}</label>
+                    <div className="objedit">
+                      {list.map((item, i) => (
+                        <div className="objedit-row" key={i}>
+                          <span className="objedit-n">{i + 1}</span>
+                          <input
+                            className="inp"
+                            value={item}
+                            onChange={(e) => setRunListItem(f.key, i, e.target.value)}
+                            placeholder={f.placeholder ?? ""}
+                          />
+                          <button type="button" className="icon-btn danger" title="Remove" onClick={() => removeRunListItem(f.key, i)}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" className="addlink" style={{ marginTop: 8 }} onClick={() => addRunListItem(f.key, "")}>+ Add</button>
+                  </div>
+                );
+              }
+              const val = typeof runConfig[f.key] === "string" ? (runConfig[f.key] as string) : "";
+              return (
+                <div className="field" key={f.key}>
+                  <label>{f.label}</label>
+                  {f.kind === "textarea" ? (
+                    <textarea className="inp" value={val} onChange={(e) => setRunText(f.key, e.target.value)} placeholder={f.placeholder ?? ""} />
+                  ) : (
+                    <input className="inp" value={val} onChange={(e) => setRunText(f.key, e.target.value)} placeholder={f.placeholder ?? ""} />
+                  )}
+                </div>
+              );
+            })}
+            <div className="form-note">Seeds what the live run shows for this block.</div>
+          </div>
+        ) : null}
         <div className="two">
           <div className="field">
             <label>Phase</label>
