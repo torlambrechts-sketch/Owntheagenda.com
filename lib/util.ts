@@ -57,12 +57,21 @@ export function timeAgo(iso?: string | null): string {
 }
 
 export const ACTIVITY: Record<string, { label: string; cls: string }> = {
-  canvas: { label: "Canvas", cls: "t-canvas" },
+  // design taxonomy (canonical, buildable types)
+  checkin: { label: "Check-in", cls: "t-checkin" },
+  framing: { label: "Framing", cls: "t-checkin" },
+  discussion: { label: "Discussion", cls: "t-discuss" },
+  breakout: { label: "Breakout", cls: "t-discuss" },
+  canvas: { label: "Canvas / brainstorm", cls: "t-canvas" },
+  break: { label: "Break", cls: "t-checkin" },
+  vote: { label: "Vote / poll", cls: "t-vote" },
+  decision: { label: "Decision", cls: "t-vote" },
+  actions: { label: "Action items", cls: "t-outcome" },
+  reflect: { label: "Reflection", cls: "t-feedback" },
+  // retained legacy types (assessment integration + historical rows)
   brainstorm: { label: "Brainstorm", cls: "t-brainstorm" },
-  vote: { label: "Vote", cls: "t-vote" },
   feedback: { label: "Feedback", cls: "t-feedback" },
   discuss: { label: "Discuss", cls: "t-discuss" },
-  checkin: { label: "Check-in", cls: "t-checkin" },
   outcome: { label: "Outcome", cls: "t-outcome" },
   manual: { label: "User manual", cls: "t-checkin" },
   charter: { label: "Charter", cls: "t-outcome" },

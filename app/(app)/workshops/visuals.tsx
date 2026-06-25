@@ -37,6 +37,11 @@ const PATHS: Record<string, ReactNode> = {
   X: (<><path d="M18 6 6 18" /><path d="m6 6 12 12" /></>),
   Check: (<><path d="M20 6 9 17l-5-5" /></>),
   Wand2: (<><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72Z" /><path d="m14 7 3 3" /><path d="M5 6v4" /><path d="M19 14v4" /><path d="M10 2v2" /><path d="M7 8H3" /><path d="M21 16h-4" /><path d="M11 3H9" /></>),
+  MessageCircle: (<><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></>),
+  Coffee: (<><path d="M10 2v2" /><path d="M14 2v2" /><path d="M6 2v2" /><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" /></>),
+  Scale: (<><path d="m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z" /><path d="M7 21h10" /><path d="M12 3v18" /><path d="M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2" /></>),
+  Vote: (<><path d="m9 12 2 2 4-4" /><rect width="18" height="18" x="3" y="3" rx="2" /></>),
+  SquarePen: (<><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.4 2.6a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></>),
 };
 
 export function Icon({ name, size = 16, color = "currentColor", sw = 1.75 }: { name: string; size?: number; color?: string; sw?: number }) {
@@ -88,19 +93,26 @@ export function statusVis(status: string): StatusVis {
 }
 
 // Facilitation-phase visuals (exact handoff CATS hex) for the editor + builder.
+// Facilitation-phase visuals — design taxonomy: open=green, explore=blue,
+// decide=amber, close=violet.
 export const PHASE_VIS: Record<string, { accent: string; tint: string; border: string }> = {
-  open: { accent: "#1d4ed8", tint: "#eff6ff", border: "#bfdbfe" },
-  explore: { accent: "#6d28d9", tint: "#f5f3ff", border: "#ddd6fe" },
-  decide: { accent: "#1a3d32", tint: "#e7efe9", border: "#c5d3c8" },
-  close: { accent: "#a16207", tint: "#fefce8", border: "#fde68a" },
+  open: { accent: "#3a4d3f", tint: "#e7efe9", border: "#c5d3c8" },
+  explore: { accent: "#1d4ed8", tint: "#eff6ff", border: "#bfdbfe" },
+  decide: { accent: "#a16207", tint: "#fefce8", border: "#fde68a" },
+  close: { accent: "#6d28d9", tint: "#f5f3ff", border: "#ddd6fe" },
 };
 
-// Per-activity icon (maps the app's activity_type enum to a handoff glyph).
+// Per-activity icon. The design's 10 canonical block types come first; legacy
+// activity types are retained so existing rows keep rendering during migration.
 export const ACT_ICON: Record<string, string> = {
-  checkin: "HeartHandshake", charter: "Flag", assess: "ChartColumnBig", survey: "ListTodo",
-  manual: "PenLine", brainstorm: "Sparkles", hmw: "Lightbulb", canvas: "Layers",
-  vote: "Target", feedback: "RefreshCcw", discuss: "Users", outcome: "Gavel",
-  retrospective: "RefreshCcw",
+  // design taxonomy
+  checkin: "MessageCircle", framing: "Flag", discussion: "MessageCircle", breakout: "Users",
+  canvas: "Layers", break: "Coffee", vote: "Vote", decision: "Scale",
+  actions: "ListTodo", reflect: "Flag",
+  // retained legacy types (assessment integration + historical rows)
+  charter: "Flag", assess: "ChartColumnBig", survey: "ListTodo", manual: "PenLine",
+  brainstorm: "Sparkles", hmw: "Lightbulb", feedback: "RefreshCcw", discuss: "Users",
+  outcome: "Gavel", retrospective: "RefreshCcw",
 };
 export function actIcon(type: string): string {
   return ACT_ICON[type] ?? "Sparkles";
