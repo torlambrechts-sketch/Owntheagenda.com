@@ -65,4 +65,19 @@ test.describe("Workshops design migration", () => {
     await expect(page.locator(".rs-role", { hasText: "Facilitator" })).toBeVisible();
     await expect(page.locator(".rs-dry-t")).toBeVisible(); // the Dry-run toggle (not the intro copy)
   });
+
+  test("left nav has a Workshops section with its four sub-pages", async ({ page }) => {
+    await page.goto("/workshops");
+    const nav = page.locator("aside.nav");
+    await expect(nav.locator('a[href="/workshops"]')).toBeVisible();
+    await expect(nav.locator('a[href="/workshops/templates"]')).toBeVisible();
+    await expect(nav.locator('a[href="/workshops/builder"]')).toBeVisible();
+    await expect(nav.locator('a[href="/workshops/run"]')).toBeVisible();
+  });
+
+  test("Builder section landing lists workshops + build-new", async ({ page }) => {
+    await page.goto("/workshops/builder");
+    await expect(page.getByRole("heading", { name: "Builder" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Build new workshop/ })).toBeVisible();
+  });
 });

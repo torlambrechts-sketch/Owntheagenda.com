@@ -129,9 +129,11 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
-  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
-  { href: "/workshops/run", label: "Run workshop", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
+  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops" },
+  { href: "/workshops/templates", label: "Templates", icon: ICONS.library, group: "Workshops" },
+  { href: "/workshops/builder", label: "Builder", icon: ICONS.canvas, group: "Workshops" },
+  { href: "/workshops/run", label: "Run workshop", icon: ICONS.sessions, group: "Workshops" },
   { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
   { href: "/assessments/builder", label: "Builder", icon: ICONS.assess, group: "Assessments", adminOnly: true },
   { href: "/assessments/templates", label: "Templates", icon: ICONS.assess, group: "Assessments" },
@@ -201,6 +203,10 @@ export function Shell({
   const navItemActive = (href: string) => {
     if (href.includes("?")) return false;
     if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take"));
+    // "Workshops" (the section landing) must not light up on the templates /
+    // builder / run sub-pages — a specific workshop's builder (/workshops/<id>)
+    // still counts as Workshops.
+    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/templates") && !path.startsWith("/workshops/builder") && !path.startsWith("/workshops/run"));
     return active(href);
   };
   // Breadcrumb: prefer an exact route match, then the longest prefix.
@@ -218,7 +224,11 @@ export function Shell({
   // Assessments collapses to one rail icon; the text menu keeps its sub-pages.
   const assessHref = "/assessments";
   const assessActive = active("/assessments");
-  const groups = ["Workspace", "Insight", "Effectiveness", "Assessments", "Organization", "Help"].filter((g) =>
+  // Workshops is its own section: one rail icon → the text menu lists
+  // Workshops / Templates / Builder / Run workshop.
+  const workshopsHref = "/workshops";
+  const workshopsActive = active("/workshops");
+  const groups = ["Workspace", "Insight", "Effectiveness", "Workshops", "Assessments", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
@@ -241,6 +251,7 @@ export function Shell({
           let orgDone = false;
           let insightDone = false;
           let assessDone = false;
+          let workshopsDone = false;
           return visibleNav.map((n) => {
             if (n.group === "Organization") {
               if (orgDone) return null;
@@ -266,6 +277,15 @@ export function Shell({
               return (
                 <Link key="assess-rail" className={`ri${assessActive ? " active" : ""}`} href={assessHref} title="Assessments">
                   {ICONS.assess}
+                </Link>
+              );
+            }
+            if (n.group === "Workshops") {
+              if (workshopsDone) return null;
+              workshopsDone = true;
+              return (
+                <Link key="workshops-rail" className={`ri${workshopsActive ? " active" : ""}`} href={workshopsHref} title="Workshops">
+                  {ICONS.workshops}
                 </Link>
               );
             }
