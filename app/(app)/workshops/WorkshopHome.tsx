@@ -279,13 +279,13 @@ export function WorkshopHome({
               ? { label: "Enter", icon: "Play", href: `/run/${w.id}`, solid: true }
               : w.status === "done"
                 ? { label: "Results", icon: "ChartColumnBig", href: `/workshops/${w.id}/overview`, solid: true }
-                : { label: w.status === "draft" ? "Edit" : "Open", icon: "PenLine", href: `/workshops/${w.id}`, solid: false };
+                : { label: "Open", icon: "PenLine", href: `/workshops/${w.id}/overview`, solid: false };
             return (
               <div key={w.id} className="wa-row wa-rowline" style={{ alignItems: "center", padding: "14px 18px", borderBottom: `1px solid ${WA.rowHair}` }}>
                 <div style={{ minWidth: 0, paddingRight: 14, display: "flex", alignItems: "center", gap: 11 }}>
                   <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 34, height: 34, borderRadius: 9, flexShrink: 0, background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={17} color={v.accent} /></span>
                   <div style={{ minWidth: 0 }}>
-                    <Link href={`/workshops/${w.id}`} style={{ fontSize: 14, fontWeight: 600, color: WA.ink, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{w.title}</Link>
+                    <Link href={`/workshops/${w.id}/overview`} style={{ fontSize: 14, fontWeight: 600, color: WA.ink, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{w.title}</Link>
                     <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontFamily: "ui-monospace,monospace", fontSize: 11, color: WA.faint2 }}>#{w.id.slice(0, 4).toUpperCase()}</span>
                       {w.templateName ? <><span style={{ color: "#e5e5e5" }}>·</span><span style={{ fontSize: 11.5, color: WA.faint2 }}>{w.templateName}</span></> : null}
@@ -502,7 +502,7 @@ function WorkshopBoard({ workshops, canManage, onNew }: { workshops: WorkshopRow
                 const v = catVis(w.category);
                 const s = statusVis(w.status);
                 const live = w.status === "live";
-                const href = live ? `/run/${w.id}` : w.status === "done" ? `/workshops/${w.id}/overview` : `/workshops/${w.id}`;
+                const href = live ? `/run/${w.id}` : `/workshops/${w.id}/overview`;
                 return (
                   <Link key={w.id} href={href} style={{ display: "block", background: "#fff", border: `1px solid ${live ? "#c5d3c8" : WA.cardBorder}`, borderRadius: 11, padding: "12px 13px", textDecoration: "none", boxShadow: live ? "0 0 0 2px rgba(26,61,50,.07)" : "0 1px 2px rgba(0,0,0,.03)" }}>
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
