@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { resolveInstrument } from "@/lib/assessments";
-import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { dimensionMeans, strengthItemKeys, instrumentFromRow } from "@/lib/survey";
 
 // Lazy per-assessment detail loader. The Overview lists every assessment cheaply
 // (one query); the rich section-scoring is only resolved when a row is opened,
@@ -54,12 +54,17 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   const supabase = createClient();
   const { data: survey } = await supabase
     .from("survey")
-    .select("id, kind, status, team_id")
+    .select("id, kind, name, status, team_id, definition")
     .eq("id", surveyId)
     .single();
   if (!survey) return { error: "Assessment not found." };
 
-  const inst = await resolveInstrument(survey.kind as string);
+  // Prefer the survey's frozen definition snapshot (so a custom build or an
+  // edited instrument shows its real questions), falling back to the live
+  // catalog instrument by kind.
+  const inst =
+    instrumentFromRow({ key: survey.kind as string, name: (survey.name ?? survey.kind) as string, definition: survey.definition }) ??
+    (await resolveInstrument(survey.kind as string));
   if (!inst) return { error: "Instrument definition is unavailable." };
 
   const { min, max } = inst.scale;
