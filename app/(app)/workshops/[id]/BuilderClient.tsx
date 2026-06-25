@@ -497,13 +497,13 @@ export function BuilderClient({
   }
   function buildConfig(): Record<string, unknown> {
     const lanes = lanesText.split("\n").map((s) => s.trim()).filter(Boolean);
-    const options = optionsText.split("\n").map((s) => s.trim()).filter(Boolean);
     const b = Math.max(1, Number(budget) || 3);
     const run = runConfigForSave();
     const base: Record<string, unknown> = { ...run, ...(autoAdvance ? { autoAdvance: true } : {}) };
     if (activity === "feedback") return { ...base, lanes };
     if (activity === "retrospective") return { ...base, lanes: lanes.length ? lanes : ["Start", "Stop", "Continue"] };
-    if (activity === "vote") return { ...base, options, budget: b };
+    // Options come from the run-content editor (base); vote just adds its dot budget.
+    if (activity === "vote") return { ...base, budget: b };
     if (activity === "brainstorm" || activity === "hmw") return { ...base, budget: b, silent, ...(prework ? { prework: true } : {}) };
     if (activity === "checkin") return { ...base, capture };
     return base;
@@ -1133,19 +1133,11 @@ export function BuilderClient({
           </div>
         ) : null}
         {activity === "vote" ? (
-          <>
-            <div className="field">
-              <label>Options to vote on <span className="opt">(one per line)</span></label>
-              <textarea className="inp" rows={4} value={optionsText} onChange={(e) => setOptionsText(e.target.value)} placeholder={"Option A\nOption B\nOption C"} />
-              {!optionsText.trim() ? (
-                <p className="fieldwarn">⚠ Add at least one option — otherwise you’ll need to seed options live during the run.</p>
-              ) : null}
-            </div>
-            <div className="field">
-              <label>Votes per person</label>
-              <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
-            </div>
-          </>
+          <div className="field">
+            <label>Votes per person</label>
+            <input className="inp" type="number" min={1} value={budget} onChange={(e) => setBudget(Number(e.target.value))} />
+            <div className="form-note">Options for the poll are set in “Run content” above.</div>
+          </div>
         ) : null}
         {activity === "brainstorm" || activity === "hmw" ? (
           <>
