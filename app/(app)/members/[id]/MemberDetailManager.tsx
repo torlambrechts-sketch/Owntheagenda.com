@@ -114,7 +114,7 @@ export function MemberDetailManager({
 
           <div className="field">
             <label htmlFor="md-title">Job title</label>
-            <input className="inp" id="md-title" value={form.jobTitle} onChange={(e) => setForm((f) => ({ ...f, jobTitle: e.target.value }))} placeholder="e.g. HMS-koordinator" />
+            <input className="inp" id="md-title" value={form.jobTitle} onChange={(e) => setForm((f) => ({ ...f, jobTitle: e.target.value }))} placeholder="e.g. Head of Product" />
           </div>
           <div className="field">
             <label htmlFor="md-dept">Department</label>

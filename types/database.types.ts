@@ -1196,27 +1196,153 @@ export type Database = {
       }
       survey: {
         Row: {
-          id: string
-          workspace_id: string
-          team_id: string
-          kind: string
-          name: string
-          status: string
-          opened_at: string | null
-          closed_at: string | null
-          due_at: string | null
-          subject_user_id: string | null
-          definition: Json | null
           anonymity: string
+          channels: string[]
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          definition: Json | null
+          due_at: string | null
+          id: string
+          kind: string
+          min_participants: number
+          name: string
+          opened_at: string | null
+          reminders: boolean
+          respondent_salt: string
           share_token: string | null
           shared_at: string | null
-          created_by: string | null
-          created_at: string
+          start_at: string | null
+          status: string
+          subject_user_id: string | null
+          team_id: string
           updated_at: string
+          workspace_id: string
         }
-        Insert: { [k: string]: unknown }
-        Update: { [k: string]: unknown }
-        Relationships: []
+        Insert: {
+          anonymity?: string
+          channels?: string[]
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition?: Json | null
+          due_at?: string | null
+          id?: string
+          kind: string
+          min_participants?: number
+          name: string
+          opened_at?: string | null
+          reminders?: boolean
+          respondent_salt?: string
+          share_token?: string | null
+          shared_at?: string | null
+          start_at?: string | null
+          status?: string
+          subject_user_id?: string | null
+          team_id: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          anonymity?: string
+          channels?: string[]
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          definition?: Json | null
+          due_at?: string | null
+          id?: string
+          kind?: string
+          min_participants?: number
+          name?: string
+          opened_at?: string | null
+          reminders?: boolean
+          respondent_salt?: string
+          share_token?: string | null
+          shared_at?: string | null
+          start_at?: string | null
+          status?: string
+          subject_user_id?: string | null
+          team_id?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspace"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+
+      survey_invite: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          survey_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          survey_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_invite_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "survey"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      survey_team: {
+        Row: {
+          survey_id: string
+          team_id: string
+        }
+        Insert: {
+          survey_id: string
+          team_id: string
+        }
+        Update: {
+          survey_id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_team_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "survey"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_team_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       survey_response: {
         Row: {
@@ -1399,6 +1525,54 @@ export type Database = {
         Args: { p_workspace: string; p_title: string; p_team?: string | null; p_min_responses?: number }
         Returns: string
       }
+      create_assessment: {
+        Args: {
+          p_anonymity?: string
+          p_channels?: string[]
+          p_definition?: Json
+          p_due?: string
+          p_emails?: string[]
+          p_extra_teams?: string[]
+          p_kind?: string
+          p_launch?: string
+          p_min_participants?: number
+          p_name: string
+          p_reminders?: boolean
+          p_start?: string
+          p_team: string
+        }
+        Returns: {
+          anonymity: string
+          channels: string[]
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          definition: Json | null
+          due_at: string | null
+          id: string
+          kind: string
+          min_participants: number
+          name: string
+          opened_at: string | null
+          reminders: boolean
+          respondent_salt: string
+          share_token: string | null
+          shared_at: string | null
+          start_at: string | null
+          status: string
+          subject_user_id: string | null
+          team_id: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "survey"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+
       create_flow_steps: {
         Args: { p_workspace: string; p_title: string; p_team: string | null; p_min_responses: number; p_steps: Json; p_assessment_kind?: string | null; p_collect_days?: number; p_workshop_template?: string | null; p_anonymity?: string }
         Returns: string
@@ -1843,6 +2017,13 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      survey_submissions: {
+        Args: { p_survey: string }
+        Returns: {
+          submitted_at: string
+        }[]
+      }
+
       survey_results: {
         Args: { p_survey: string; p_strength_items?: string[] }
         Returns: Json

@@ -74,6 +74,64 @@ export async function sendSurveyMulti(
   return { ids };
 }
 
+// Send-wizard action: one assessment that targets several teams plus
+// individual/external email invites, launched now / scheduled / saved as a
+// draft, over the chosen channels. Backed by the create_assessment RPC (which
+// enforces lead/admin on every targeted team). The instrument name falls back
+// to the template's name when the user leaves the title blank.
+export async function sendAssessment(input: {
+  title: string;
+  kind: string | null;
+  teamIds: string[]; // first entry is the primary team
+  emails: string[];
+  anonymity: "anonymous" | "attributed";
+  minParticipants: number;
+  channels: string[]; // subset of email | url (sms/slack/teams are UI-only for now)
+  launch: "now" | "scheduled" | "draft";
+  startAt: string | null; // yyyy-mm-dd
+  dueAt: string | null; // yyyy-mm-dd
+  reminders: boolean;
+}): Promise<{ error?: string; id?: string }> {
+  const supabase = createClient();
+  const [primary, ...extra] = input.teamIds;
+  if (!primary) return { error: "Select at least one team." };
+
+  let name = input.title.trim();
+  if (!name && input.kind) {
+    const { data: tpl } = await supabase
+      .from("assessment_template")
+      .select("name")
+      .eq("key", input.kind)
+      .order("workspace_id", { ascending: true, nullsFirst: false });
+    name = ((tpl ?? [])[0]?.name as string | undefined) ?? "Untitled assessment";
+  }
+  if (!name) name = "Untitled assessment";
+
+  const toIso = (d: string | null, end: boolean) =>
+    d ? (() => { const dt = new Date(`${d}T${end ? "23:59" : "09:00"}:00`); return isNaN(dt.getTime()) ? null : dt.toISOString(); })() : null;
+
+  const channels = input.channels.length ? input.channels : ["email"];
+  const { data, error } = await supabase.rpc("create_assessment", {
+    p_team: primary,
+    p_name: name,
+    p_extra_teams: extra,
+    p_emails: input.emails,
+    p_kind: input.kind ?? undefined,
+    p_anonymity: input.anonymity === "attributed" ? "attributed" : "anonymous",
+    p_min_participants: input.minParticipants,
+    p_channels: channels,
+    p_launch: input.launch,
+    p_start: toIso(input.startAt, false) ?? undefined,
+    p_due: toIso(input.dueAt, true) ?? undefined,
+    p_reminders: input.reminders,
+  });
+  if (error) return { error: error.message };
+  const id = (data as { id?: string } | null)?.id;
+  if (id) await logEvent(supabase, "assessment.opened", "survey", id, { kind: input.kind, launch: input.launch, teams: input.teamIds.length });
+  revalidatePath("/assessments");
+  return { id };
+}
+
 export async function remindSurvey(surveyId: string): Promise<{ error?: string; pending?: number }> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("remind_survey", { p_survey: surveyId });

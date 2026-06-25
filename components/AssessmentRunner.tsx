@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 // non-numeric answers separately so scoring (numeric means) stays intact.
 
 export type AnswerValue = number | string | string[];
-export type QuestionType = "likert" | "single" | "multi" | "text";
+export type QuestionType = "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number";
 export type RunnerItem = {
   key: string;
   dimension: string;
@@ -280,6 +280,46 @@ export function AssessmentRunner({
           value={typeof answers[it.key] === "string" ? (answers[it.key] as string) : ""}
           onChange={(e) => setVal(it.key, e.target.value)}
           placeholder="Type your answer…"
+        />
+      );
+    }
+    // Rating 1–10 — a scored numeric scale (stored as a number, like Likert).
+    if (t === "rating10") {
+      return (
+        <div className="arun-rating10" role="radiogroup" aria-label={it.text}>
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((v) => (
+            <button key={v} type="button" role="radio" aria-checked={answers[it.key] === v}
+              className={`arun-r10${answers[it.key] === v ? " on" : ""}`} onClick={() => setVal(it.key, v)}>{v}</button>
+          ))}
+        </div>
+      );
+    }
+    // Yes / No — kept as supporting context (stored as a string, not scored).
+    if (t === "yesno") {
+      return (
+        <div className="arun-choices" role="radiogroup" aria-label={it.text}>
+          {["Yes", "No"].map((o) => (
+            <button key={o} type="button" role="radio" aria-checked={answers[it.key] === o}
+              className={`arun-choice${answers[it.key] === o ? " on" : ""}`} onClick={() => setVal(it.key, o)}>
+              <span className="arun-box" />{o}
+            </button>
+          ))}
+        </div>
+      );
+    }
+    // Number — free numeric input, context only (stored as a string so it never
+    // enters the numeric scoring path).
+    if (t === "number") {
+      return (
+        <input
+          className="arun-text"
+          type="number"
+          inputMode="numeric"
+          aria-label={it.text}
+          style={{ maxWidth: 160 }}
+          value={typeof answers[it.key] === "string" ? (answers[it.key] as string) : ""}
+          onChange={(e) => setVal(it.key, e.target.value)}
+          placeholder="0"
         />
       );
     }

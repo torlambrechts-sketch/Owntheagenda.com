@@ -13,7 +13,7 @@ export type SurveyItem = {
   dimension: string;
   text: string;
   reverse?: boolean;
-  type?: "likert" | "single" | "multi" | "text";
+  type?: "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number";
   options?: string[];
   required?: boolean;
   qScale?: string;
@@ -180,10 +180,12 @@ export function dimensionMeans(
   const { min, max } = inst.scale;
   return inst.dimensions.map((d) => {
     const ms = inst.items
-      .filter((it) => it.dimension === d.key && (it.type ?? "likert") === "likert")
+      .filter((it) => it.dimension === d.key && ((it.type ?? "likert") === "likert" || it.type === "rating10"))
       .map((it) => {
-        const m = items.find((x) => x.item_key === it.key)?.mean;
-        if (typeof m !== "number") return undefined;
+        const raw = items.find((x) => x.item_key === it.key)?.mean;
+        if (typeof raw !== "number") return undefined;
+        // normalise a rating-10 item onto the instrument scale before banding
+        const m = it.type === "rating10" ? min + ((raw - 1) / 9) * (max - min) : raw;
         return it.reverse ? min + max - m : m;
       })
       .filter((m): m is number => typeof m === "number");

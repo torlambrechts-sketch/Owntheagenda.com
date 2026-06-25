@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { resolveInstrument } from "@/lib/assessments";
-import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { dimensionMeans, strengthItemKeys, instrumentFromRow } from "@/lib/survey";
 
 // Lazy per-assessment detail loader. The Overview lists every assessment cheaply
 // (one query); the rich section-scoring is only resolved when a row is opened,
@@ -54,12 +54,17 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   const supabase = createClient();
   const { data: survey } = await supabase
     .from("survey")
-    .select("id, kind, status, team_id")
+    .select("id, kind, name, status, team_id, definition")
     .eq("id", surveyId)
     .single();
   if (!survey) return { error: "Assessment not found." };
 
-  const inst = await resolveInstrument(survey.kind as string);
+  // Prefer the survey's frozen definition snapshot (so a custom build or an
+  // edited instrument shows its real questions), falling back to the live
+  // catalog instrument by kind.
+  const inst =
+    instrumentFromRow({ key: survey.kind as string, name: (survey.name ?? survey.kind) as string, definition: survey.definition }) ??
+    (await resolveInstrument(survey.kind as string));
   if (!inst) return { error: "Instrument definition is unavailable." };
 
   const { min, max } = inst.scale;
@@ -70,15 +75,20 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
     count: inst.items.filter((it) => it.dimension === d.key).length,
   }));
 
-  // Response-rate denominator: how many people the survey was sent to. The survey
-  // runs for a team, so the team's current membership is the invited population.
+  // Response-rate denominator: how many people the assessment was sent to —
+  // distinct members across every targeted team (primary + survey_team) plus
+  // external email invites, matching the Overview's assessment_suite_overview.
   let invited: number | null = null;
-  if (survey.team_id) {
-    const { count } = await supabase
-      .from("team_member")
-      .select("id", { count: "exact", head: true })
-      .eq("team_id", survey.team_id as string);
-    invited = count ?? null;
+  {
+    const { data: stTeams } = await supabase.from("survey_team").select("team_id").eq("survey_id", surveyId);
+    const teamIds = Array.from(new Set([survey.team_id as string | null, ...((stTeams ?? []).map((r) => r.team_id as string))].filter((x): x is string => !!x)));
+    let memberCount = 0;
+    if (teamIds.length) {
+      const { data: tmRows } = await supabase.from("team_member").select("user_id").in("team_id", teamIds);
+      memberCount = new Set((tmRows ?? []).map((r) => r.user_id as string)).size;
+    }
+    const { count: inviteCount } = await supabase.from("survey_invite").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
+    invited = memberCount + (inviteCount ?? 0) || null;
   }
 
   // Aggregate results — masked server-side until the minimum responder count is
@@ -89,14 +99,14 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   // Anonymous submission timestamps — surfaced only once results are unmasked,
   // so a small response set can't be tied back to an individual. respondent_id
   // is never read here.
+  // Anonymous responses store respondent_id = NULL, so a direct table read
+  // (RLS: own rows only) returns nothing. The submission timestamps come from a
+  // SECURITY DEFINER RPC, manager-gated and masked under the floor — never the
+  // respondent_id. Non-managers get an empty list (they still see counts).
   let submissions: string[] = [];
   if (r && !r.masked) {
-    const { data: subs } = await supabase
-      .from("survey_response")
-      .select("created_at")
-      .eq("survey_id", surveyId)
-      .order("created_at", { ascending: false });
-    submissions = (subs ?? []).map((s) => s.created_at as string);
+    const { data: subs } = await supabase.rpc("survey_submissions", { p_survey: surveyId });
+    submissions = ((subs ?? []) as { submitted_at: string }[]).map((s) => s.submitted_at);
   }
 
   let scores: SectionScore[] = [];
@@ -119,14 +129,19 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
       belowCount = scores.filter((s) => s.band === 0).length;
     }
     // Per-question breakdown from the same RPC item means — Likert/rating items
-    // only (the ones the instrument actually scores), mapped to their text.
+    // only (the ones the instrument actually scores), mapped to their text. A
+    // rating-10 item bands on its own 1–10 scale so its bar matches its mean,
+    // while Likert items band on the instrument scale.
     const meanByItem = new Map((r.items ?? []).map((it) => [it.item_key, it.mean]));
+    const typeByItem = new Map(inst.items.map((it) => [it.key, it.type ?? "likert"]));
     questionScores = questions
       .map((q) => {
         const mean = meanByItem.get(q.key);
         if (mean == null) return null;
-        const pct = ((mean - min) / (max - min)) * 100;
-        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct, band: bandOf(pct) };
+        const pct = typeByItem.get(q.key) === "rating10"
+          ? ((mean - 1) / 9) * 100
+          : ((mean - min) / (max - min)) * 100;
+        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct: Math.max(0, Math.min(100, pct)), band: bandOf(pct) };
       })
       .filter((q): q is QuestionScore => q != null);
   }

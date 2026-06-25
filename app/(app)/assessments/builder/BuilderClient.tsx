@@ -9,10 +9,11 @@ import { saveTemplate } from "../../library/actions";
 // via saveTemplate; question types/threshold persist as additive fields in the
 // instrument definition (existing readers treat items as Likert by default).
 
-export type QType = "likert" | "yesno" | "single" | "multi" | "text";
-type Question = { id: string; text: string; type: QType; options: string[] };
+export type QType = "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number";
+export type Scale = { min: number; max: number; minLabel: string; maxLabel: string };
+type Question = { id: string; text: string; type: QType; options: string[]; reverse: boolean; key?: string };
 type Section = { id: string; name: string; questions: Question[] };
-type Doc = { title: string; sections: Section[] };
+type Doc = { title: string; scale: Scale; sections: Section[] };
 export type StarterTemplate = {
   id?: string;
   key?: string;
@@ -20,16 +21,23 @@ export type StarterTemplate = {
   category: string;
   desc: string;
   builtIn: boolean;
-  sections: { name: string; questions: { text: string; type: QType }[] }[];
+  scale?: Scale;
+  sections: { name: string; questions: { text: string; type: QType; options?: string[]; reverse?: boolean; key?: string }[] }[];
 };
+
+export const DEFAULT_SCALE: Scale = { min: 1, max: 5, minLabel: "Strongly disagree", maxLabel: "Strongly agree" };
 
 const TYPE_LABEL: Record<QType, string> = {
   likert: "Likert 1–5",
+  rating10: "Rating 1–10",
   yesno: "Yes / No",
   single: "Single choice",
   multi: "Multiple choice",
   text: "Short text",
+  number: "Number",
 };
+// Scored into section bands (the rest are kept as supporting context).
+const SCORED: QType[] = ["likert", "rating10"];
 
 let _n = 0;
 const uid = (p: string) => `${p}${++_n}`;
@@ -75,35 +83,46 @@ const CATS = ["All", "Wellbeing", "Engagement", "Team", "Competence", "Custom"];
 
 function docFromStarter(t: StarterTemplate): Doc {
   return {
-    title: t.builtIn ? t.title : t.title,
+    title: t.title,
+    scale: t.scale ?? DEFAULT_SCALE,
     sections: t.sections.map((s) => ({
       id: uid("s"), name: s.name,
-      questions: s.questions.map((q) => ({ id: uid("q"), text: q.text, type: q.type, options: defaultOptions(q.type) })),
+      questions: s.questions.map((q) => ({ id: uid("q"), text: q.text, type: q.type, options: q.options ?? defaultOptions(q.type), reverse: !!q.reverse, key: q.key })),
     })),
   };
 }
 function blankDoc(): Doc {
-  return { title: "Untitled assessment", sections: [{ id: uid("s"), name: "Section 1", questions: [{ id: uid("q"), text: "", type: "likert", options: [] }] }] };
+  return { title: "Untitled assessment", scale: DEFAULT_SCALE, sections: [{ id: uid("s"), name: "Section 1", questions: [{ id: uid("q"), text: "", type: "likert", options: [], reverse: false }] }] };
 }
 
 function buildDefinition(doc: Doc, threshold: number) {
-  const used = new Set<string>();
+  const usedDim = new Set<string>();
   const filled = doc.sections.filter((s) => s.questions.length);
   const dims = filled.map((s, i) => {
     let key = slug(s.name) || `section_${i + 1}`; const base = key; let n = 2;
-    while (used.has(key)) key = `${base}_${n++}`;
-    used.add(key);
+    while (usedDim.has(key)) key = `${base}_${n++}`;
+    usedDim.add(key);
     return { key, label: s.name.trim() || `Section ${i + 1}`, blurb: "" };
   });
-  const scale = { min: 1, max: 5, minLabel: "Strongly disagree", maxLabel: "Strongly agree" };
+  // Preserve the source scale (a 1–7 instrument must not be reset to 1–5) and
+  // each question's existing item key (so historical responses keyed by it still
+  // resolve) and reverse flag (stripping it would corrupt scoring).
+  const scale = doc.scale ?? DEFAULT_SCALE;
+  const usedKey = new Set<string>();
+  doc.sections.forEach((s) => s.questions.forEach((q) => { if (q.key) usedKey.add(q.key); }));
   const items = filled.flatMap((s, si) => {
     const dk = dims[si].key;
-    return s.questions.map((q, qi) => ({
-      key: `${dk}_${qi + 1}`, dimension: dk, text: q.text.trim() || "Untitled question",
-      type: q.type === "yesno" ? "single" : q.type,
-      ...(q.options.length ? { options: q.options } : {}),
-      required: true,
-    }));
+    return s.questions.map((q, qi) => {
+      let key = q.key;
+      if (!key) { let cand = `${dk}_${qi + 1}`; let n = 2; while (usedKey.has(cand)) cand = `${dk}_${qi + 1}_${n++}`; usedKey.add(cand); key = cand; }
+      return {
+        key, dimension: dk, text: q.text.trim() || "Untitled question",
+        type: q.type,
+        ...(q.options.length ? { options: q.options } : {}),
+        ...(q.reverse ? { reverse: true } : {}),
+        required: true,
+      };
+    });
   });
   return { scale, dimensions: dims, items, strengthDimension: dims[0]?.key, threshold, aggregation: "Section mean" };
 }
@@ -112,16 +131,22 @@ function QPreview({ q }: { q: Question }) {
   if (q.type === "likert") {
     return <div style={{ display: "flex", gap: 8 }}>{[1, 2, 3, 4, 5].map((n) => <span key={n} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid var(--line-2)", color: "var(--muted)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>{n}</span>)}</div>;
   }
+  if (q.type === "rating10") {
+    return <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 11.5, color: "var(--faint)" }}>1</span><span style={{ width: 180, height: 5, borderRadius: 999, background: "var(--canvas-2)" }} /><span style={{ fontSize: 11.5, color: "var(--faint)" }}>10</span></div>;
+  }
   if (q.type === "yesno") {
     return <div style={{ display: "flex", gap: 8 }}><span className="pill sm open">Yes</span><span className="pill sm reject">No</span></div>;
   }
   if (q.type === "single" || q.type === "multi") {
     return <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{q.options.map((o, i) => <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, color: "var(--muted)", background: "var(--canvas-2)", borderRadius: q.type === "multi" ? 6 : 999, padding: "5px 11px" }}><span style={{ width: 13, height: 13, borderRadius: q.type === "multi" ? 3 : "50%", border: "1.5px solid var(--line-2)" }} />{o}</span>)}</div>;
   }
+  if (q.type === "number") {
+    return <div style={{ width: 90, height: 32, borderRadius: 6, border: "1px dashed var(--line-2)", background: "var(--canvas)", display: "flex", alignItems: "center", padding: "0 11px", fontSize: 12, color: "var(--faint)" }}>0</div>;
+  }
   return <div style={{ height: 32, borderRadius: 6, border: "1px dashed var(--line-2)", background: "var(--canvas)", display: "flex", alignItems: "center", padding: "0 11px", fontSize: 11.5, color: "var(--faint)" }}>Free-text response</div>;
 }
 
-export function BuilderClient({ mine, demo = false }: { mine: StarterTemplate[]; demo?: boolean }) {
+export function BuilderClient({ mine, demo = false, initial = null }: { mine: StarterTemplate[]; demo?: boolean; initial?: { starter: StarterTemplate; editId: string | null } | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [view, setView] = useState<"gallery" | "editor">("gallery");
@@ -142,6 +167,11 @@ export function BuilderClient({ mine, demo = false }: { mine: StarterTemplate[];
   useEffect(() => {
     if (demo) { setDoc(docFromStarter(STARTERS[0])); setEditId(null); setView("editor"); setPreviewOpen(true); }
   }, [demo]);
+
+  // Deep-link from the Templates tab (?tpl= edit, ?use= clone, ?new=template).
+  useEffect(() => {
+    if (initial) { setDoc(docFromStarter(initial.starter)); setEditId(initial.editId); setView("editor"); window.scrollTo(0, 0); }
+  }, [initial]);
 
   const all = [...STARTERS, ...mine];
   const cards = cat === "All" ? all : all.filter((t) => (t.builtIn ? t.category : "Custom") === cat || t.category === cat);
@@ -265,12 +295,15 @@ export function BuilderClient({ mine, demo = false }: { mine: StarterTemplate[];
                     <select className="inp" style={{ flex: "none", width: 150 }} value={q.type} onChange={(e) => update((d) => { const t = e.target.value as QType; const qq = d.sections[si].questions[qi]; qq.type = t; if (!qq.options.length) qq.options = defaultOptions(t); })}>
                       {(Object.keys(TYPE_LABEL) as QType[]).map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
                     </select>
+                    {SCORED.includes(q.type) ? (
+                      <button type="button" className={`ab2-revbtn${q.reverse ? " on" : ""}`} title="Reverse-scored: a high answer counts as low (re-scored so higher always means better)" aria-pressed={q.reverse} onClick={() => update((d) => { const qq = d.sections[si].questions[qi]; qq.reverse = !qq.reverse; })}>↺ Reverse</button>
+                    ) : null}
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden" }}><QPreview q={q} /></span>
                     <button className="icon-btn danger" title="Delete question" onClick={() => update((d) => { d.sections[si].questions.splice(qi, 1); })}><Trash /></button>
                   </div>
                 </div>
               ))}
-              <button className="addlink" style={{ padding: "12px 16px" }} onClick={() => update((d) => { d.sections[si].questions.push({ id: uid("q"), text: "", type: "likert", options: [] }); })}>＋ Add question</button>
+              <button className="addlink" style={{ padding: "12px 16px" }} onClick={() => update((d) => { d.sections[si].questions.push({ id: uid("q"), text: "", type: "likert", options: [], reverse: false }); })}>＋ Add question</button>
             </div>
           ))}
           <button className="ab2-addsec" onClick={() => update((d) => { d.sections.push({ id: uid("s"), name: "New section", questions: [] }); })}>＋ Add section</button>
