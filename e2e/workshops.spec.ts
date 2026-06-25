@@ -68,12 +68,11 @@ test.describe("Workshops design migration", () => {
     await expect(page.locator(".rs-dry-t")).toBeVisible(); // the Dry-run toggle (not the intro copy)
   });
 
-  test("left nav has a Workshops section with its four sub-pages", async ({ page }) => {
+  test("left nav has a Workshops section matching the design (Workshops/Whiteboards/Run)", async ({ page }) => {
     await page.goto("/workshops");
     const nav = page.locator("aside.nav");
     await expect(nav.locator('a[href="/workshops"]')).toBeVisible();
-    await expect(nav.locator('a[href="/workshops/templates"]')).toBeVisible();
-    await expect(nav.locator('a[href="/workshops/builder"]')).toBeVisible();
+    await expect(nav.locator('a[href="/workshops/whiteboards"]')).toBeVisible();
     await expect(nav.locator('a[href="/workshops/run"]')).toBeVisible();
   });
 

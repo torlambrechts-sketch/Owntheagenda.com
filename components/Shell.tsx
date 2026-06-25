@@ -94,6 +94,14 @@ const ICONS = {
       <path d="M3 9h18M8 18v2.5M16 18v2.5" />
     </svg>
   ),
+  whiteboard: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+    </svg>
+  ),
   org: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M3 21V7l6-3 6 3v14" />
@@ -131,8 +139,7 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops" },
-  { href: "/workshops/templates", label: "Templates", icon: ICONS.library, group: "Workshops" },
-  { href: "/workshops/builder", label: "Builder", icon: ICONS.canvas, group: "Workshops" },
+  { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops" },
   { href: "/workshops/run", label: "Run workshop", icon: ICONS.sessions, group: "Workshops" },
   { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
   { href: "/assessments/builder", label: "Builder", icon: ICONS.assess, group: "Assessments", adminOnly: true },
@@ -203,10 +210,10 @@ export function Shell({
   const navItemActive = (href: string) => {
     if (href.includes("?")) return false;
     if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take"));
-    // "Workshops" (the section landing) must not light up on the templates /
-    // builder / run sub-pages — a specific workshop's builder (/workshops/<id>)
-    // still counts as Workshops.
-    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/templates") && !path.startsWith("/workshops/builder") && !path.startsWith("/workshops/run"));
+    // "Workshops" (the section landing) owns the home, templates, builder and a
+    // specific workshop (/workshops/<id>), but NOT the Whiteboards or Run
+    // sibling nav items.
+    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/whiteboards") && !path.startsWith("/workshops/run"));
     return active(href);
   };
   // Breadcrumb: prefer an exact route match, then the longest prefix.
@@ -225,7 +232,7 @@ export function Shell({
   const assessHref = "/assessments";
   const assessActive = active("/assessments");
   // Workshops is its own section: one rail icon → the text menu lists
-  // Workshops / Templates / Builder / Run workshop.
+  // Workshops / Whiteboards / Run workshop.
   const workshopsHref = "/workshops";
   const workshopsActive = active("/workshops");
   const groups = ["Workspace", "Insight", "Effectiveness", "Workshops", "Assessments", "Organization", "Help"].filter((g) =>
