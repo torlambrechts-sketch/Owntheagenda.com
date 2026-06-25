@@ -25,8 +25,8 @@ export default async function TakeAssessmentPage() {
   // multi-team assessment targets. The survey's own definition snapshot is the
   // source of truth for the questions (so custom builds + edits render
   // correctly), falling back to the catalog instrument by kind.
-  type Row = { id: string; name: string | null; kind: string; anonymity: string | null; status: string; definition: unknown };
-  const cols = "id, name, kind, anonymity, status, definition";
+  type Row = { id: string; name: string | null; kind: string; anonymity: string | null; status: string; definition: unknown; min_participants: number | null };
+  const cols = "id, name, kind, anonymity, status, definition, min_participants";
   const { data: primaryRows } = teamIds.length
     ? await supabase.from("survey").select(cols).in("team_id", teamIds).eq("status", "open").order("created_at", { ascending: false })
     : { data: [] as Row[] };
@@ -48,9 +48,10 @@ export default async function TakeAssessmentPage() {
     const instrument = snapshot ?? instruments[s.kind] ?? null;
     return {
       id: s.id,
-      name: (instrument?.name ?? instNameByKind.get(s.kind) ?? s.name ?? s.kind) as string,
+      name: (s.name ?? instrument?.name ?? instNameByKind.get(s.kind) ?? s.kind) as string,
       kind: s.kind,
       anonymity: (s.anonymity ?? "anonymous") as string,
+      minParticipants: Math.max(3, s.min_participants ?? 5),
       instrument,
     };
   });

@@ -75,15 +75,20 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
     count: inst.items.filter((it) => it.dimension === d.key).length,
   }));
 
-  // Response-rate denominator: how many people the survey was sent to. The survey
-  // runs for a team, so the team's current membership is the invited population.
+  // Response-rate denominator: how many people the assessment was sent to —
+  // distinct members across every targeted team (primary + survey_team) plus
+  // external email invites, matching the Overview's assessment_suite_overview.
   let invited: number | null = null;
-  if (survey.team_id) {
-    const { count } = await supabase
-      .from("team_member")
-      .select("id", { count: "exact", head: true })
-      .eq("team_id", survey.team_id as string);
-    invited = count ?? null;
+  {
+    const { data: stTeams } = await supabase.from("survey_team").select("team_id").eq("survey_id", surveyId);
+    const teamIds = Array.from(new Set([survey.team_id as string | null, ...((stTeams ?? []).map((r) => r.team_id as string))].filter((x): x is string => !!x)));
+    let memberCount = 0;
+    if (teamIds.length) {
+      const { data: tmRows } = await supabase.from("team_member").select("user_id").in("team_id", teamIds);
+      memberCount = new Set((tmRows ?? []).map((r) => r.user_id as string)).size;
+    }
+    const { count: inviteCount } = await supabase.from("survey_invite").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
+    invited = memberCount + (inviteCount ?? 0) || null;
   }
 
   // Aggregate results — masked server-side until the minimum responder count is
@@ -94,14 +99,14 @@ export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: 
   // Anonymous submission timestamps — surfaced only once results are unmasked,
   // so a small response set can't be tied back to an individual. respondent_id
   // is never read here.
+  // Anonymous responses store respondent_id = NULL, so a direct table read
+  // (RLS: own rows only) returns nothing. The submission timestamps come from a
+  // SECURITY DEFINER RPC, manager-gated and masked under the floor — never the
+  // respondent_id. Non-managers get an empty list (they still see counts).
   let submissions: string[] = [];
   if (r && !r.masked) {
-    const { data: subs } = await supabase
-      .from("survey_response")
-      .select("created_at")
-      .eq("survey_id", surveyId)
-      .order("created_at", { ascending: false });
-    submissions = (subs ?? []).map((s) => s.created_at as string);
+    const { data: subs } = await supabase.rpc("survey_submissions", { p_survey: surveyId });
+    submissions = ((subs ?? []) as { submitted_at: string }[]).map((s) => s.submitted_at);
   }
 
   let scores: SectionScore[] = [];

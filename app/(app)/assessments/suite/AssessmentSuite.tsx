@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { initials } from "@/lib/util";
+import { FrameworkIcon } from "@/components/FrameworkIcon";
+import type { IconKey } from "@/lib/frameworks";
 import { loadAssessmentDetail, type AssessmentDetail, type SectionScore, type QuestionScore } from "./actions";
 import { NewAssessment } from "./NewAssessment";
+
+export type FrameworkChip = { key: string; title: string; accent: string; accentBg: string; iconKey: IconKey };
 
 export type SuiteRow = {
   id: string;
@@ -113,7 +117,7 @@ function ResponseRing({ pct }: { pct: number }) {
   );
 }
 
-export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [], templateCards = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string; count?: number }[]; templates?: { key: string; name: string }[]; templateCards?: TemplateCard[] }) {
+export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [], templateCards = [], frameworkChips = [], composeKind = null }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string; count?: number }[]; templates?: { key: string; name: string }[]; templateCards?: TemplateCard[]; frameworkChips?: FrameworkChip[]; composeKind?: string | null }) {
   const canManageRow = (r: SuiteRow) => isAdmin || (!!r.teamId && manageableTeamIds.includes(r.teamId));
   const [view, setView] = useState<View>("overview");
   const [newOpen, setNewOpen] = useState(false);
@@ -127,6 +131,11 @@ export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, can
   const [filterOpen, setFilterOpen] = useState(false);
   const [fStatus, setFStatus] = useState<string>("all");
   const [fBelow, setFBelow] = useState(false);
+  // A framework's "Use this framework" CTA deep-links to ?compose=<key>; open
+  // the send wizard with that instrument preselected.
+  useEffect(() => {
+    if (composeKind && canStart) setNewOpen(true);
+  }, [composeKind, canStart]);
 
   async function open(row: SuiteRow) {
     setActive(row);
@@ -200,6 +209,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
             <div className="a-ps">Surveys across your teams — status, responses and where a section falls below the healthy band. Trigger a follow-up workshop where a section needs attention.</div>
           </div>
           <div className="a-pr">
+            <Link className="btn-sec" href="/assessments/frameworks">📖 Frameworks</Link>
             <Link className="btn-sec" href="/assessments/builder">✎ Build</Link>
             {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
@@ -226,6 +236,24 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
             </div>
           ))}
         </div>
+
+        {frameworkChips.length ? (
+          <div className="fw-strip">
+            <div className="fw-strip-h">
+              <span className="fw-strip-t">📖 Built on validated frameworks <span className="fw-strip-sub">— every assessment maps to peer-reviewed science</span></span>
+              <Link href="/assessments/frameworks" className="linkbtn">View all →</Link>
+            </div>
+            <div className="fw-strip-grid">
+              {frameworkChips.map((f) => (
+                <Link key={f.key} href={`/assessments/frameworks/${encodeURIComponent(f.key)}`} className="fw-chip" style={{ borderLeftColor: f.accent }}>
+                  <span className="fw-chip-ic" style={{ background: f.accentBg, color: f.accent }}><FrameworkIcon icon={f.iconKey} size={16} /></span>
+                  <span className="fw-chip-t">{f.title}</span>
+                  <span className="fw-chip-arrow">↗</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <nav className="as-otabs" aria-label="Assessments">
           {([
@@ -355,9 +383,11 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
         {otab === "templates" ? (
           <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-              <Link className="btn-sec" href="/assessments/builder?new=template">＋ New template</Link>
-            </div>
+            {isAdmin ? (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+                <Link className="btn-sec" href="/assessments/builder?new=template">＋ New template</Link>
+              </div>
+            ) : null}
             {templateCards.length ? (
               <div className="as-tplgrid">
                 {templateCards.map((t) => (
@@ -370,12 +400,16 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
                     <div className="as-tpldesc">{t.description || `${t.scope === "team" ? "Team" : "Individual"} assessment.`}</div>
                     <div className="as-tplfoot">
                       <span className="as-tplmeta">{t.sections} sections · {t.questions} Q</span>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <Link className="icon-btn" title="Edit" href={`/assessments/builder?tpl=${encodeURIComponent(t.key)}`}>
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                        </Link>
-                        <Link className="btn-sec" href={`/assessments/builder?use=${encodeURIComponent(t.key)}`}>Use →</Link>
-                      </div>
+                      {isAdmin ? (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {t.custom ? (
+                            <Link className="icon-btn" title="Edit" href={`/assessments/builder?tpl=${encodeURIComponent(t.key)}`}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                            </Link>
+                          ) : null}
+                          <Link className="btn-sec" href={`/assessments/builder?use=${encodeURIComponent(t.key)}`}>{t.custom ? "Use →" : "Clone →"}</Link>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -385,7 +419,7 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
         ) : null}
 
         {loading ? <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div> : null}
-        <NewAssessment open={newOpen} teams={teams} templates={templates} onClose={() => setNewOpen(false)} />
+        <NewAssessment open={newOpen} teams={teams} templates={templates} initialKind={composeKind} onClose={() => setNewOpen(false)} />
       </>
     );
   }

@@ -19,7 +19,7 @@ import {
 // Instrument definitions are resolved from the template library server-side and
 // passed in as a kind → instrument map.
 
-type OpenSurvey = { id: string; name: string; kind: string; anonymity?: string; instrument?: SurveyInstrument | null };
+type OpenSurvey = { id: string; name: string; kind: string; anonymity?: string; minParticipants?: number; instrument?: SurveyInstrument | null };
 type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
 
@@ -110,6 +110,7 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
   const max = inst.scale.max;
   const respondents = results?.respondents ?? 0;
+  const floor = Math.max(3, survey.minParticipants ?? 3);
 
   return (
     <div className="svcard">
@@ -159,11 +160,11 @@ function SurveyCard({ survey, userId, inst }: { survey: OpenSurvey; userId: stri
         </>
       ) : (
         <>
-          <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
+          <div className="assess-done">✓ Your read is in. Results reveal once at least {floor} people respond.</div>
           <div className="assess-agg" style={{ boxShadow: "none", border: "none", padding: "10px 0 0" }}>
             <div className="aa-h">
               Team reading
-              {respondents < 3 ? <span className="aa-mask">· hidden until 3 respond ({respondents}/3)</span> : null}
+              {respondents < floor ? <span className="aa-mask">· hidden until {floor} respond ({respondents}/{floor})</span> : null}
               {strength ? <span className={`svchip ${strength.tone}`}>{strength.label} on {strengthLabel}</span> : null}
             </div>
             {results && !results.masked && results.composite != null ? (

@@ -5,8 +5,9 @@ import { listTemplates } from "@/lib/assessments";
 import { BuilderClient, type StarterTemplate, type QType } from "./BuilderClient";
 
 type TplDef = {
+  scale?: { min: number; max: number; minLabel: string; maxLabel: string };
   dimensions?: { key: string; label: string }[];
-  items?: { key?: string; dimension?: string; text?: string; type?: string; options?: string[] }[];
+  items?: { key?: string; dimension?: string; text?: string; type?: string; options?: string[]; reverse?: boolean }[];
 };
 
 // In-shell assessment builder (the handoff's Builder screen) — rendered inside
@@ -63,11 +64,18 @@ function starterFromTemplate(name: string, category: string | null, description:
     category: category || "Custom",
     desc: description || "Your workspace instrument.",
     builtIn: false,
+    scale: def.scale, // preserve the source scale (e.g. 1–7) through the editor
     sections: dims.map((d) => ({
       name: d.label,
       questions: items
         .filter((it) => it.dimension === d.key)
-        .map((it) => ({ text: it.text ?? "", type: normalizeType(it.type), ...(it.options?.length ? { options: it.options } : {}) })),
+        .map((it) => ({
+          text: it.text ?? "",
+          type: normalizeType(it.type),
+          key: it.key, // preserve the item key so historical responses still resolve
+          ...(it.reverse ? { reverse: true } : {}),
+          ...(it.options?.length ? { options: it.options } : {}),
+        })),
     })),
   };
 }

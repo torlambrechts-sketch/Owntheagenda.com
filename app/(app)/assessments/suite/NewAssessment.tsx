@@ -31,18 +31,21 @@ export function NewAssessment({
   open,
   teams,
   templates,
+  initialKind = null,
   onClose,
 }: {
   open: boolean;
   teams: Team[];
   templates: { key: string; name: string }[];
+  initialKind?: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [step, setStep] = useState<Step>(0);
-  const [title, setTitle] = useState("");
-  const [kind, setKind] = useState(templates[0]?.key ?? "");
+  const presetKind = initialKind && templates.some((t) => t.key === initialKind) ? initialKind : null;
+  const [title, setTitle] = useState(presetKind ? (templates.find((t) => t.key === presetKind)?.name ?? "") : "");
+  const [kind, setKind] = useState(presetKind ?? templates[0]?.key ?? "");
   const [teamIds, setTeamIds] = useState<string[]>(teams[0] ? [teams[0].id] : []);
   const [emails, setEmails] = useState("");
   const [anon, setAnon] = useState<"anonymous" | "attributed">("anonymous");

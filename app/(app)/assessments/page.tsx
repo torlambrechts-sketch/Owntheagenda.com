@@ -3,13 +3,14 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { resolveInstruments } from "@/lib/assessments";
+import { getFrameworks } from "@/lib/frameworks";
 import { AssessmentSuite, type SuiteRow } from "./suite/AssessmentSuite";
 
 // Assessment Suite — an organisation-wide hub over the assessment *instances*
 // (team surveys), adapted from the imported "Assessment Suite" design into the
 // app's own design language. The instrument library (taking / reports) still
 // lives at /assessments; this is the operational overview across teams.
-export default async function AssessmentSuitePage() {
+export default async function AssessmentSuitePage({ searchParams }: { searchParams: { compose?: string } }) {
   const ctx = await requireSession();
   const supabase = createClient();
 
@@ -140,7 +141,7 @@ export default async function AssessmentSuitePage() {
     const ownerName = s.created_by ? ownerNameById.get(s.created_by) ?? null : null;
     return {
       id: s.id,
-      name: instNameByKind.get(s.kind) ?? s.name ?? s.kind,
+      name: s.name ?? instNameByKind.get(s.kind) ?? s.kind,
       kind: s.kind,
       category: "Survey",
       status: s.status,
@@ -195,5 +196,12 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} templateCards={templateCards} />;
+  // Frameworks strip — the top validated instruments, linking to the science.
+  const frameworks = await getFrameworks();
+  const frameworkChips = frameworks.slice(0, 5).map((f) => ({ key: f.key, title: f.title, accent: f.accent, accentBg: f.accentBg, iconKey: f.iconKey }));
+  // Deep-link from a framework's "Use this framework" CTA: auto-open the wizard
+  // with that instrument preselected (only if it's a valid template the user can send).
+  const composeKind = searchParams.compose && templates.some((t) => t.key === searchParams.compose) ? searchParams.compose : null;
+
+  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} templateCards={templateCards} frameworkChips={frameworkChips} composeKind={composeKind} />;
 }

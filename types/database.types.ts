@@ -2017,6 +2017,13 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      survey_submissions: {
+        Args: { p_survey: string }
+        Returns: {
+          submitted_at: string
+        }[]
+      }
+
       survey_results: {
         Args: { p_survey: string; p_strength_items?: string[] }
         Returns: Json
