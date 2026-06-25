@@ -20,7 +20,24 @@ export type SuiteRow = {
   pct: number | null; // overall position 0–100 on the scale; null when masked
   masked: boolean;
   date: string;
+  ownerName: string | null;
+  startAt: string | null;
+  dueAt: string | null;
+  below: number; // sections below band (0 when masked / healthy)
 };
+
+export type TemplateCard = {
+  key: string;
+  name: string;
+  description: string;
+  category: string;
+  scope: string;
+  sections: number;
+  questions: number;
+  custom: boolean;
+};
+
+type OverviewTab = "active" | "scheduled" | "templates";
 
 // Band index from a 0–100 position (mirrors the detail view: below 45% / mid / above).
 function bandOfPct(pct: number): 0 | 1 | 2 {
@@ -52,6 +69,21 @@ function fmtDateTime(iso: string) {
   return isNaN(d.getTime()) ? "" : d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
+// "in 6 days" / "today" / "started" for a scheduled card's start date.
+function startsInLabel(iso: string | null) {
+  if (!iso) return "no date set";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "no date set";
+  const days = Math.round((d.getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return "started";
+  if (days === 0) return "starts today";
+  return `in ${days} ${days === 1 ? "day" : "days"}`;
+}
+
+function prettyCategory(c: string) {
+  return c.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
 // A donut showing the response rate — the design's right-rail signature. Pure
 // SVG so it inherits the design tokens without any extra dependency.
 function ResponseRing({ pct }: { pct: number }) {
@@ -81,7 +113,7 @@ function ResponseRing({ pct }: { pct: number }) {
   );
 }
 
-export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[] }) {
+export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [], templateCards = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[]; templateCards?: TemplateCard[] }) {
   const canManageRow = (r: SuiteRow) => isAdmin || (!!r.teamId && manageableTeamIds.includes(r.teamId));
   const [view, setView] = useState<View>("overview");
   const [newOpen, setNewOpen] = useState(false);
@@ -91,6 +123,10 @@ export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, can
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [otab, setOtab] = useState<OverviewTab>("active");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [fStatus, setFStatus] = useState<string>("all");
+  const [fBelow, setFBelow] = useState(false);
 
   async function open(row: SuiteRow) {
     setActive(row);
@@ -147,19 +183,24 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
   // ---------------- OVERVIEW ----------------
   if (view === "overview") {
-    const filtered = query.trim()
-      ? rows.filter((r) => `${r.name} ${r.team ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()))
-      : rows;
+    const q = query.trim().toLowerCase();
+    const matches = (r: SuiteRow) => !q || `${r.name} ${r.team ?? ""}`.toLowerCase().includes(q);
+    const activeRows = rows.filter((r) => r.status !== "scheduled" && r.status !== "draft");
+    const scheduledRows = rows.filter((r) => r.status === "scheduled" || r.status === "draft");
+    const filtered = activeRows.filter(
+      (r) => matches(r) && (fStatus === "all" || r.status === fStatus) && (!fBelow || r.below > 0),
+    );
+    const filterActive = fStatus !== "all" || fBelow;
+
     return (
       <>
         <div className="a-phead">
           <div>
-            <div className="a-pt">Assessment suite</div>
-            <div className="a-ps">Every assessment across your teams — status, responses and where a section falls below the healthy band.</div>
+            <div className="a-pt">Assessments</div>
+            <div className="a-ps">Surveys across your teams — status, responses and where a section falls below the healthy band. Trigger a follow-up workshop where a section needs attention.</div>
           </div>
           <div className="a-pr">
-            <Link className="btn-sec" href="/assessments/library">Instrument library</Link>
-            {isAdmin ? <Link className="btn-sec" href="/assessments/builder">Build assessment</Link> : null}
+            <Link className="btn-sec" href="/assessments/builder">✎ Build</Link>
             {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
           </div>
         </div>
@@ -179,73 +220,170 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
         <div className="as-kpis">
           {kpis.map((k, i) => (
             <div className="as-kpi" key={i}>
-              <div className="as-kpi-big">{k.big}</div>
+              <div className="as-kpi-big" style={k.title === "Sections below band" && k.big !== "0" ? { color: "var(--rust)" } : undefined}>{k.big}</div>
               <div className="as-kpi-title">{k.title}</div>
               <div className="as-kpi-sub">{k.sub}</div>
             </div>
           ))}
         </div>
 
-        <div className="tbl-card">
-          <div className="as-tablehead">
-            <span className="cat-head" style={{ margin: 0 }}>All assessments <span className="n">{rows.length}</span></span>
-            <input
-              className="inp as-search"
-              placeholder="Search title, team…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          {filtered.length ? (
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Assessment</th>
-                  <th style={{ width: 96 }}>Type</th>
-                  <th style={{ width: 100 }}>Status</th>
-                  <th style={{ width: 150 }}>Responses</th>
-                  <th style={{ width: 132 }}>Score</th>
-                  <th style={{ width: 140 }}>Team</th>
-                  <th style={{ width: 64 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r) => (
-                  <tr key={r.id} onClick={() => open(r)} style={{ cursor: "pointer" }}>
-                    <td>
-                      <span style={{ fontWeight: 600 }}>{r.name}</span>
-                      <small style={{ display: "block", color: "var(--faint)" }}>{fmtDate(r.date)}</small>
-                    </td>
-                    <td style={{ color: "var(--muted)" }}>{r.category}</td>
-                    <td>{statusPill(r.status)}</td>
-                    <td>
-                      <RowResponses respondents={r.respondents} invited={r.invited} />
-                    </td>
-                    <td>
-                      <RowScore score={r.score} pct={r.pct} masked={r.masked} respondents={r.respondents} />
-                    </td>
-                    <td style={{ color: "var(--muted)" }}>
-                      {r.team ? (
-                        <span className="person" style={{ fontWeight: 500 }}>
-                          <span className="av sm green">{initials(r.team)}</span>
-                          {r.team}
-                        </span>
-                      ) : "—"}
-                    </td>
-                    <td className="r">
-                      {(r.status === "open" || r.status === "paused") && canManageRow(r) ? (
-                        <Link className="linkbtn" href={`/assessments/status/${r.id}`} onClick={(e) => e.stopPropagation()} style={{ marginRight: 12 }}>Live status →</Link>
-                      ) : null}
-                      <span className="linkbtn">Open ›</span>
-                    </td>
+        <nav className="as-otabs" aria-label="Assessments">
+          {([
+            ["active", "Active", activeRows.length],
+            ["scheduled", "Scheduled", scheduledRows.length],
+            ["templates", "Templates", templateCards.length],
+          ] as [OverviewTab, string, number][]).map(([key, label, count]) => (
+            <button key={key} className={`as-otab${otab === key ? " on" : ""}`} onClick={() => { setOtab(key); setFilterOpen(false); }}>
+              {label}<span className="as-otab-n">{count}</span>
+            </button>
+          ))}
+        </nav>
+
+        {otab === "active" ? (
+          <div className="tbl-card">
+            <div className="as-tablehead">
+              <span className="cat-head" style={{ margin: 0 }}>All assessments <span className="n">{filtered.length}</span></span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <input className="inp as-search" placeholder="Search title, team…" value={query} onChange={(e) => setQuery(e.target.value)} />
+                <div className="as-filterwrap">
+                  <button className={`btn-sec as-filterbtn${filterActive ? " on" : ""}`} onClick={() => setFilterOpen((o) => !o)} aria-expanded={filterOpen}>
+                    ⚙ Filter{filterActive ? <span className="as-filterdot" /> : null}
+                  </button>
+                  {filterOpen ? (
+                    <div className="as-filtermenu" role="menu">
+                      <div className="as-flabel">Status</div>
+                      <div className="as-fchips">
+                        {(["all", "open", "closed", "paused"] as const).map((s) => (
+                          <button key={s} className={`as-fchip${fStatus === s ? " on" : ""}`} onClick={() => setFStatus(s)}>
+                            {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                      <label className="as-fcheck" onClick={(e) => { e.preventDefault(); setFBelow((v) => !v); }}>
+                        <span className={`chk${fBelow ? " on" : ""}`} aria-hidden>{fBelow ? "✓" : ""}</span>
+                        Below band only
+                      </label>
+                      <button className="btn-sec btn-full" style={{ marginTop: 10 }} onClick={() => { setFStatus("all"); setFBelow(false); }}>Clear filters</button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            {filtered.length ? (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Assessment</th>
+                    <th style={{ width: 96 }}>Type</th>
+                    <th style={{ width: 100 }}>Status</th>
+                    <th style={{ width: 150 }}>Responses</th>
+                    <th style={{ width: 132 }}>Score</th>
+                    <th style={{ width: 120 }}>Owner</th>
+                    <th style={{ width: 56 }} />
                   </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r) => (
+                    <tr key={r.id} onClick={() => open(r)} style={{ cursor: "pointer" }}>
+                      <td>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          {r.below > 0 ? <span className="as-flagdot" title="Below band" /> : null}
+                          <span>
+                            <span style={{ fontWeight: 600 }}>{r.name}</span>
+                            <small style={{ display: "block", color: "var(--faint)" }}>{r.team ?? ""}{r.team ? " · " : ""}{fmtDate(r.date)}</small>
+                          </span>
+                        </span>
+                      </td>
+                      <td><span className="pill sm interview">Survey</span></td>
+                      <td>{statusPill(r.status)}</td>
+                      <td><RowResponses respondents={r.respondents} invited={r.invited} /></td>
+                      <td><RowScore score={r.score} pct={r.pct} masked={r.masked} respondents={r.respondents} /></td>
+                      <td>
+                        {r.ownerName ? (
+                          <span className="av sm green" title={r.ownerName}>{initials(r.ownerName)}</span>
+                        ) : <span style={{ color: "var(--faint)" }}>—</span>}
+                      </td>
+                      <td className="r">
+                        {canManageRow(r) ? (
+                          <button className="icon-btn" title="Edit" onClick={(e) => { e.stopPropagation(); setNewOpen(true); }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty">
+                {activeRows.length ? "No assessments match these filters." : "No assessments run yet — start one with “New assessment”."}
+                {filterActive ? <><br /><button className="btn-sec" style={{ marginTop: 10 }} onClick={() => { setFStatus("all"); setFBelow(false); setQuery(""); }}>Clear filters</button></> : null}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {otab === "scheduled" ? (
+          <div className="as-sched">
+            <p className="a-ps" style={{ marginBottom: 14 }}>Assessments queued to launch on their start date, plus drafts. A draft still needs a launch date before it sends.</p>
+            {scheduledRows.length ? scheduledRows.map((r) => (
+              <div key={r.id} className="as-schedcard" onClick={() => open(r)}>
+                <span className="as-schedaccent" style={{ background: r.status === "draft" ? "var(--draft-fg)" : "var(--role)" }} />
+                <div className="as-schedbody">
+                  <div className="as-schedmain">
+                    <div className="as-schedtitle">
+                      <span>{r.name}</span>
+                      <span className="pill sm interview">Survey</span>
+                    </div>
+                    <div className="as-schedmeta">
+                      <span>👥 {r.team ?? "—"}{r.invited ? ` · ${r.invited}` : ""}</span>
+                    </div>
+                  </div>
+                  <div className="as-schedwhen">
+                    <div><div className="as-schedlab">Starts</div><div className="as-schedval">{r.startAt ? fmtDate(r.startAt) : "—"}</div></div>
+                    <div><div className="as-schedlab">Due</div><div className="as-schedval">{r.dueAt ? fmtDate(r.dueAt) : "—"}</div></div>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
+                      {statusPill(r.status)}
+                      <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{startsInLabel(r.startAt)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )) : <div className="empty">Nothing scheduled. Use “New assessment” and choose “Schedule” to queue one.</div>}
+          </div>
+        ) : null}
+
+        {otab === "templates" ? (
+          <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
+              <Link className="btn-sec" href="/assessments/builder?new=template">＋ New template</Link>
+            </div>
+            {templateCards.length ? (
+              <div className="as-tplgrid">
+                {templateCards.map((t) => (
+                  <div key={t.key} className="as-tplcard">
+                    <div className="as-tplhead">
+                      <span className={`as-tplicon cat-${t.category}`}>▤</span>
+                      <span className="pill sm draft">{t.custom ? "Custom" : prettyCategory(t.category)}</span>
+                    </div>
+                    <div className="as-tpltitle">{t.name}</div>
+                    <div className="as-tpldesc">{t.description || `${t.scope === "team" ? "Team" : "Individual"} assessment.`}</div>
+                    <div className="as-tplfoot">
+                      <span className="as-tplmeta">{t.sections} sections · {t.questions} Q</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <Link className="icon-btn" title="Edit" href={`/assessments/builder?tpl=${encodeURIComponent(t.key)}`}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                        </Link>
+                        <Link className="btn-sec" href={`/assessments/builder?use=${encodeURIComponent(t.key)}`}>Use →</Link>
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="empty">{rows.length ? "No assessments match your search." : "No assessments run yet — open a team assessment from the instrument library to get started."}</div>
-          )}
-        </div>
+              </div>
+            ) : <div className="empty">No templates yet. Build one to reuse it across teams.</div>}
+          </div>
+        ) : null}
+
         {loading ? <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div> : null}
         <NewAssessment open={newOpen} teams={teams} templates={templates} onClose={() => setNewOpen(false)} />
       </>

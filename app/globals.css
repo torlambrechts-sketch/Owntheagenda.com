@@ -444,6 +444,48 @@ button { font-family:inherit; }
 .as-ws-sub{font-size:13px;color:rgba(255,255,255,.78);line-height:1.55;margin:0 0 16px}
 .as-workshop .btn-prim{background:#fff;color:var(--forest)}
 .as-workshop.compact{padding:18px 20px;max-width:none}
+
+/* overview tabs (Active / Scheduled / Templates) */
+.as-otabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 18px}
+.as-otab{display:inline-flex;align-items:center;gap:7px;background:none;border:none;border-bottom:2px solid transparent;padding:9px 15px 12px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit}
+.as-otab:hover{color:var(--ink)}
+.as-otab.on{color:var(--forest);border-bottom-color:var(--forest)}
+.as-otab-n{font-size:11px;font-weight:700;color:var(--faint);background:var(--canvas);border-radius:999px;padding:1px 8px;font-variant-numeric:tabular-nums}
+.as-otab.on .as-otab-n{color:var(--green);background:var(--open-bg)}
+/* flag dot for a below-band row */
+.as-flagdot{width:7px;height:7px;border-radius:50%;background:var(--rust);flex-shrink:0}
+/* filter dropdown */
+.as-filterwrap{position:relative}
+.as-filterbtn{display:inline-flex;align-items:center;gap:6px}
+.as-filterbtn.on{background:var(--open-bg);border-color:var(--open-fg);color:var(--open-fg)}
+.as-filterdot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+.as-filtermenu{position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:232px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(42,42,38,.16);padding:14px}
+.as-flabel{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px}
+.as-fchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.as-fchip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.as-fchip.on{border-color:var(--green);background:var(--open-bg);color:var(--open-fg)}
+.as-fcheck{display:flex;align-items:center;gap:9px;cursor:pointer;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink)}
+/* scheduled cards */
+.as-sched{display:flex;flex-direction:column;gap:10px}
+.as-schedcard{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer}
+.as-schedcard:hover{border-color:var(--line-2)}
+.as-schedaccent{width:4px;flex-shrink:0}
+.as-schedbody{flex:1;min-width:0;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:15px 18px}
+.as-schedmain{min-width:200px;flex:1}
+.as-schedtitle{display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:14px;font-weight:600;color:var(--ink)}
+.as-schedmeta{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted)}
+.as-schedwhen{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.as-schedlab{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:3px}
+.as-schedval{font-size:12.5px;font-weight:600;color:var(--ink)}
+/* template cards */
+.as-tplgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px}
+.as-tplcard{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:18px;min-height:180px}
+.as-tplhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.as-tplicon{width:40px;height:40px;border-radius:10px;background:var(--canvas-2);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px}
+.as-tpltitle{font-family:var(--font-display);font-size:16.5px;font-weight:600;color:var(--ink);margin-bottom:4px}
+.as-tpldesc{font-size:12.5px;color:var(--muted);line-height:1.5;flex:1}
+.as-tplfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px}
+.as-tplmeta{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--faint)}
 @media(max-width:860px){.as-kpis{grid-template-columns:repeat(2,1fr)}}
 
 /* assessment detail — two-column body + persistent context rail */

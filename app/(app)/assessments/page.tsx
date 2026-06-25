@@ -48,16 +48,45 @@ export default async function AssessmentSuitePage() {
     .order("name");
   const templates = (tmplRows ?? []).map((t) => ({ key: t.key as string, name: t.name as string }));
 
+  // Rich template cards for the Templates tab — every reusable instrument
+  // (global + workspace-custom), with its section/question counts derived from
+  // the definition snapshot.
+  const { data: tmplCardRows } = await supabase
+    .from("assessment_template")
+    .select("key, name, description, category, scope, workspace_id, definition")
+    .or(`workspace_id.is.null,workspace_id.eq.${ctx.workspace.id}`)
+    .order("name");
+  const templateCards = (tmplCardRows ?? []).map((t) => {
+    const def = (t.definition ?? {}) as { dimensions?: unknown[]; items?: unknown[] };
+    return {
+      key: t.key as string,
+      name: t.name as string,
+      description: (t.description as string | null) ?? "",
+      category: (t.category as string | null) ?? "custom",
+      scope: (t.scope as string | null) ?? "team",
+      sections: Array.isArray(def.dimensions) ? def.dimensions.length : 0,
+      questions: Array.isArray(def.items) ? def.items.length : 0,
+      custom: t.workspace_id != null,
+    };
+  });
+
   // One cheap pass over every survey across the caller's teams. No per-survey
   // scoring here — that is resolved lazily when a row is opened.
   const { data: surveyRows } = teamIds.length
     ? await supabase
         .from("survey")
-        .select("id, name, kind, status, team_id, created_at")
+        .select("id, name, kind, status, team_id, created_at, created_by, start_at, due_at")
         .in("team_id", teamIds)
         .order("created_at", { ascending: false })
         .limit(200)
-    : { data: [] as { id: string; name: string | null; kind: string; status: string; team_id: string; created_at: string }[] };
+    : { data: [] as { id: string; name: string | null; kind: string; status: string; team_id: string; created_at: string; created_by: string | null; start_at: string | null; due_at: string | null }[] };
+
+  // Owner initials for the table's Owner column.
+  const ownerIds = Array.from(new Set((surveyRows ?? []).map((s) => s.created_by).filter((x): x is string => !!x)));
+  const { data: ownerRows } = ownerIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name").in("id", ownerIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null }[] };
+  const ownerNameById = new Map((ownerRows ?? []).map((o) => [o.id, (o.full_name || o.display_name || "") as string]));
 
   // Per-survey metrics in one set-based call: response count + invited (team
   // size), masking, overall band position, sections below band, and whether a
@@ -100,6 +129,7 @@ export default async function AssessmentSuitePage() {
 
   const rows: SuiteRow[] = (surveyRows ?? []).map((s) => {
     const m = metrics.get(s.id);
+    const ownerName = s.created_by ? ownerNameById.get(s.created_by) ?? null : null;
     return {
       id: s.id,
       name: instNameByKind.get(s.kind) ?? s.name ?? s.kind,
@@ -114,6 +144,10 @@ export default async function AssessmentSuitePage() {
       pct: m && !m.masked ? m.overall_pct : null,
       masked: m ? m.masked : true,
       date: s.created_at,
+      ownerName,
+      startAt: s.start_at,
+      dueAt: s.due_at,
+      below: m?.below_count ?? 0,
     };
   });
 
@@ -153,5 +187,5 @@ export default async function AssessmentSuitePage() {
     );
   }
 
-  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} />;
+  return <AssessmentSuite rows={rows} kpis={kpis} alert={alert} isAdmin={admin} canStart={admin || manageableTeams.length > 0} manageableTeamIds={manageableTeams.map((t) => t.id)} teams={manageableTeams} templates={templates} templateCards={templateCards} />;
 }
