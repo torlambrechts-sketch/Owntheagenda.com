@@ -891,7 +891,78 @@ export type Database = {
           owner_id: string | null
           status: Database["public"]["Enums"]["action_status"]
           due_at: string | null
+          priority: string | null
+          detail: string | null
           created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      session_comment: {
+        Row: {
+          id: string
+          session_id: string
+          workspace_id: string
+          block_ord: number
+          user_id: string | null
+          author_name: string | null
+          body: string
+          reactions: Json
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      whiteboard: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string | null
+          title: string
+          template_key: string | null
+          accent: string
+          icon: string
+          is_template: boolean
+          description: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      whiteboard_object: {
+        Row: {
+          id: string
+          whiteboard_id: string
+          workspace_id: string
+          kind: string
+          text: string
+          fill: string | null
+          stroke: string | null
+          color: string | null
+          x: number
+          y: number
+          w: number | null
+          h: number | null
+          font_size: number | null
+          points: Json | null
+          width: number | null
+          opacity: number | null
+          variant: string | null
+          src_id: string | null
+          dst_id: string | null
+          line_style: string | null
+          z: number
+          comments: Json
+          reactions: Json
+          author_id: string | null
+          author_name: string | null
           created_at: string
           updated_at: string
         }
@@ -1064,6 +1135,7 @@ export type Database = {
           resource_note: string | null
           override_note: string | null
           status: string
+          block_ord: number | null
           created_by: string | null
           created_at: string
           updated_at: string
