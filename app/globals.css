@@ -582,6 +582,28 @@ button { font-family:inherit; }
 .sw-rev-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .sw-rev-k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
 .sw-rev-v{font-size:13.5px;color:var(--ink);margin-top:3px}
+/* wizard — recipients summary chips */
+.sw-recsum{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;border-radius:999px;padding:5px 12px}
+.sw-recsum.green{color:var(--forest);background:var(--open-bg);border:1px solid var(--bcd,#bcd6c4)}
+.sw-recsum.blue{color:var(--role);background:var(--interview-bg);border:1px solid var(--interview-fg)}
+.sw-recsum.total{color:var(--ink);background:var(--canvas);border:1px solid var(--line);font-weight:700}
+/* wizard — channel icon + disabled channel row */
+.sw-chanic{width:36px;height:36px;border-radius:9px;background:var(--canvas-2);color:var(--muted);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
+.sw-team.disabled{opacity:.55;cursor:not-allowed}
+.sw-team.disabled:hover{border-color:var(--line)}
+/* wizard — anonymity box + min stepper + switch + warning */
+.sw-anonbox{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:4px}
+.sw-anonhead{display:flex;align-items:flex-start;gap:12px;background:var(--canvas);padding:14px 16px}
+.sw-anonbody{padding:14px 16px;border-top:1px solid var(--line)}
+.sw-switch{flex-shrink:0;width:40px;height:23px;border-radius:999px;background:var(--line-2);border:none;position:relative;cursor:pointer;padding:0;transition:background .15s;margin-top:1px}
+.sw-switch.on{background:var(--green)}
+.sw-switch>span{position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
+.sw-switch.on>span{left:19px}
+.sw-stepper{display:flex;align-items:center;border:1px solid var(--line-2);border-radius:7px;overflow:hidden;flex-shrink:0}
+.sw-stepper button{width:32px;height:34px;border:none;background:var(--surface);color:var(--muted);font-size:17px;cursor:pointer;font-family:inherit}
+.sw-stepper button:hover{background:var(--canvas)}
+.sw-stepper>span{width:38px;text-align:center;font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.sw-warn{display:block;font-size:12px;color:var(--internal-fg);line-height:1.45;background:var(--internal-bg);border:1px solid var(--internal-fg);border-radius:7px;padding:10px 12px;margin-top:12px}
 
 /* ---------- workshop detail / overview ---------- */
 .wsd-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}

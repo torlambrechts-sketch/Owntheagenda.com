@@ -113,7 +113,7 @@ function ResponseRing({ pct }: { pct: number }) {
   );
 }
 
-export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [], templateCards = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string }[]; templates?: { key: string; name: string }[]; templateCards?: TemplateCard[] }) {
+export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, canStart = false, manageableTeamIds = [], teams = [], templates = [], templateCards = [] }: { rows: SuiteRow[]; kpis: Kpi[]; alert?: { sections: number; assessments: number } | null; isAdmin?: boolean; canStart?: boolean; manageableTeamIds?: string[]; teams?: { id: string; name: string; count?: number }[]; templates?: { key: string; name: string }[]; templateCards?: TemplateCard[] }) {
   const canManageRow = (r: SuiteRow) => isAdmin || (!!r.teamId && manageableTeamIds.includes(r.teamId));
   const [view, setView] = useState<View>("overview");
   const [newOpen, setNewOpen] = useState(false);

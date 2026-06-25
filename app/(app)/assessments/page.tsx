@@ -33,8 +33,16 @@ export default async function AssessmentSuitePage() {
     ...teamList.filter((t) => t.lead_user_id === ctx.userId).map((t) => t.id),
     ...(leadMem ?? []).map((m) => m.team_id),
   ]);
-  const manageableTeams = (admin ? teamList : teamList.filter((t) => leadTeamIds.has(t.id)))
-    .map((t) => ({ id: t.id as string, name: t.name as string }));
+  const manageableBase = (admin ? teamList : teamList.filter((t) => leadTeamIds.has(t.id)));
+  // Member counts per manageable team — drives the wizard's small-group privacy
+  // warning (a group smaller than the min-participants floor stays masked).
+  const manageableIds = manageableBase.map((t) => t.id);
+  const { data: countRows } = manageableIds.length
+    ? await supabase.from("team_member").select("team_id").in("team_id", manageableIds)
+    : { data: [] as { team_id: string }[] };
+  const countByTeam = new Map<string, number>();
+  for (const c of countRows ?? []) countByTeam.set(c.team_id, (countByTeam.get(c.team_id) ?? 0) + 1);
+  const manageableTeams = manageableBase.map((t) => ({ id: t.id as string, name: t.name as string, count: countByTeam.get(t.id) ?? 0 }));
 
   const instruments = await resolveInstruments();
   const instNameByKind = new Map(Object.values(instruments).map((i) => [i.kind, i.name]));
