@@ -6,7 +6,8 @@ const SAMPLE_WORKSHOP = "ee2e0000-0000-4000-8000-000000000030";
 test.describe("Workshops design migration", () => {
   test("home shows Build + New workshop actions", async ({ page }) => {
     await page.goto("/workshops");
-    await expect(page.getByRole("heading", { name: "Workshops" })).toBeVisible();
+    // Scope to the page title — the left nav also renders a "Workshops" heading.
+    await expect(page.locator("h1.page-title")).toHaveText("Workshops");
     await expect(page.getByRole("button", { name: /Build workshop/ })).toBeVisible();
     await expect(page.getByRole("button", { name: /New workshop/ })).toBeVisible();
   });

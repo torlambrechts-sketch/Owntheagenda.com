@@ -81,7 +81,17 @@ const DYN: [Dyn, string][] = [
 ];
 // Group the runnable activities into the shared facilitation phases (Open →
 // Explore → Decide → Close) so the picker + optgroups read as a phased library.
-const ACT_PHASES: { label: string; acts: Activity[] }[] = PALETTE.map((p) => ({ label: p.label, acts: p.acts }));
+// `survey` lives in the phase taxonomy (pulse → Open) but is not a runnable
+// builder block — it has no ACTIVITY entry — so drop any such activity here to
+// keep the palette, library and editor optgroups crash-free.
+const BUILD_PALETTE = PALETTE.map((p) => ({
+  ...p,
+  acts: p.acts.filter((a) => a in ACTIVITY),
+})).filter((p) => p.acts.length > 0);
+const ACT_PHASES: { label: string; acts: Activity[] }[] = BUILD_PALETTE.map((p) => ({
+  label: p.label,
+  acts: p.acts,
+}));
 const PHASE_COLOR: Record<string, string> = Object.fromEntries(
   PHASES.map((p) => [p.label, PHASE_VIS[p.key]?.accent ?? "var(--green)"]),
 );
@@ -675,7 +685,7 @@ export function BuilderClient({
           {canManage && bView !== "board" ? (
             <div className="wb-palette">
               <span className="wb-palette-l">Add block</span>
-              {PALETTE.map((g) => (
+              {BUILD_PALETTE.map((g) => (
                 <span key={g.key} className="wb-palette-grp">
                   {g.acts.map((a) => {
                     const pv = PHASE_VIS[g.key];
@@ -767,7 +777,7 @@ export function BuilderClient({
           {canManage ? (
             <aside className="wb-lib">
               <div className="wb-lib-h">Block library</div>
-              {PALETTE.flatMap((g) => g.acts.map((a) => {
+              {BUILD_PALETTE.flatMap((g) => g.acts.map((a) => {
                 const pv = PHASE_VIS[g.key];
                 return (
                   <div
@@ -1041,7 +1051,7 @@ export function BuilderClient({
               {ACT_PHASES.map((p) => (
                 <optgroup key={p.label} label={p.label}>
                   {p.acts.map((a) => (
-                    <option key={a} value={a}>{ACTIVITY[a].label}</option>
+                    <option key={a} value={a}>{ACTIVITY[a]?.label ?? a}</option>
                   ))}
                 </optgroup>
               ))}
