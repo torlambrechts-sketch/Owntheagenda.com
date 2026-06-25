@@ -13,6 +13,8 @@ import { SurveyModule } from "./SurveyModule";
 import { SessionPulse } from "./SessionPulse";
 import { PlanBoard } from "./PlanBoard";
 import { DecisionsPanel } from "./DecisionsPanel";
+import { DesignModule, rendererFor, phaseVisOf, ReactionBar, BlockCommentThread } from "./RunModules";
+import { Icon, actIcon } from "@/app/(app)/workshops/visuals";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { SurveyInstrument } from "@/lib/survey";
 import type { Enums, Json } from "@/types/database.types";
@@ -140,12 +142,32 @@ export function RunClient({
   );
   const block = blocks.find((b) => b.ord === session.currentBlockOrd) ?? blocks[0];
   const acting = isFacilitator && view === "facilitator";
+  // Legacy brainstorm/hmw keep the rich IdeaModule board. Design types
+  // (checkin, vote, …) and the other legacy aliases now route to the new
+  // DesignModule renderers below.
   const moduleMode =
     block?.activityType === "brainstorm" || block?.activityType === "hmw" ? "brainstorm" as const
-    : block?.activityType === "vote" ? "poll" as const
-    : block?.activityType === "feedback" || block?.activityType === "retrospective" ? "feedback" as const
-    : block?.activityType === "checkin" && !!(block?.config as Record<string, unknown>)?.capture ? "brainstorm" as const
     : null;
+  // Renderer the new design dispatcher owns (null for canvas/survey/assess/
+  // charter/manual/ideaBrainstorm/outcome which keep their existing paths).
+  const designKey = block ? rendererFor(block.activityType) : "fallback";
+  const designMode =
+    !!block &&
+    block.activityType !== "canvas" &&
+    block.activityType !== "manual" &&
+    block.activityType !== "charter" &&
+    block.activityType !== "assess" &&
+    block.activityType !== "survey" &&
+    block.activityType !== "outcome" &&
+    !moduleMode &&
+    designKey !== "canvas" &&
+    designKey !== "ideaBrainstorm" &&
+    designKey !== "survey" &&
+    designKey !== "assess" &&
+    designKey !== "charter" &&
+    designKey !== "manual" &&
+    designKey !== "outcome";
+  const pv = block ? phaseVisOf(block.activityType) : null;
 
   const reloadParticipants = useCallback(async () => {
     const { data: parts } = await supabase
@@ -611,6 +633,61 @@ export function RunClient({
               onToggleReady={toggleReady}
             />
           </div>
+        ) : designMode && pv ? (
+          <div className="stage canvasstage">
+            <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".6px",
+                    color: pv.accent, background: pv.tint, border: `1px solid ${pv.border}`,
+                    borderRadius: 999, padding: "4px 10px",
+                  }}>
+                    <Icon name={actIcon(block!.activityType)} size={13} color={pv.accent} /> {pv.label}
+                  </span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, color: "var(--muted)",
+                    background: "var(--canvas-2)", borderRadius: 999, padding: "4px 10px",
+                  }}>{block?.duration ?? 0} min</span>
+                </div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 600, margin: 0, color: "var(--ink)" }}>
+                  {block?.title}
+                </h2>
+                {block?.prompt && designKey !== "framing" ? (
+                  <div style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.55, marginTop: 8 }}>{block.prompt}</div>
+                ) : null}
+              </div>
+              <DesignModule
+                key={session.currentBlockOrd}
+                type={block!.activityType}
+                sessionId={sid}
+                blockOrd={session.currentBlockOrd}
+                title={block?.title ?? ""}
+                prompt={block?.prompt ?? null}
+                config={(block?.config ?? {}) as Record<string, unknown>}
+                userId={userId}
+                userName={userName}
+                isFacilitator={isFacilitator}
+                acting={acting}
+                showReady={!isFacilitator || view === "participant"}
+                ready={!!me?.ready}
+                onToggleReady={toggleReady}
+                participants={participants.map((p) => ({ userId: p.userId, name: p.name }))}
+              />
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <ReactionBar />
+                <div style={{ display: "flex", gap: 8 }}>
+                  {acting ? (
+                    <>
+                      <button className="btn-sec sm" disabled={session.currentBlockOrd <= 1} onClick={() => phase(session.currentBlockOrd - 1)}>‹ Previous</button>
+                      <button className="btn-prim sm" disabled={session.currentBlockOrd >= N} onClick={() => phase(session.currentBlockOrd + 1)}>Mark done &amp; next ›</button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
         ) : moduleMode ? (
           <div className="stage canvasstage">
             <IdeaModule
@@ -730,6 +807,17 @@ export function RunClient({
               </div>
               <button className="btn-prim btn-full" onClick={addAction} disabled={!actText.trim()}>Add commitment</button>
             </div>
+          </div>
+
+          <div className="rs">
+            <h5>Discussion <span style={{ color: "var(--faint)" }}>this block</span></h5>
+            <BlockCommentThread
+              key={session.currentBlockOrd}
+              sessionId={sid}
+              blockOrd={session.currentBlockOrd}
+              userId={userId}
+              userName={userName}
+            />
           </div>
 
           <DecisionsPanel
