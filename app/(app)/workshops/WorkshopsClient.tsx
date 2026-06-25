@@ -43,6 +43,28 @@ export type Recommendation = {
   pulseId: string | null;
   scienceSlug: string | null;
 };
+// One block in an assessment-seeded agenda (preview + creation).
+export type SeedBlock = {
+  title: string;
+  activityType: string;
+  duration: number;
+  prompt: string | null;
+  phaseLabel: string;
+};
+// A team assessment offered in the "From assessment" creation mode.
+export type AssessOption = {
+  surveyId: string;
+  name: string;
+  teamName: string;
+  responses: number;
+  dateLabel: string;
+  score: number | null;
+  scale: number;
+  band: 0 | 1 | 2;
+  masked: boolean;
+  weak: { label: string; score: number }[];
+  seedBlocks: SeedBlock[];
+};
 
 export function WorkshopsClient({
   teamId,
@@ -57,6 +79,7 @@ export function WorkshopsClient({
   initialTab = "workshops",
   kpis = [],
   teamOptions = [],
+  assessOptions = [],
 }: {
   teamId: string;
   canManage: boolean;
@@ -70,6 +93,7 @@ export function WorkshopsClient({
   initialTab?: WkTab;
   kpis?: { label: string; value: string; sub: string }[];
   teamOptions?: { id: string; name: string }[];
+  assessOptions?: AssessOption[];
 }) {
   const [tab, setTab] = useState<WkTab>(initialTab);
 
@@ -92,6 +116,7 @@ export function WorkshopsClient({
           scienceByCategory={scienceByCategory}
           kpis={kpis}
           teamOptions={teamOptions}
+          assessOptions={assessOptions}
         />
       ) : tab === "sessions" ? (
         sessions.length ? <SessionsTable rows={sessions} /> : <div className="empty">No sessions yet — start a workshop to run your first.</div>

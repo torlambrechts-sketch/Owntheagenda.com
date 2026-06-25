@@ -2,13 +2,32 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, timeAgo } from "@/lib/util";
 import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
-import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation } from "./WorkshopsClient";
+import { resolveInstrument } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation, type AssessOption, type SeedBlock } from "./WorkshopsClient";
 import { type SessionRow } from "./SessionsTable";
 import { type GalleryItem } from "./CanvasGallery";
 import type { CanvasObj } from "@/components/CanvasStatic";
+import type { Enums } from "@/types/database.types";
 
 const TABS = ["workshops", "sessions", "canvas"] as const;
 type Tab = (typeof TABS)[number];
+
+function bandOf(pct: number): 0 | 1 | 2 {
+  return pct < 45 ? 0 : pct < 62 ? 1 : 2;
+}
+// Seed a targeted agenda from an assessment's weakest areas: open with a
+// temperature check, one focused block per weak area, close with commitments.
+function buildSeedBlocks(weak: { label: string }[]): SeedBlock[] {
+  const blocks: SeedBlock[] = [
+    { title: "Temperature check", activityType: "checkin" as Enums<"activity_type">, duration: 10, prompt: "How is the team feeling about the focus areas today?", phaseLabel: "Open" },
+  ];
+  for (const w of weak) {
+    blocks.push({ title: w.label, activityType: "discuss" as Enums<"activity_type">, duration: 20, prompt: `Where are we on “${w.label}”, and what would move it forward?`, phaseLabel: "Explore" });
+  }
+  blocks.push({ title: "Commitments", activityType: "outcome" as Enums<"activity_type">, duration: 20, prompt: "Capture owned actions to lift the weakest areas.", phaseLabel: "Decide" });
+  return blocks;
+}
 
 export default async function WorkshopsPage({ searchParams }: { searchParams: { tab?: string } }) {
   const ctx = await requireSession();
@@ -163,6 +182,58 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
+  // "From assessment" creation mode: the team's completed assessments with their
+  // composite score + weakest areas, so the New-workshop modal can list them and
+  // seed a targeted agenda. Latest closed survey per instrument kind, capped.
+  let assessOptions: AssessOption[] = [];
+  if (team) {
+    const { data: surveys } = await supabase
+      .from("survey")
+      .select("id, name, kind, status, created_at, definition")
+      .eq("team_id", team.id)
+      .eq("status", "closed")
+      .order("created_at", { ascending: false });
+    const seenKind = new Set<string>();
+    const picks = (surveys ?? []).filter((s) => (seenKind.has(s.kind) ? false : (seenKind.add(s.kind), true))).slice(0, 6);
+    for (const s of picks) {
+      const inst = await resolveInstrument(s.kind as string);
+      if (!inst) continue;
+      const { data: res } = await supabase.rpc("survey_results", { p_survey: s.id, p_strength_items: strengthItemKeys(inst) });
+      const r = res as { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
+      if (!r) continue;
+      const { min, max } = inst.scale;
+      let score: number | null = null;
+      let band: 0 | 1 | 2 = 1;
+      let weak: { label: string; score: number }[] = [];
+      if (!r.masked) {
+        const dims = dimensionMeans(inst, r.items ?? []).filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null);
+        if (dims.length) {
+          const avg = dims.reduce((a, d) => a + d.mean, 0) / dims.length;
+          score = Math.round(avg * 10) / 10;
+          band = bandOf(((avg - min) / (max - min)) * 100);
+          weak = dims
+            .map((d) => ({ label: d.label, score: Math.round(d.mean * 10) / 10, pct: ((d.mean - min) / (max - min)) * 100 }))
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 3)
+            .map((d) => ({ label: d.label, score: d.score }));
+        }
+      }
+      assessOptions.push({
+        surveyId: s.id,
+        name: inst.name,
+        teamName: team.name,
+        responses: r.respondents,
+        dateLabel: new Date(s.created_at as string).toLocaleDateString(undefined, { day: "2-digit", month: "short" }),
+        score,
+        scale: max,
+        band,
+        masked: r.masked,
+        weak,
+        seedBlocks: weak.length ? buildSeedBlocks(weak) : [],
+      });
+    }
+  }
+
   // team-scoped assessment instruments — offered as a starting/added module
   const { data: instRows } = canManage
     ? await supabase.from("assessment_template").select("key, name").eq("scope", "team").order("name")
@@ -310,6 +381,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           initialTab={initialTab}
           kpis={kpis}
           teamOptions={teamOptions}
+          assessOptions={assessOptions}
         />
       ) : (
         <div className="card empty">Create a team first to build a workshop.</div>

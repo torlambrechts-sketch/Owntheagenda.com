@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CATEGORY, ACTIVITY, initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
-import { buildFromTemplate, createBlankWorkshop, deleteWorkshop, scheduleWorkshop, updateWorkshopTitle } from "./actions";
+import { buildFromTemplate, createBlankWorkshop, createSeededWorkshop, deleteWorkshop, scheduleWorkshop, updateWorkshopTitle } from "./actions";
 import { Icon, catVis, statusVis, WA } from "./visuals";
-import type { TemplateCard, WorkshopRow, Recommendation } from "./WorkshopsClient";
+import type { TemplateCard, WorkshopRow, Recommendation, AssessOption } from "./WorkshopsClient";
+
+const SCORE_COLOR = ["var(--rust)", "var(--amber)", "var(--green)"] as const;
 
 type NwMode = "assessment" | "template" | "blank";
 const NW_MODES: { key: NwMode; icon: string; title: string; blurb: string }[] = [
@@ -50,6 +52,7 @@ export function WorkshopHome({
   scienceByCategory = {},
   kpis = [],
   teamOptions = [],
+  assessOptions = [],
 }: {
   teamId: string;
   canManage: boolean;
@@ -60,6 +63,7 @@ export function WorkshopHome({
   scienceByCategory?: Record<string, string>;
   kpis?: { label: string; value: string; sub: string }[];
   teamOptions?: { id: string; name: string }[];
+  assessOptions?: AssessOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -76,6 +80,7 @@ export function WorkshopHome({
   const [nwTeam, setNwTeam] = useState(teamId);
   const [nwDate, setNwDate] = useState("");
   const [nwTemplate, setNwTemplate] = useState<string | null>(null);
+  const [nwAssessment, setNwAssessment] = useState<string | null>(assessOptions.find((a) => a.seedBlocks.length)?.surveyId ?? null);
   const [preview, setPreview] = useState<TemplateCard | null>(null);
 
   function openNew(mode: NwMode) {
@@ -84,6 +89,7 @@ export function WorkshopHome({
     setNwTeam(teamId);
     setNwDate("");
     setNwTemplate(null);
+    setNwAssessment(assessOptions.find((a) => a.seedBlocks.length)?.surveyId ?? null);
     setNewOpen(true);
   }
 
@@ -97,22 +103,19 @@ export function WorkshopHome({
     });
   }
 
-  // The template whose agenda we'll seed (for the preview + assessment grounding).
-  const seedTemplate =
-    nwMode === "template"
-      ? templates.find((t) => t.id === nwTemplate) ?? null
-      : nwMode === "assessment" && recommendation
-        ? templates.find((t) => t.id === recommendation.templateId) ?? null
-        : null;
+  // The template whose agenda we'll seed (template-mode preview).
+  const seedTemplate = nwMode === "template" ? templates.find((t) => t.id === nwTemplate) ?? null : null;
+  // The selected assessment (assessment-mode preview).
+  const selectedAssess = nwMode === "assessment" ? assessOptions.find((a) => a.surveyId === nwAssessment) ?? null : null;
 
   const canCreate =
     nwMode === "blank" ||
     (nwMode === "template" && !!nwTemplate) ||
-    (nwMode === "assessment" && !!recommendation);
+    (nwMode === "assessment" && !!selectedAssess && selectedAssess.seedBlocks.length > 0);
 
   function createWorkshop() {
     if (!canCreate) {
-      flash(nwMode === "template" ? "Pick a template first" : "No assessment recommendation yet — try a template or blank");
+      flash(nwMode === "template" ? "Pick a template first" : nwMode === "assessment" ? "Pick an assessment with results" : "Could not create");
       return;
     }
     const title = nwName.trim();
@@ -122,8 +125,12 @@ export function WorkshopHome({
       if (nwMode === "template" && nwTemplate) {
         const r = await buildFromTemplate(nwTeam, nwTemplate);
         id = r.id; err = r.error;
-      } else if (nwMode === "assessment" && recommendation) {
-        const r = await buildFromTemplate(nwTeam, recommendation.templateId, recommendation.pulseId ?? undefined);
+      } else if (nwMode === "assessment" && selectedAssess) {
+        const r = await createSeededWorkshop(
+          nwTeam,
+          title || `${selectedAssess.name} follow-up`,
+          selectedAssess.seedBlocks.map((b) => ({ title: b.title, activityType: b.activityType as never, duration: b.duration, prompt: b.prompt })),
+        );
         id = r.id; err = r.error;
       } else {
         const r = await createBlankWorkshop(nwTeam, title || "Untitled workshop");
@@ -132,7 +139,7 @@ export function WorkshopHome({
       if (err) { flash(err); return; }
       if (!id) { flash("Could not create the workshop"); return; }
       // buildFromTemplate names the workshop after the template; honour a custom name.
-      if (title && nwMode !== "blank") await updateWorkshopTitle(id, title);
+      if (title && nwMode === "template") await updateWorkshopTitle(id, title);
       if (nwDate) await scheduleWorkshop(id, `${nwDate}T09:00`);
       router.push(`/workshops/${id}`);
     });
@@ -193,7 +200,7 @@ export function WorkshopHome({
             <button onClick={buildDirect} disabled={pending} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: pending ? "default" : "pointer", fontFamily: "inherit", opacity: pending ? 0.6 : 1 }}>
               <Icon name="Wand2" size={15} color="#404040" /> Build workshop
             </button>
-            <button onClick={() => openNew(recommendation ? "assessment" : "blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            <button onClick={() => openNew(assessOptions.some((a) => a.seedBlocks.length) ? "assessment" : "blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               <Icon name="Plus" size={16} color="#fff" /> New workshop
             </button>
           </>
@@ -376,7 +383,7 @@ export function WorkshopHome({
         footer={
           <>
             <span style={{ fontSize: 12, color: WA.faint2, marginRight: "auto" }}>
-              {nwMode === "blank" ? "Opens an empty builder" : seedTemplate ? `Seeds ${seedTemplate.steps} blocks` : ""}
+              {nwMode === "blank" ? "Opens an empty builder" : nwMode === "template" ? (seedTemplate ? `Seeds ${seedTemplate.steps} blocks` : "") : (selectedAssess?.seedBlocks.length ? `Seeds ${selectedAssess.seedBlocks.length} blocks` : "")}
             </span>
             <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
             <div className="right">
@@ -402,35 +409,52 @@ export function WorkshopHome({
 
         {/* Mode-specific body */}
         {nwMode === "assessment" ? (
-          recommendation ? (
+          assessOptions.length ? (
             <>
-              <div className="nw-eyebrow">From your assessment</div>
-              <div className="nw-assessment">
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div className="nw-assess-t">{recommendation.dynamicLabel}</div>
-                  <div className="nw-assess-s">{recommendation.belowBand ? "below target" : "lowest reading"} · {recommendation.why}</div>
-                </div>
-                {recommendation.pct != null ? (
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div className="nw-assess-score" style={{ color: recommendation.belowBand ? "var(--rust)" : "var(--amber)" }}>{recommendation.pct}%</div>
-                    <div className="nw-assess-scale">vs {recommendation.targetLow}%+</div>
-                  </div>
-                ) : null}
+              <div className="nw-eyebrow">Choose assessment</div>
+              <div className="nw-assess-list">
+                {assessOptions.map((a) => {
+                  const on = nwAssessment === a.surveyId;
+                  return (
+                    <button key={a.surveyId} type="button" className={`nw-assess-row${on ? " on" : ""}`} disabled={!a.seedBlocks.length} onClick={() => setNwAssessment(a.surveyId)}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="nw-assess-t">{a.name}</div>
+                        <div className="nw-assess-s">{a.teamName} · {a.responses} response{a.responses === 1 ? "" : "s"} · {a.dateLabel}</div>
+                      </div>
+                      {a.masked || a.score == null ? (
+                        <div className="nw-assess-scale" style={{ textAlign: "right", flexShrink: 0 }}>awaiting<br />responses</div>
+                      ) : (
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
+                          <div className="nw-assess-score" style={{ color: SCORE_COLOR[a.band] }}>{a.score}</div>
+                          <div className="nw-assess-scale">of {a.scale}</div>
+                        </div>
+                      )}
+                      {on ? <span className="nw-tpl-check"><Icon name="Check" size={13} color="#fff" /></span> : null}
+                    </button>
+                  );
+                })}
               </div>
-              {seedTemplate ? (
+              {selectedAssess && selectedAssess.seedBlocks.length ? (
                 <div className="nw-seedcard">
-                  <div className="nw-seed-h"><Icon name="Sparkles" size={13} color="#5b5536" /> We’ll seed {seedTemplate.steps} blocks</div>
-                  <div className="nw-seed-sub">From <b>{seedTemplate.name}</b>, targeting {recommendation.dynamicLabel}. Adjust everything in the builder.</div>
+                  <div className="nw-seed-h"><Icon name="Sparkles" size={13} color="#5b5536" /> We’ll seed {selectedAssess.seedBlocks.length} blocks</div>
+                  <div className="nw-seed-sub">Targeting the lowest-scoring areas of <b>{selectedAssess.name}</b>. You can adjust everything in the builder.</div>
+                  {selectedAssess.weak.length ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 11 }}>
+                      {selectedAssess.weak.map((w, i) => (
+                        <span key={i} className="nw-weak-chip">{w.label} · {w.score}</span>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="nw-seed-list">
-                    {(seedTemplate.phases ?? []).map((p, i) => (
-                      <div className="nw-seed-row" key={i}><span className="nw-seed-dot" />{p.title}<span className="nw-seed-meta">{ACTIVITY[p.type]?.label ?? p.type} · {p.minutes}m</span></div>
+                    {selectedAssess.seedBlocks.map((b, i) => (
+                      <div className="nw-seed-row" key={i}><span className="nw-seed-dot" />{b.title}<span className="nw-seed-meta">{b.phaseLabel} · {b.duration}m</span></div>
                     ))}
                   </div>
                 </div>
               ) : null}
             </>
           ) : (
-            <div className="form-note">No assessment reading for this team yet{surveyInsts.length ? " — run one from Assessments first" : ""}. Pick <b>Template</b> or <b>Blank</b> to start now.</div>
+            <div className="form-note">No completed assessments for this team yet{surveyInsts.length ? " — run one from Assessments first" : ""}. Pick <b>Template</b> or <b>Blank</b> to start now.</div>
           )
         ) : null}
 

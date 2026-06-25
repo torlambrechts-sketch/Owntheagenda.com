@@ -37,6 +37,35 @@ export async function createBlankWorkshop(
   return { id: data as string };
 }
 
+// Create a draft workshop pre-seeded with an agenda (the "From assessment" mode:
+// blocks targeting the assessment's weakest areas). One RPC for the gated draft,
+// one bulk insert for the blocks (RLS-scoped to the workshop just created).
+export async function createSeededWorkshop(
+  teamId: string,
+  title: string,
+  blocks: { title: string; activityType: Enums<"activity_type">; duration: number; prompt?: string | null }[],
+): Promise<{ id?: string; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_blank_workshop", { p_team: teamId, p_title: title });
+  if (error) return { error: error.message };
+  const id = data as string;
+  if (blocks.length) {
+    const rows = blocks.map((b, i) => ({
+      workshop_id: id,
+      ord: i + 1,
+      title: b.title.trim() || "Step",
+      activity_type: b.activityType,
+      duration: b.duration,
+      prompt: b.prompt || null,
+      config: {} as never,
+    }));
+    const { error: be } = await supabase.from("block").insert(rows);
+    if (be) return { id, error: be.message };
+  }
+  revalidatePath("/workshops");
+  return { id };
+}
+
 // Run an on-demand session: create an ad-hoc workshop with one starting module
 // and start it. Returns the workshop id to navigate straight into the run.
 export async function quickStart(
