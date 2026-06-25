@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CATEGORY, ACTIVITY, initials } from "@/lib/util";
+import { initials } from "@/lib/util";
 import { SideWindow } from "@/components/SideWindow";
 import { buildFromTemplate, createBlankWorkshop, createSeededWorkshop, deleteWorkshop, scheduleWorkshop, updateWorkshopTitle } from "./actions";
 import { Icon, catVis, statusVis, WA } from "./visuals";
@@ -81,7 +81,6 @@ export function WorkshopHome({
   const [nwDate, setNwDate] = useState("");
   const [nwTemplate, setNwTemplate] = useState<string | null>(null);
   const [nwAssessment, setNwAssessment] = useState<string | null>(assessOptions.find((a) => a.seedBlocks.length)?.surveyId ?? null);
-  const [preview, setPreview] = useState<TemplateCard | null>(null);
 
   function openNew(mode: NwMode) {
     setNwMode(mode);
@@ -241,36 +240,6 @@ export function WorkshopHome({
           ))}
         </div>
       ) : null}
-
-      {/* templates gallery */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 9 }}>
-          <span style={{ fontFamily: WA.serif, fontSize: 19, fontWeight: 600, color: WA.ink }}>Start from a template</span>
-          <span style={{ fontSize: 12.5, color: WA.faint2 }}>{templates.length} curated for leadership teams</span>
-        </div>
-        <Link href="/workshops/templates" style={{ fontSize: 12.5, fontWeight: 600, color: WA.accent, display: "inline-flex", alignItems: "center", gap: 4, textDecoration: "none" }}>Manage templates <Icon name="ChevronRight" size={14} color={WA.accent} /></Link>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 30 }}>
-        {templates.slice(0, 6).map((t) => {
-          const v = catVis(t.category);
-          return (
-            <button key={t.id} type="button" onClick={() => setPreview(t)} style={{ textAlign: "left", background: "#fff", border: `1px solid ${WA.cardBorder}`, borderRadius: 13, boxShadow: "0 1px 2px rgba(0,0,0,.04)", padding: "16px 16px 14px", display: "flex", flexDirection: "column", cursor: "pointer", fontFamily: "inherit" }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={21} color={v.accent} /></span>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 600, color: WA.ink, lineHeight: 1.25 }}>{t.name}</div>
-                  <div style={{ marginTop: 2, fontSize: 12.5, color: WA.faint, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{t.description ?? `${CATEGORY[t.category] ?? t.category} workshop`}</div>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 13, paddingTop: 12, borderTop: `1px solid ${WA.hair}`, fontSize: 11.5, color: WA.faint }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Clock" size={13} color={WA.faint2} />{t.minutes} min</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Layers" size={13} color={WA.faint2} />{t.steps} blocks</span>
-                <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: v.accent }}>Use <Icon name="ArrowRight" size={13} color={v.accent} /></span>
-              </div>
-            </button>
-          );
-        })}
-      </div>
 
       {/* ===== Layout A: combined table ===== */}
       {layout === "A" ? (
@@ -500,28 +469,6 @@ export function WorkshopHome({
           </div>
         </div>
       </SideWindow>
-
-      {preview ? (
-        <SideWindow
-          open={!!preview}
-          onClose={() => setPreview(null)}
-          title={preview.name}
-          subtitle={`${preview.steps} steps · ${preview.minutes} min`}
-          footer={canManage ? <div className="right"><button className="btn-prim" disabled={pending} onClick={() => { const id = preview.id; setPreview(null); use(id); }}>Use template ▸</button></div> : null}
-        >
-          {preview.source ? <div className="src" style={{ marginTop: 0 }}>{preview.source}</div> : null}
-          {preview.description ? <p style={{ color: "var(--muted)", fontSize: 13 }}>{preview.description}</p> : null}
-          {scienceByCategory[preview.category] ? <Link className="cat-sci" href={`/help/${scienceByCategory[preview.category]}`} style={{ display: "inline-block", marginBottom: 10 }}>Learn the science →</Link> : null}
-          <ol className="agenda">
-            {(preview.phases ?? []).map((p, i) => (
-              <li key={i} className="agenda-step">
-                <div className="agenda-h"><span className="agenda-t">{p.title}</span><span className="agenda-meta">{ACTIVITY[p.type]?.label ?? p.type} · {p.minutes}m</span></div>
-                {p.prompt ? <div className="agenda-p">{p.prompt}</div> : null}
-              </li>
-            ))}
-          </ol>
-        </SideWindow>
-      ) : null}
 
       <div className={`toast${toast ? " show" : ""}`}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>

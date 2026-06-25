@@ -6,11 +6,11 @@ import { resolveInstrument } from "@/lib/assessments";
 import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation, type AssessOption, type SeedBlock } from "./WorkshopsClient";
 import { type SessionRow } from "./SessionsTable";
-import { type GalleryItem } from "./CanvasGallery";
-import type { CanvasObj } from "@/components/CanvasStatic";
+import { type TemplateVM } from "./templates/TemplatesClient";
+import { parsePhases } from "./blocks";
 import type { Enums } from "@/types/database.types";
 
-const TABS = ["workshops", "sessions", "canvas"] as const;
+const TABS = ["workshops", "templates"] as const;
 type Tab = (typeof TABS)[number];
 
 function bandOf(pct: number): 0 | 1 | 2 {
@@ -23,9 +23,9 @@ function buildSeedBlocks(weak: { label: string }[]): SeedBlock[] {
     { title: "Temperature check", activityType: "checkin" as Enums<"activity_type">, duration: 10, prompt: "How is the team feeling about the focus areas today?", phaseLabel: "Open" },
   ];
   for (const w of weak) {
-    blocks.push({ title: w.label, activityType: "discuss" as Enums<"activity_type">, duration: 20, prompt: `Where are we on “${w.label}”, and what would move it forward?`, phaseLabel: "Explore" });
+    blocks.push({ title: w.label, activityType: "discussion" as Enums<"activity_type">, duration: 20, prompt: `Where are we on “${w.label}”, and what would move it forward?`, phaseLabel: "Explore" });
   }
-  blocks.push({ title: "Commitments", activityType: "outcome" as Enums<"activity_type">, duration: 20, prompt: "Capture owned actions to lift the weakest areas.", phaseLabel: "Decide" });
+  blocks.push({ title: "Commitments", activityType: "actions" as Enums<"activity_type">, duration: 20, prompt: "Capture owned actions to lift the weakest areas.", phaseLabel: "Close" });
   return blocks;
 }
 
@@ -47,7 +47,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
 
   const { data: templates } = await supabase
     .from("template")
-    .select("id, key, name, category, source, description, default_duration, definition")
+    .select("id, workspace_id, key, name, category, source, description, default_duration, definition")
     .order("category", { ascending: true });
 
   const tplCards: TemplateCard[] = (templates ?? []).map((t) => {
@@ -69,6 +69,36 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
         minutes: (p?.minutes ?? 0) as number,
         prompt: (p?.prompt ?? null) as string | null,
       })),
+    };
+  });
+
+  // Template manager view-models for the home "Templates" tab (folds the
+  // standalone manager inline, matching the design). Usage = how many of this
+  // workspace's workshops were built from each template.
+  const { data: tplUsageRows } = await supabase
+    .from("workshop")
+    .select("template_id")
+    .eq("workspace_id", wsId)
+    .not("template_id", "is", null);
+  const tplUsage = new Map<string, number>();
+  for (const u of tplUsageRows ?? []) {
+    if (u.template_id) tplUsage.set(u.template_id, (tplUsage.get(u.template_id) ?? 0) + 1);
+  }
+  const templateVMs: TemplateVM[] = (templates ?? []).map((t) => {
+    const phases = parsePhases(t.definition);
+    const minutes = phases.reduce((s, p) => s + p.minutes, 0) || t.default_duration;
+    return {
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      source: t.source,
+      description: t.description,
+      owned: t.workspace_id === wsId,
+      system: t.workspace_id === null,
+      steps: phases.length,
+      minutes,
+      used: tplUsage.get(t.id) ?? 0,
+      phases,
     };
   });
 
@@ -307,42 +337,6 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     };
   });
 
-  // ----- Canvas tab (workspace-wide saved canvases) -----
-  const { data: snaps } = await supabase
-    .from("canvas_snapshot")
-    .select("id, title, workshop_id, block_ord, object_count, created_at, data")
-    .eq("workspace_id", wsId)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const cList = snaps ?? [];
-  const cWkIds = Array.from(new Set(cList.map((s) => s.workshop_id)));
-  const { data: cWks } = cWkIds.length
-    ? await supabase.from("workshop").select("id, title, team_id").in("id", cWkIds)
-    : { data: [] as { id: string; title: string; team_id: string }[] };
-  const cWkById = new Map((cWks ?? []).map((w) => [w.id, w]));
-  const cTeamIds = Array.from(new Set((cWks ?? []).map((w) => w.team_id)));
-  const { data: cTeams } = cTeamIds.length
-    ? await supabase.from("team").select("id, name, lead_user_id").in("id", cTeamIds)
-    : { data: [] as { id: string; name: string; lead_user_id: string | null }[] };
-  const cTeamById = new Map((cTeams ?? []).map((t) => [t.id, t]));
-  const admin = isAdmin(ctx.role);
-  const canvasItems: GalleryItem[] = cList.map((s) => {
-    const wk = cWkById.get(s.workshop_id);
-    const tm = wk ? cTeamById.get(wk.team_id) : null;
-    return {
-      id: s.id,
-      title: s.title,
-      workshopId: s.workshop_id,
-      workshopTitle: wk?.title ?? "Workshop",
-      team: tm?.name ?? null,
-      blockOrd: s.block_ord,
-      objectCount: s.object_count,
-      createdAt: s.created_at,
-      manageable: admin || tm?.lead_user_id === ctx.userId,
-      data: (s.data ?? []) as unknown as CanvasObj[],
-    };
-  });
-
   // ----- KPI summary row (Workshop App handoff) — all derived from real data -----
   const now = new Date();
   const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
@@ -376,8 +370,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           recommendation={recommendation}
           surveyInsts={surveyInsts}
           scienceByCategory={scienceByCategory}
-          sessions={sessions}
-          canvasItems={canvasItems}
+          templateVMs={templateVMs}
           initialTab={initialTab}
           kpis={kpis}
           teamOptions={teamOptions}

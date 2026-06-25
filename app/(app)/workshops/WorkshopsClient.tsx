@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { SessionsTable, type SessionRow } from "./SessionsTable";
-import { CanvasGallery, type GalleryItem } from "./CanvasGallery";
 import { WorkshopHome } from "./WorkshopHome";
+import { TemplatesClient, type TemplateVM } from "./templates/TemplatesClient";
 
-type WkTab = "workshops" | "sessions" | "canvas";
+type WkTab = "workshops" | "templates";
 
 export type TemplateCard = {
   id: string;
@@ -74,8 +73,7 @@ export function WorkshopsClient({
   recommendation,
   surveyInsts = [],
   scienceByCategory = {},
-  sessions = [],
-  canvasItems = [],
+  templateVMs = [],
   initialTab = "workshops",
   kpis = [],
   teamOptions = [],
@@ -88,8 +86,7 @@ export function WorkshopsClient({
   recommendation: Recommendation | null;
   surveyInsts?: { kind: string; name: string }[];
   scienceByCategory?: Record<string, string>;
-  sessions?: SessionRow[];
-  canvasItems?: GalleryItem[];
+  templateVMs?: TemplateVM[];
   initialTab?: WkTab;
   kpis?: { label: string; value: string; sub: string }[];
   teamOptions?: { id: string; name: string }[];
@@ -101,8 +98,7 @@ export function WorkshopsClient({
     <>
       <div className="wtabs">
         <button className={`wtab${tab === "workshops" ? " on" : ""}`} onClick={() => setTab("workshops")}>Workshops <span className="wtab-n">{workshops.length}</span></button>
-        <button className={`wtab${tab === "sessions" ? " on" : ""}`} onClick={() => setTab("sessions")}>Sessions <span className="wtab-n">{sessions.length}</span></button>
-        <button className={`wtab${tab === "canvas" ? " on" : ""}`} onClick={() => setTab("canvas")}>Canvas <span className="wtab-n">{canvasItems.length}</span></button>
+        <button className={`wtab${tab === "templates" ? " on" : ""}`} onClick={() => setTab("templates")}>Templates <span className="wtab-n">{templateVMs.length}</span></button>
       </div>
 
       {tab === "workshops" ? (
@@ -118,10 +114,8 @@ export function WorkshopsClient({
           teamOptions={teamOptions}
           assessOptions={assessOptions}
         />
-      ) : tab === "sessions" ? (
-        sessions.length ? <SessionsTable rows={sessions} /> : <div className="empty">No sessions yet — start a workshop to run your first.</div>
       ) : (
-        <CanvasGallery items={canvasItems} />
+        <TemplatesClient items={templateVMs} canManage={canManage} />
       )}
     </>
   );
