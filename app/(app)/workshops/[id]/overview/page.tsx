@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
-import { isAdmin, initials, ACTIVITY } from "@/lib/util";
+import { isAdmin, initials } from "@/lib/util";
 import { resolveInstrument } from "@/lib/assessments";
 import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { PHASES, phaseOf } from "../../blocks";
@@ -28,9 +28,6 @@ function fmtDate(iso: string | null) {
   if (!iso) return null;
   const d = new Date(iso);
   return isNaN(d.getTime()) ? null : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-}
-function fmtClock(d: Date) {
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 }
 function fmtWhen(iso: string) {
   const d = new Date(iso);
@@ -240,12 +237,8 @@ export default async function WorkshopOverviewPage({
   const cat = catVis(category);
   const sched = fmtDate(workshop.scheduled_at);
 
-  // Agenda timeline clock — runs from the scheduled time when set.
-  let clock = workshop.scheduled_at ? new Date(workshop.scheduled_at) : null;
-  if (clock && isNaN(clock.getTime())) clock = null;
-
   // Group the agenda into facilitation phases (Open → Explore → Decide → Close),
-  // preserving block order and carrying the running clock through each block.
+  // preserving block order.
   const phaseGroups = PHASES.map((ph) => {
     const items = blockList.filter((b) => ((b.phase as ReturnType<typeof phaseOf> | null) ?? phaseOf(b.activity_type)) === ph.key);
     const mins = items.reduce((a, b) => a + (b.duration ?? 0), 0);
@@ -393,30 +386,15 @@ export default async function WorkshopOverviewPage({
                       <span style={{ marginLeft: "auto", fontSize: 12.5, fontWeight: 600, color: WA.faint, fontVariantNumeric: "tabular-nums" }}>{g.mins} min</span>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {g.items.map((b) => {
-                        const label = ACTIVITY[b.activity_type]?.label ?? b.activity_type;
-                        const startStr = clock ? fmtClock(clock) : null;
-                        if (clock) clock = new Date(clock.getTime() + (b.duration ?? 0) * 60000);
-                        return (
-                          <div key={b.id} style={{ display: "flex", alignItems: "flex-start", gap: 11 }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 8, flexShrink: 0, background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}>
-                              <Icon name={actIcon(b.activity_type)} size={15} color={pv.accent} />
-                            </span>
-                            <div style={{ minWidth: 0, flex: 1 }}>
-                              <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                                <span style={{ fontSize: 13.5, fontWeight: 600, color: WA.ink, minWidth: 0 }}>{b.title}</span>
-                                <span style={{ marginLeft: "auto", fontSize: 12, fontWeight: 600, color: WA.faint, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
-                                  {b.duration ? `${b.duration}m` : ""}{startStr ? ` · ${startStr}` : ""}
-                                </span>
-                              </div>
-                              <div style={{ marginTop: 1, fontSize: 12, color: WA.faint2 }}>
-                                {label}{b.owner_name ? ` · ${b.owner_name}` : ""}
-                              </div>
-                              {b.prompt ? <div style={{ marginTop: 4, fontSize: 12.5, color: WA.muted, lineHeight: 1.5 }}>{b.prompt}</div> : null}
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {g.items.map((b) => (
+                        <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 11px", background: "#faf9f4", border: `1px solid ${WA.hair}`, borderRadius: 9 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 8, flexShrink: 0, background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}>
+                            <Icon name={actIcon(b.activity_type)} size={15} color={pv.accent} />
+                          </span>
+                          <span style={{ fontSize: 13.5, fontWeight: 500, color: WA.ink2, flex: 1, minWidth: 0 }}>{b.title}</span>
+                          <span style={{ fontSize: 12, color: WA.faint2, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{b.duration ? `${b.duration} min` : ""}</span>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 );
