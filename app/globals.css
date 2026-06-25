@@ -258,6 +258,11 @@ button { font-family:inherit; }
 .arun-choice.on .arun-box{border-color:var(--green);background:var(--green);box-shadow:inset 0 0 0 3px var(--surface)}
 .arun-text{width:100%;border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:12px 14px;font-size:14px;color:var(--ink);outline:none;font-family:inherit;resize:vertical;line-height:1.5}
 .arun-text:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(63,125,90,.14)}
+/* rating 1–10 — a row of numbered chips */
+.arun-rating10{display:flex;flex-wrap:wrap;gap:8px}
+.arun-r10{width:42px;height:42px;border-radius:10px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--ink);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;font-variant-numeric:tabular-nums}
+.arun-r10:hover{border-color:var(--green)}
+.arun-r10.on{border-color:var(--green);background:var(--green);color:#fff}
 .a-lopt{display:flex;align-items:center;gap:13px;border:1px solid var(--line-2);border-radius:10px;padding:12px 15px;cursor:pointer;font-size:14px;background:var(--surface);transition:border-color .12s,background .12s}
 .a-lopt:hover{border-color:var(--green);background:var(--canvas)}
 .a-lopt:focus-visible{outline:2px solid var(--green);outline-offset:2px}

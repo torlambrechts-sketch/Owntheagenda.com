@@ -19,7 +19,7 @@ import {
 // Instrument definitions are resolved from the template library server-side and
 // passed in as a kind → instrument map.
 
-type OpenSurvey = { id: string; name: string; kind: string; anonymity?: string };
+type OpenSurvey = { id: string; name: string; kind: string; anonymity?: string; instrument?: SurveyInstrument | null };
 type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
 
@@ -37,7 +37,7 @@ export function SurveyRespond({
     <div style={{ marginBottom: 20 }}>
       <div className="cat-head" style={{ marginTop: 0 }}>Surveys to complete <span className="n">{surveys.length}</span></div>
       {surveys.map((s) => (
-        <SurveyCard key={s.id} survey={s} userId={userId} inst={instruments[s.kind] ?? null} />
+        <SurveyCard key={s.id} survey={s} userId={userId} inst={s.instrument ?? instruments[s.kind] ?? null} />
       ))}
     </div>
   );

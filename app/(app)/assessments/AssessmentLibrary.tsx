@@ -9,7 +9,7 @@ import { toCsv, downloadText, fileSlug } from "@/lib/exporting";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
 export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
-export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean; type?: "likert" | "single" | "multi" | "text"; options?: string[]; required?: boolean };
+export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean; type?: "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number"; options?: string[]; required?: boolean };
 export type CatalogItem = {
   key: string;
   name: string;
