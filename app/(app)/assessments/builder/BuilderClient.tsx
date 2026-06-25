@@ -9,7 +9,7 @@ import { saveTemplate } from "../../library/actions";
 // via saveTemplate; question types/threshold persist as additive fields in the
 // instrument definition (existing readers treat items as Likert by default).
 
-export type QType = "likert" | "yesno" | "single" | "multi" | "text";
+export type QType = "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number";
 type Question = { id: string; text: string; type: QType; options: string[] };
 type Section = { id: string; name: string; questions: Question[] };
 type Doc = { title: string; sections: Section[] };
@@ -20,16 +20,20 @@ export type StarterTemplate = {
   category: string;
   desc: string;
   builtIn: boolean;
-  sections: { name: string; questions: { text: string; type: QType }[] }[];
+  sections: { name: string; questions: { text: string; type: QType; options?: string[] }[] }[];
 };
 
 const TYPE_LABEL: Record<QType, string> = {
   likert: "Likert 1–5",
+  rating10: "Rating 1–10",
   yesno: "Yes / No",
   single: "Single choice",
   multi: "Multiple choice",
   text: "Short text",
+  number: "Number",
 };
+// Scored into section bands (the rest are kept as supporting context).
+const SCORED: QType[] = ["likert", "rating10"];
 
 let _n = 0;
 const uid = (p: string) => `${p}${++_n}`;
@@ -75,10 +79,10 @@ const CATS = ["All", "Wellbeing", "Engagement", "Team", "Competence", "Custom"];
 
 function docFromStarter(t: StarterTemplate): Doc {
   return {
-    title: t.builtIn ? t.title : t.title,
+    title: t.title,
     sections: t.sections.map((s) => ({
       id: uid("s"), name: s.name,
-      questions: s.questions.map((q) => ({ id: uid("q"), text: q.text, type: q.type, options: defaultOptions(q.type) })),
+      questions: s.questions.map((q) => ({ id: uid("q"), text: q.text, type: q.type, options: q.options ?? defaultOptions(q.type) })),
     })),
   };
 }
@@ -100,7 +104,7 @@ function buildDefinition(doc: Doc, threshold: number) {
     const dk = dims[si].key;
     return s.questions.map((q, qi) => ({
       key: `${dk}_${qi + 1}`, dimension: dk, text: q.text.trim() || "Untitled question",
-      type: q.type === "yesno" ? "single" : q.type,
+      type: q.type,
       ...(q.options.length ? { options: q.options } : {}),
       required: true,
     }));
@@ -112,16 +116,22 @@ function QPreview({ q }: { q: Question }) {
   if (q.type === "likert") {
     return <div style={{ display: "flex", gap: 8 }}>{[1, 2, 3, 4, 5].map((n) => <span key={n} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid var(--line-2)", color: "var(--muted)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 600 }}>{n}</span>)}</div>;
   }
+  if (q.type === "rating10") {
+    return <div style={{ display: "flex", alignItems: "center", gap: 10 }}><span style={{ fontSize: 11.5, color: "var(--faint)" }}>1</span><span style={{ width: 180, height: 5, borderRadius: 999, background: "var(--canvas-2)" }} /><span style={{ fontSize: 11.5, color: "var(--faint)" }}>10</span></div>;
+  }
   if (q.type === "yesno") {
     return <div style={{ display: "flex", gap: 8 }}><span className="pill sm open">Yes</span><span className="pill sm reject">No</span></div>;
   }
   if (q.type === "single" || q.type === "multi") {
     return <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{q.options.map((o, i) => <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, color: "var(--muted)", background: "var(--canvas-2)", borderRadius: q.type === "multi" ? 6 : 999, padding: "5px 11px" }}><span style={{ width: 13, height: 13, borderRadius: q.type === "multi" ? 3 : "50%", border: "1.5px solid var(--line-2)" }} />{o}</span>)}</div>;
   }
+  if (q.type === "number") {
+    return <div style={{ width: 90, height: 32, borderRadius: 6, border: "1px dashed var(--line-2)", background: "var(--canvas)", display: "flex", alignItems: "center", padding: "0 11px", fontSize: 12, color: "var(--faint)" }}>0</div>;
+  }
   return <div style={{ height: 32, borderRadius: 6, border: "1px dashed var(--line-2)", background: "var(--canvas)", display: "flex", alignItems: "center", padding: "0 11px", fontSize: 11.5, color: "var(--faint)" }}>Free-text response</div>;
 }
 
-export function BuilderClient({ mine, demo = false }: { mine: StarterTemplate[]; demo?: boolean }) {
+export function BuilderClient({ mine, demo = false, initial = null }: { mine: StarterTemplate[]; demo?: boolean; initial?: { starter: StarterTemplate; editId: string | null } | null }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [view, setView] = useState<"gallery" | "editor">("gallery");
@@ -142,6 +152,11 @@ export function BuilderClient({ mine, demo = false }: { mine: StarterTemplate[];
   useEffect(() => {
     if (demo) { setDoc(docFromStarter(STARTERS[0])); setEditId(null); setView("editor"); setPreviewOpen(true); }
   }, [demo]);
+
+  // Deep-link from the Templates tab (?tpl= edit, ?use= clone, ?new=template).
+  useEffect(() => {
+    if (initial) { setDoc(docFromStarter(initial.starter)); setEditId(initial.editId); setView("editor"); window.scrollTo(0, 0); }
+  }, [initial]);
 
   const all = [...STARTERS, ...mine];
   const cards = cat === "All" ? all : all.filter((t) => (t.builtIn ? t.category : "Custom") === cat || t.category === cat);
