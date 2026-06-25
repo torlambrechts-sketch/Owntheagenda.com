@@ -337,7 +337,7 @@ export default async function WorkshopOverviewPage({
             <>
               {canManage ? <Link href={`/workshops/${workshop.id}`} style={btnSec}><Icon name="SquarePen" size={15} color="#404040" />Edit in builder</Link> : null}
               <Link href={`${here}#prepare`} style={btnSec}><Icon name="ListTodo" size={15} color="#404040" />Preparation</Link>
-              <Link href={`${here}#outcome`} style={btnSec}><Icon name="ChartColumnBig" size={15} color="#404040" />Outcome</Link>
+              <Link href={`/workshops/${workshop.id}/report`} style={btnSec}><Icon name="ChartColumnBig" size={15} color="#404040" />Outcome</Link>
               {canManage ? <Link href={`/run/${workshop.id}`} style={btnPrim}><Icon name="Play" size={15} color="#fff" />Enter run</Link> : null}
             </>
           ) : (
