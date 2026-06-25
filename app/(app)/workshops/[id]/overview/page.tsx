@@ -233,7 +233,7 @@ export default async function WorkshopOverviewPage({
   let clock = workshop.scheduled_at ? new Date(workshop.scheduled_at) : null;
   if (clock && isNaN(clock.getTime())) clock = null;
 
-  // Group the agenda into facilitation phases (Open → Diverge → … → Close),
+  // Group the agenda into facilitation phases (Open → Explore → Decide → Close),
   // preserving block order and carrying the running clock through each block.
   const phaseGroups = PHASES.map((ph) => {
     const items = blockList.filter((b) => ((b.phase as ReturnType<typeof phaseOf> | null) ?? phaseOf(b.activity_type)) === ph.key);

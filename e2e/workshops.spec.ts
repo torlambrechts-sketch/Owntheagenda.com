@@ -44,9 +44,10 @@ test.describe("Workshops design migration", () => {
   test("builder Board view renders the five phase columns + sample blocks", async ({ page }) => {
     await page.goto(`/workshops/${SAMPLE_WORKSHOP}`);
     await expect(page.getByRole("button", { name: "Board" })).toBeVisible();
-    for (const phase of ["Open", "Diverge", "Converge", "Decide", "Close"]) {
+    for (const phase of ["Open", "Explore", "Decide", "Close"]) {
       await expect(page.locator(".wb-col-t", { hasText: new RegExp(`^${phase}$`) })).toBeVisible();
     }
+    await expect(page.locator(".wb-lib-h")).toHaveText("Block library");
     await expect(page.locator(".wb-card", { hasText: "Check-in" })).toBeVisible();
     await expect(page.locator(".wb-card", { hasText: "Dot vote" })).toBeVisible();
   });

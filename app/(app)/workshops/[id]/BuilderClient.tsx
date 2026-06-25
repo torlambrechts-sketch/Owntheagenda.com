@@ -79,21 +79,15 @@ const DYN: [Dyn, string][] = [
   ["role_clarity", "Role clarity"],
   ["decision_rights", "Decision rights"],
 ];
-// Group the runnable activities into the design's facilitation phases (Open →
-// Diverge → Converge → Decide → Close) so the picker reads as a phased library.
-const ACT_PHASES: { label: string; acts: Activity[] }[] = [
-  { label: "Open", acts: ["checkin"] },
-  { label: "Diverge", acts: ["brainstorm", "hmw", "canvas"] },
-  { label: "Converge", acts: ["vote", "feedback"] },
-  { label: "Decide", acts: ["outcome"] },
-  { label: "Close", acts: ["retrospective", "discuss"] },
-];
-const PHASE_COLOR: Record<string, string> = {
-  Open: "var(--role)", Diverge: "#6d28d9", Converge: "#0e7490", Decide: "var(--forest)", Close: "var(--amber)",
-};
+// Group the runnable activities into the shared facilitation phases (Open →
+// Explore → Decide → Close) so the picker + optgroups read as a phased library.
+const ACT_PHASES: { label: string; acts: Activity[] }[] = PALETTE.map((p) => ({ label: p.label, acts: p.acts }));
+const PHASE_COLOR: Record<string, string> = Object.fromEntries(
+  PHASES.map((p) => [p.label, PHASE_VIS[p.key]?.accent ?? "var(--green)"]),
+);
 function phaseOf(a: string): { label: string; color: string } {
-  const p = ACT_PHASES.find((ph) => ph.acts.includes(a as Activity));
-  return p ? { label: p.label, color: PHASE_COLOR[p.label] } : { label: "", color: "var(--green)" };
+  const key = phaseKey(a);
+  return { label: PHASE_LABEL[key], color: PHASE_VIS[key]?.accent ?? "var(--green)" };
 }
 // Short helper text shown under the activity picker per module.
 const ACT_HINT: Partial<Record<Activity, string>> = {
@@ -293,6 +287,8 @@ export function BuilderClient({
   const [fullscreen, setFullscreen] = useState(false);
   // kanban drag state — id of the block being dragged
   const [dragId, setDragId] = useState<string | null>(null);
+  // Activity being dragged in from the left block library (vs an existing card).
+  const [libDrag, setLibDrag] = useState<Activity | null>(null);
   // inline title editing in the builder chrome
   const [titleDraft, setTitleDraft] = useState(workshop.title);
   async function commitTitle() {
@@ -568,6 +564,17 @@ export function BuilderClient({
     if (sameOrder && samePhase) return;
     run(() => setAgendaLayout(workshop.id, layout), "Agenda updated");
   }
+  // A drop on a column/card: a new block from the library, else move an existing one.
+  function onColDrop(targetPhase: PhaseKey, beforeId: string | null) {
+    if (libDrag) {
+      const act = libDrag;
+      setLibDrag(null);
+      setDragId(null);
+      quickAdd(act, targetPhase);
+      return;
+    }
+    dropInto(targetPhase, beforeId);
+  }
   function move(i: number, dir: -1 | 1) {
     const j = i + dir;
     if (j < 0 || j >= blocks.length) return;
@@ -665,7 +672,7 @@ export function BuilderClient({
             ))}
           </div>
           <span className="wb-hint">{VIEW_HINT[bView]}</span>
-          {canManage ? (
+          {canManage && bView !== "board" ? (
             <div className="wb-palette">
               <span className="wb-palette-l">Add block</span>
               {PALETTE.map((g) => (
@@ -756,59 +763,88 @@ export function BuilderClient({
       ) : null}
 
       {bView === "board" ? (
-        <div className="wb-board">
-          {PHASES.map((ph) => {
-            const items = blocks.filter((b) => effectivePhase(b) === ph.key);
-            const mins = items.reduce((s, b) => s + b.duration, 0);
-            const pv = PHASE_VIS[ph.key];
-            return (
-              <div
-                key={ph.key}
-                className={`wb-col${dragId ? " wb-col-drop" : ""}`}
-                onDragOver={canManage ? (e) => { e.preventDefault(); } : undefined}
-                onDrop={canManage ? () => dropInto(ph.key, null) : undefined}
-              >
-                <div className="wb-col-h">
-                  <span className="tpl-phase-dot" style={{ background: pv.accent }} />
-                  <span className="wb-col-t">{ph.label}</span>
-                  <span className="wb-col-m">{items.length}{mins ? ` · ${mins}m` : ""}</span>
-                </div>
-                <div className="wb-col-body">
-                  {items.map((b) => {
-                    const sel = editId === b.id;
-                    return (
-                      <div
-                        key={b.id}
-                        className={`wb-card${sel ? " on" : ""}`}
-                        draggable={canManage}
-                        onDragStart={canManage ? () => setDragId(b.id) : undefined}
-                        onDragEnd={() => setDragId(null)}
-                        onDragOver={canManage ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
-                        onDrop={canManage ? (e) => { e.stopPropagation(); dropInto(ph.key, b.id); } : undefined}
-                        onClick={() => canManage && openEdit(b)}
-                      >
-                        <div className="wb-card-h">
-                          <span className="wb-card-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(b.activityType)} size={12} color={pv.accent} /></span>
-                          <span className="wb-card-t">{b.title || "Untitled"}</span>
-                          {canManage ? (
-                            <button className="wb-card-x" title="Remove" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this step?")) run(() => deleteBlock(workshop.id, b.id), "Step removed"); }}>
-                              <Icon name="X" size={12} color={WA.faint} />
-                            </button>
-                          ) : null}
+        <div className="wb-boardwrap">
+          {canManage ? (
+            <aside className="wb-lib">
+              <div className="wb-lib-h">Block library</div>
+              {PALETTE.flatMap((g) => g.acts.map((a) => {
+                const pv = PHASE_VIS[g.key];
+                return (
+                  <div
+                    key={a}
+                    className="wb-lib-card"
+                    draggable
+                    onDragStart={() => setLibDrag(a)}
+                    onDragEnd={() => setLibDrag(null)}
+                    onClick={() => quickAdd(a)}
+                    title={`Add ${ACTIVITY[a]?.label ?? a}`}
+                  >
+                    <span className="wb-lib-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(a)} size={14} color={pv.accent} /></span>
+                    <span className="wb-lib-body">
+                      <span className="wb-lib-t">{ACTIVITY[a]?.label ?? a}</span>
+                      <span className="wb-lib-m">{g.label} · {DEFAULT_MINUTES[a] ?? 10} min</span>
+                    </span>
+                    <span className="wb-lib-add"><Icon name="Plus" size={13} color={WA.faint} /></span>
+                  </div>
+                );
+              }))}
+            </aside>
+          ) : null}
+          <div className="wb-board">
+            {PHASES.map((ph) => {
+              const items = blocks.filter((b) => effectivePhase(b) === ph.key);
+              const mins = items.reduce((s, b) => s + b.duration, 0);
+              const pv = PHASE_VIS[ph.key];
+              return (
+                <div
+                  key={ph.key}
+                  className={`wb-col${dragId || libDrag ? " wb-col-drop" : ""}`}
+                  onDragOver={canManage ? (e) => { e.preventDefault(); } : undefined}
+                  onDrop={canManage ? () => onColDrop(ph.key, null) : undefined}
+                >
+                  <div className="wb-col-h">
+                    <span className="tpl-phase-dot" style={{ background: pv.accent }} />
+                    <span className="wb-col-t">{ph.label}</span>
+                    <span className="wb-col-m">{items.length}{mins ? ` · ${mins}m` : ""}</span>
+                  </div>
+                  <div className="wb-col-desc">{ph.desc}</div>
+                  <div className="wb-col-body">
+                    {items.map((b) => {
+                      const sel = editId === b.id;
+                      return (
+                        <div
+                          key={b.id}
+                          className={`wb-card${sel ? " on" : ""}`}
+                          draggable={canManage}
+                          onDragStart={canManage ? () => setDragId(b.id) : undefined}
+                          onDragEnd={() => setDragId(null)}
+                          onDragOver={canManage ? (e) => { e.preventDefault(); e.stopPropagation(); } : undefined}
+                          onDrop={canManage ? (e) => { e.stopPropagation(); onColDrop(ph.key, b.id); } : undefined}
+                          onClick={() => canManage && openEdit(b)}
+                        >
+                          <div className="wb-card-h">
+                            <span className="wb-card-ic" style={{ background: pv.tint, border: `1px solid ${pv.border}`, color: pv.accent }}><Icon name={actIcon(b.activityType)} size={12} color={pv.accent} /></span>
+                            <span className="wb-card-t">{b.title || "Untitled"}</span>
+                            {canManage ? (
+                              <button className="wb-card-x" title="Remove" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this step?")) run(() => deleteBlock(workshop.id, b.id), "Step removed"); }}>
+                                <Icon name="X" size={12} color={WA.faint} />
+                              </button>
+                            ) : null}
+                          </div>
+                          <div className="wb-card-m">{ACTIVITY[b.activityType]?.label ?? b.activityType} · {b.duration}m{b.ownerName ? ` · ${b.ownerName}` : ""}</div>
                         </div>
-                        <div className="wb-card-m">{ACTIVITY[b.activityType]?.label ?? b.activityType} · {b.duration}m{b.ownerName ? ` · ${b.ownerName}` : ""}</div>
-                      </div>
-                    );
-                  })}
-                  {canManage ? (
-                    <button className="wb-col-add" onClick={() => quickAdd(defaultActivityFor(ph.key), ph.key)}>
-                      <Icon name="Plus" size={13} color={WA.faint} /> Add block
-                    </button>
-                  ) : null}
+                      );
+                    })}
+                    {canManage ? (
+                      <button className="wb-col-add" onClick={() => quickAdd(defaultActivityFor(ph.key), ph.key)}>
+                        <Icon name="Plus" size={13} color={WA.faint} /> Add block
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       ) : null}
 

@@ -2,17 +2,16 @@ import type { Enums } from "@/types/database.types";
 
 export type Activity = Enums<"activity_type">;
 
-// Facilitation phases from the Workshop App handoff (Open → Diverge → Converge →
+// Facilitation phases from the Workshop App handoff (Open → Explore → Decide →
 // Decide → Close), adapted to the app's own tokens rather than the handoff's
 // hard-coded hex. Each phase reads from a CSS variable so it stays themeable.
-export type PhaseKey = "open" | "diverge" | "converge" | "decide" | "close";
+export type PhaseKey = "open" | "explore" | "decide" | "close";
 
-export const PHASES: { key: PhaseKey; label: string; accent: string }[] = [
-  { key: "open", label: "Open", accent: "var(--role)" },
-  { key: "diverge", label: "Diverge", accent: "var(--green)" },
-  { key: "converge", label: "Converge", accent: "var(--internal-fg, #2b6a8f)" },
-  { key: "decide", label: "Decide", accent: "var(--forest)" },
-  { key: "close", label: "Close", accent: "var(--amber)" },
+export const PHASES: { key: PhaseKey; label: string; accent: string; desc: string }[] = [
+  { key: "open", label: "Open", accent: "var(--role)", desc: "Land everyone & frame the work" },
+  { key: "explore", label: "Explore", accent: "#6d28d9", desc: "Surface the real picture" },
+  { key: "decide", label: "Decide", accent: "var(--forest)", desc: "Converge & commit" },
+  { key: "close", label: "Close", accent: "var(--amber)", desc: "Own the outcome" },
 ];
 
 export const PHASE_LABEL: Record<PhaseKey, string> = PHASES.reduce(
@@ -31,13 +30,13 @@ export const ACTIVITY_PHASE: Record<Activity, PhaseKey> = {
   charter: "open",
   assess: "open",
   survey: "open",
-  manual: "open",
-  brainstorm: "diverge",
-  hmw: "diverge",
-  canvas: "diverge",
-  vote: "converge",
-  feedback: "converge",
-  discuss: "converge",
+  manual: "explore",
+  brainstorm: "explore",
+  hmw: "explore",
+  canvas: "explore",
+  vote: "decide",
+  feedback: "explore",
+  discuss: "explore",
   outcome: "decide",
   retrospective: "close",
 };
@@ -60,7 +59,7 @@ export const DEFAULT_MINUTES: Record<Activity, number> = {
 };
 
 export function phaseOf(type: string): PhaseKey {
-  return ACTIVITY_PHASE[type as Activity] ?? "diverge";
+  return ACTIVITY_PHASE[type as Activity] ?? "explore";
 }
 
 // The palette order: phase → activities in that phase (stable, deduped).

@@ -90,8 +90,7 @@ export function statusVis(status: string): StatusVis {
 // Facilitation-phase visuals (exact handoff CATS hex) for the editor + builder.
 export const PHASE_VIS: Record<string, { accent: string; tint: string; border: string }> = {
   open: { accent: "#1d4ed8", tint: "#eff6ff", border: "#bfdbfe" },
-  diverge: { accent: "#6d28d9", tint: "#f5f3ff", border: "#ddd6fe" },
-  converge: { accent: "#0e7490", tint: "#ecfeff", border: "#a5f3fc" },
+  explore: { accent: "#6d28d9", tint: "#f5f3ff", border: "#ddd6fe" },
   decide: { accent: "#1a3d32", tint: "#e7efe9", border: "#c5d3c8" },
   close: { accent: "#a16207", tint: "#fefce8", border: "#fde68a" },
 };
