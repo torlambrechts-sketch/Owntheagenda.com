@@ -46,3 +46,5 @@ analytics dashboard, wired to real data, plus a real reporting subsystem.
 
 ## Status log
 - _appended per phase._
+
+- **Phase B — Dashboard shell + Overview + By team ✅** New `/insight` page (server) + `InsightDashboard` client: KPI strip, 5-tab band, presentational Filters/actions toolbar, and the Overview + By-team tabs wired to real `workspace_health` / `team_dynamics` / counts, with min-3 masking → "—". By assessment / By workshop / Reports are placeholders. Deviation: `assessment_below_band_rollup` is gone — superseded by `assessment_suite_overview.below_count` (summed; called untyped + try/catch). Verified: tsc+build green; DB check on Lumio AS (active 3 · avg 68.0 · responses 25 · below 7); browser render clean with honest empty states. Old leadership-teams/trends/reports pages untouched; nav swap is Phase E.
