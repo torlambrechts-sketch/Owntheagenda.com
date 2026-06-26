@@ -166,7 +166,7 @@ export async function setSurveyShare(surveyId: string, on: boolean): Promise<{ e
   const supabase = createClient();
   const { data, error } = await supabase.rpc("survey_share_set", { p_survey: surveyId, p_on: on });
   if (error) return { error: error.message };
-  revalidatePath("/insight/leadership-teams");
+  revalidatePath("/insight");
   return { token: (data as string | null) ?? null };
 }
 

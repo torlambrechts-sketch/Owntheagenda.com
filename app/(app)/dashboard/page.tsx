@@ -304,11 +304,11 @@ export default async function DashboardPage() {
                   <div className="dash-card-t">Team health</div>
                   <div className="dash-card-s">Latest pulse · {scored.length} team{scored.length === 1 ? "" : "s"} measured</div>
                 </div>
-                <Link className="dash-card-link" href="/insight/leadership-teams">View all</Link>
+                <Link className="dash-card-link" href="/insight">View all</Link>
               </div>
               {healthBars.map((b) => (
                 <div className="dash-bar" key={b.id}>
-                  <Link className="dash-bar-n" href={`/insight/leadership-teams?team=${b.id}`}>{b.name}</Link>
+                  <Link className="dash-bar-n" href="/insight">{b.name}</Link>
                   <span className="dash-bar-track"><span style={{ width: `${Math.round(b.score)}%`, background: bandColor(b.score) }} /></span>
                   <span className="dash-bar-v" style={{ color: bandColor(b.score) }} data-band={band(b.score)}>{toFive(b.score)}</span>
                 </div>

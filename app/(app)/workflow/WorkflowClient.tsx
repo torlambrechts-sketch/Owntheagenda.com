@@ -75,11 +75,11 @@ type Named = { id: string; name: string };
 
 const STEP_LINK: Record<string, { href: string; label: string }> = {
   assessment: { href: "/assessments", label: "Open assessments" },
-  launch: { href: "/insight/leadership-teams", label: "Track responses" },
-  interpret: { href: "/insight/leadership-teams", label: "View results" },
+  launch: { href: "/insight", label: "Track responses" },
+  interpret: { href: "/insight", label: "View results" },
   workshop: { href: "/workshops", label: "Open workshops" },
   commit: { href: "/actions", label: "Open actions" },
-  repulse: { href: "/insight/leadership-teams", label: "Re-pulse" },
+  repulse: { href: "/insight", label: "Re-pulse" },
 };
 
 function plusDays(n: number) {
