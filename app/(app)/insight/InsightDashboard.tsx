@@ -9,8 +9,22 @@
 // the real 0-100 scale (not the design's illustrative 1-5), so the band cutoffs
 // and target line are expressed in 0-100 terms.
 
-import { useState, useTransition } from "react";
-import { assessmentDetail, type AssessmentDetailVM } from "./actions";
+import { useState, useTransition, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  assessmentDetail,
+  createReport,
+  setReportStatus,
+  deleteReport,
+  sendReportNow,
+  importResponses,
+  type AssessmentDetailVM,
+  type ReportsData,
+  type ReportScheduleVM,
+  type ReportRunVM,
+  type ReportFormat,
+  type ReportFrequency,
+} from "./actions";
 
 /* ===================== view-model types (from the server) ===================== */
 export type KpiVM = {
@@ -103,6 +117,7 @@ export type DashboardProps = {
   defaultDetail: AssessmentDetailVM | null;
   workshopOutcomes: WorkshopOutcomeRow[];
   workshopKpis: WorkshopKpis;
+  reports: ReportsData;
 };
 
 /* ===================== colour helpers ===================== */
@@ -406,16 +421,6 @@ function Toolbar() {
 }
 
 /* ===================== panels ===================== */
-function Placeholder({ note }: { note: string }) {
-  return (
-    <Card title="Coming next">
-      <div style={{ fontSize: 13, color: "#585850", lineHeight: 1.6 }}>
-        Wired in the next pass — {note}
-      </div>
-    </Card>
-  );
-}
-
 function OverviewPanel({
   trend,
   participationByTeam,
@@ -712,12 +717,445 @@ function fmtWhen(iso: string | null) {
   return d.toLocaleDateString("en-US", { day: "numeric", month: "short" }) + " · " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
+/* ===================== Reports (Phase D) ===================== */
+
+// Trigger a client-side file download from in-memory content.
+function downloadBlob(content: string, filename: string, mime: string) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+function csvCell(v: string | number | null): string {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+const EXPORT_HEAD = ["Assessment", "Type", "Status", "Responses", "Invited", "Score", "Flagged", "Date"];
+function exportRow(r: AssessmentRow): (string | number | null)[] {
+  return [r.name, r.type, r.statusLabel, r.respondents, r.invited ?? "", r.score == null ? "" : Math.round(r.score), r.flagged ? "yes" : "no", r.date ?? ""];
+}
+function assessmentsCsv(rows: AssessmentRow[]): string {
+  return [EXPORT_HEAD.map(csvCell).join(","), ...rows.map((r) => exportRow(r).map(csvCell).join(","))].join("\r\n");
+}
+// Best-effort Excel: an HTML-table workbook Excel opens natively (.xls).
+function assessmentsXls(rows: AssessmentRow[]): string {
+  const esc = (v: string | number | null) => String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const th = EXPORT_HEAD.map((h) => `<th>${esc(h)}</th>`).join("");
+  const trs = rows.map((r) => `<tr>${exportRow(r).map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`).join("");
+  return `<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head><body><table border="1"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table></body></html>`;
+}
+
+// Minimal RFC-4180-ish CSV parser for the response import (handles quotes).
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let cur: string[] = [], field = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ",") { cur.push(field); field = ""; }
+    else if (c === "\n") { cur.push(field); rows.push(cur); cur = []; field = ""; }
+    else if (c !== "\r") field += c;
+  }
+  if (field.length || cur.length) { cur.push(field); rows.push(cur); }
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+type ParsedImport = { rows: { scores: Record<string, number>; hash?: string }[]; columns: string[] };
+function parseResponseCsv(text: string): ParsedImport {
+  const matrix = parseCsv(text);
+  if (matrix.length < 2) return { rows: [], columns: [] };
+  const header = matrix[0].map((h) => h.trim());
+  const hashIdx = header.findIndex((h) => /^(hash|id|respondent|respondent_hash)$/i.test(h));
+  const itemCols = header.map((h, i) => ({ h, i })).filter((x) => x.i !== hashIdx && x.h !== "");
+  const rows = matrix.slice(1).map((r) => {
+    const scores: Record<string, number> = {};
+    for (const { h, i } of itemCols) {
+      const raw = (r[i] ?? "").trim();
+      const v = Number(raw);
+      if (raw !== "" && !Number.isNaN(v)) scores[h] = v;
+    }
+    const hash = hashIdx >= 0 ? (r[hashIdx] ?? "").trim() : "";
+    return { scores, hash: hash || undefined };
+  }).filter((x) => Object.keys(x.scores).length > 0);
+  return { rows, columns: itemCols.map((c) => c.h) };
+}
+
+// Right-hand slide-over (matches the design's side-window).
+function SideWindow({ open, title, sub, onClose, footer, children }: {
+  open: boolean; title: string; sub?: string; onClose: () => void; footer?: React.ReactNode; children: React.ReactNode;
+}) {
+  if (!open) return null;
+  return (
+    <>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(20,24,20,.42)", zIndex: 80 }} />
+      <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "min(460px,94vw)", background: "#f7f5ee", borderLeft: "1px solid #e4e1d5", boxShadow: "-18px 0 50px rgba(20,24,20,.22)", zIndex: 81, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "18px 22px", borderBottom: "1px solid #e4e1d5", background: "#fff" }}>
+          <div>
+            <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 19, fontWeight: 600, color: "#2a2a26" }}>{title}</div>
+            {sub && <div style={{ fontSize: 12, color: "#8a8a7e", marginTop: 2 }}>{sub}</div>}
+          </div>
+          <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "transparent", fontSize: 20, color: "#8a8a7e", cursor: "pointer", lineHeight: 1 }}>✕</button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px" }}>{children}</div>
+        {footer && <div style={{ padding: "14px 22px", borderTop: "1px solid #e4e1d5", background: "#fff" }}>{footer}</div>}
+      </div>
+    </>
+  );
+}
+
+const FieldLabel = ({ children }: { children: React.ReactNode }) => (
+  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e", margin: "16px 0 7px" }}>{children}</div>
+);
+const inputStyle: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box", background: "#fff", border: "1px solid #d8d4c6", borderRadius: 7,
+  padding: "10px 12px", fontSize: 13.5, fontFamily: "inherit", color: "#2a2a26", outline: "none",
+};
+const primaryBtn: React.CSSProperties = {
+  width: "100%", background: "#2f4035", color: "#fff", border: "none", borderRadius: 7, padding: "12px",
+  fontSize: 12.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit",
+};
+
+const FORMAT_OPTS: { id: ReportFormat; label: string }[] = [
+  { id: "pdf", label: "PDF" }, { id: "excel", label: "Excel" }, { id: "csv", label: "CSV" },
+];
+const FREQ_OPTS: { id: ReportFrequency; label: string }[] = [
+  { id: "once", label: "Once (now)" }, { id: "weekly", label: "Weekly" }, { id: "monthly", label: "Monthly" },
+];
+const INCLUDE_OPTS: { key: string; label: string }[] = [
+  { key: "overview", label: "Overview & KPIs" },
+  { key: "assessments", label: "Assessment scores" },
+  { key: "teams", label: "By-team breakdown" },
+  { key: "workshops", label: "Workshop outcomes" },
+];
+
+const RUN_TINT: Record<string, [string, string]> = {
+  sent: ["#dcebdf", "#3f7d5a"], queued: ["#dde7f0", "#42729e"], failed: ["#f4dedb", "#b8584a"],
+};
+function fmtRun(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function ReportsPanel({
+  reports,
+  assessmentRows,
+  exportData,
+  onToast,
+}: {
+  reports: ReportsData;
+  assessmentRows: AssessmentRow[];
+  exportData: AssessmentRow[];
+  onToast: (m: string) => void;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [newOpen, setNewOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
+  // New-report form
+  const [name, setName] = useState("");
+  const [recipInput, setRecipInput] = useState("");
+  const [recipients, setRecipients] = useState<string[]>([]);
+  const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [frequency, setFrequency] = useState<ReportFrequency>("weekly");
+  const [include, setInclude] = useState<Record<string, boolean>>({ overview: true, assessments: true, teams: false, workshops: false });
+  const [message, setMessage] = useState("");
+
+  // Import form
+  const surveys = assessmentRows.filter((r) => r.kind === "survey");
+  const [importSurvey, setImportSurvey] = useState<string>(surveys[0]?.id ?? "");
+  const [parsed, setParsed] = useState<ParsedImport | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const canManage = reports.canManage;
+
+  function addRecipient() {
+    const v = recipInput.trim();
+    if (!v) return;
+    if (!recipients.includes(v)) setRecipients((rs) => [...rs, v]);
+    setRecipInput("");
+  }
+  function resetNew() {
+    setName(""); setRecipInput(""); setRecipients([]); setFormat("pdf"); setFrequency("weekly");
+    setInclude({ overview: true, assessments: true, teams: false, workshops: false }); setMessage("");
+  }
+  function submitNew() {
+    startTransition(async () => {
+      const r = await createReport({ name, format, frequency, recipients, include, message });
+      if (r.error) { onToast(r.error); return; }
+      onToast(frequency === "once" ? "Report queued for delivery" : "Report scheduled");
+      setNewOpen(false); resetNew(); router.refresh();
+    });
+  }
+  function toggleStatus(s: ReportScheduleVM) {
+    const next = s.status === "active" ? "paused" : "active";
+    startTransition(async () => {
+      const r = await setReportStatus(s.id, next);
+      if (r.error) { onToast(r.error); return; }
+      onToast(next === "active" ? "Report resumed" : "Report paused"); router.refresh();
+    });
+  }
+  function remove(s: ReportScheduleVM) {
+    startTransition(async () => {
+      const r = await deleteReport(s.id);
+      if (r.error) { onToast(r.error); return; }
+      onToast("Report deleted"); router.refresh();
+    });
+  }
+  function sendNow(s: ReportScheduleVM) {
+    startTransition(async () => {
+      const r = await sendReportNow(s.id);
+      if (r.error) { onToast(r.error); return; }
+      onToast("Delivery queued — see Recent activity"); router.refresh();
+    });
+  }
+  function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setFileName(f.name);
+    const reader = new FileReader();
+    reader.onload = () => setParsed(parseResponseCsv(String(reader.result ?? "")));
+    reader.readAsText(f);
+  }
+  function submitImport() {
+    if (!parsed || parsed.rows.length === 0) { onToast("No valid rows to import"); return; }
+    startTransition(async () => {
+      const r = await importResponses(importSurvey, parsed.rows);
+      if (r.error) { onToast(r.error); return; }
+      onToast(`Imported ${r.imported} response${r.imported === 1 ? "" : "s"}`);
+      setImportOpen(false); setParsed(null); setFileName(""); if (fileRef.current) fileRef.current.value = ""; router.refresh();
+    });
+  }
+
+  // Quick exports (real, client-side).
+  function exportCsv() { downloadBlob(assessmentsCsv(exportData), "insights-assessments.csv", "text/csv;charset=utf-8"); onToast("CSV exported"); }
+  function exportXls() { downloadBlob(assessmentsXls(exportData), "insights-assessments.xls", "application/vnd.ms-excel"); onToast("Excel exported"); }
+  function exportPdf() { onToast("Opening print dialog…"); setTimeout(() => window.print(), 120); }
+
+  const fmtMap: Record<string, string> = { pdf: "PDF", excel: "Excel", csv: "CSV" };
+  const freqMap: Record<string, string> = { once: "One-off", weekly: "Weekly", monthly: "Monthly" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Scheduled reports */}
+      <Card
+        title="Scheduled reports"
+        sub={`${reports.schedules.length} configured`}
+        right={canManage ? (
+          <button onClick={() => setNewOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#2f4035", color: "#fff", border: "none", borderRadius: 6, padding: "9px 14px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}>+ New report</button>
+        ) : undefined}
+      >
+        {reports.schedules.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#a6a698" }}>No reports scheduled yet{canManage ? " — create one to email Insights on a cadence." : "."}</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) 80px 90px minmax(0,1.2fr) 110px 90px 96px", padding: "0 0 10px", borderBottom: "1px solid #e4e1d5", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>
+              <div>Report</div><div>Format</div><div>Cadence</div><div>Recipients</div><div>Next run</div><div>Status</div><div></div>
+            </div>
+            {reports.schedules.map((s, i) => (
+              <div key={s.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1.5fr) 80px 90px minmax(0,1.2fr) 110px 90px 96px", alignItems: "center", padding: "13px 0", borderBottom: i < reports.schedules.length - 1 ? "1px solid #ece9df" : "none" }}>
+                <div style={{ minWidth: 0, paddingRight: 12 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: "#2a2a26", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div>
+                  {s.message && <div style={{ fontSize: 11, color: "#a6a698", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.message}</div>}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#585850" }}>{fmtMap[s.format] ?? s.format}</div>
+                <div style={{ fontSize: 12, color: "#585850" }}>{freqMap[s.frequency] ?? s.frequency}</div>
+                <div style={{ fontSize: 12, color: "#585850", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", paddingRight: 10 }}>{s.recipients.length ? s.recipients.join(", ") : "—"}</div>
+                <div style={{ fontSize: 12, color: "#585850", fontVariantNumeric: "tabular-nums" }}>{s.frequency === "once" ? "—" : fmtRun(s.nextRunAt)}</div>
+                <div><Pill variant={s.status === "active" ? "open" : "draft"} dot>{s.status === "active" ? "Active" : "Paused"}</Pill></div>
+                <div style={{ textAlign: "right", display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                  {canManage ? <RowMenu schedule={s} pending={pending} onSend={() => sendNow(s)} onToggle={() => toggleStatus(s)} onDelete={() => remove(s)} /> : null}
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </Card>
+
+      {/* Quick export + Import */}
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+        <Card title="Quick export" sub="Download the current assessment data">
+          <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            {[{ l: "Export as PDF", fn: exportPdf, note: "Print / save the dashboard" }, { l: "Export as Excel", fn: exportXls, note: ".xls workbook" }, { l: "Export as CSV", fn: exportCsv, note: "Raw rows" }].map((b) => (
+              <button key={b.l} onClick={b.fn} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", textAlign: "left", background: "#fff", border: "1px solid #d8d4c6", borderRadius: 8, padding: "12px 14px", cursor: "pointer", fontFamily: "inherit" }}>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: "#2a2a26" }}>{b.l}</span>
+                <span style={{ fontSize: 11.5, color: "#a6a698" }}>{b.note}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+        <Card title="Import responses" sub="Bring external survey responses in (CSV)">
+          <div style={{ fontSize: 13, color: "#585850", lineHeight: 1.6, marginBottom: 12 }}>
+            Upload a CSV of completed responses to merge into an assessment. Responses import anonymously — the min-respondent floor still applies on read.
+          </div>
+          <button onClick={() => setImportOpen(true)} disabled={!canManage || surveys.length === 0} style={{ ...primaryBtn, background: !canManage || surveys.length === 0 ? "#c2c0b3" : "#2f4035", cursor: !canManage || surveys.length === 0 ? "default" : "pointer" }}>
+            {surveys.length === 0 ? "No surveys to import into" : "Import responses"}
+          </button>
+        </Card>
+      </div>
+
+      {/* Recent activity */}
+      <Card title="Recent activity" sub="Last 20 deliveries">
+        {reports.runs.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#a6a698" }}>No report deliveries yet.</div>
+        ) : (
+          reports.runs.map((r, i) => {
+            const [bg, fg] = RUN_TINT[r.status] ?? RUN_TINT.queued;
+            return (
+              <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < reports.runs.length - 1 ? "1px solid #ece9df" : "none" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", padding: "3px 9px", borderRadius: 999, background: bg, color: fg, flexShrink: 0 }}>{r.status}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#2a2a26" }}>{r.scheduleName}</div>
+                  {r.error && <div style={{ fontSize: 11.5, color: "#b8584a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.error}</div>}
+                </div>
+                <div style={{ fontSize: 12, color: "#8a8a7e", textAlign: "right", flexShrink: 0 }}>{r.recipientCount} recipient{r.recipientCount === 1 ? "" : "s"} · {fmtRun(r.sentAt ?? r.createdAt)}</div>
+              </div>
+            );
+          })
+        )}
+      </Card>
+
+      {/* New report side-window */}
+      <SideWindow
+        open={newOpen}
+        title="New report"
+        sub="Email an Insights summary on a cadence"
+        onClose={() => setNewOpen(false)}
+        footer={<button onClick={submitNew} disabled={pending} style={{ ...primaryBtn, opacity: pending ? 0.7 : 1 }}>{frequency === "once" ? "Create & send now" : "Schedule report"}</button>}
+      >
+        <FieldLabel>Report name</FieldLabel>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Monthly leadership digest" style={inputStyle} />
+
+        <FieldLabel>Recipients</FieldLabel>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={recipInput} onChange={(e) => setRecipInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addRecipient(); } }} placeholder="name@company.com" style={{ ...inputStyle, flex: 1 }} />
+          <button onClick={addRecipient} style={{ background: "#fff", border: "1px solid #d8d4c6", borderRadius: 7, padding: "0 14px", fontSize: 13, fontWeight: 600, color: "#2a4032", cursor: "pointer", fontFamily: "inherit" }}>Add</button>
+        </div>
+        {recipients.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 }}>
+            {recipients.map((r) => (
+              <span key={r} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#eef2ec", border: "1px solid #d4ddd2", borderRadius: 999, padding: "4px 6px 4px 11px", fontSize: 12.5, color: "#2a4032" }}>
+                {r}
+                <button onClick={() => setRecipients((rs) => rs.filter((x) => x !== r))} aria-label={`Remove ${r}`} style={{ border: "none", background: "transparent", color: "#6a7a6a", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>✕</button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <FieldLabel>Format</FieldLabel>
+        <div style={{ display: "flex", gap: 8 }}>
+          {FORMAT_OPTS.map((f) => (
+            <button key={f.id} onClick={() => setFormat(f.id)} style={{ flex: 1, border: `1px solid ${format === f.id ? "#2f4035" : "#d8d4c6"}`, background: format === f.id ? "#eef2ec" : "#fff", color: "#2a2a26", borderRadius: 7, padding: "9px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{f.label}</button>
+          ))}
+        </div>
+
+        <FieldLabel>Cadence</FieldLabel>
+        <div style={{ display: "flex", gap: 8 }}>
+          {FREQ_OPTS.map((f) => (
+            <button key={f.id} onClick={() => setFrequency(f.id)} style={{ flex: 1, border: `1px solid ${frequency === f.id ? "#2f4035" : "#d8d4c6"}`, background: frequency === f.id ? "#eef2ec" : "#fff", color: "#2a2a26", borderRadius: 7, padding: "9px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{f.label}</button>
+          ))}
+        </div>
+
+        <FieldLabel>Include</FieldLabel>
+        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+          {INCLUDE_OPTS.map((o) => (
+            <label key={o.key} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13.5, color: "#2a2a26", cursor: "pointer" }}>
+              <input type="checkbox" checked={!!include[o.key]} onChange={(e) => setInclude((m) => ({ ...m, [o.key]: e.target.checked }))} style={{ width: 16, height: 16, accentColor: "#2f4035" }} />
+              {o.label}
+            </label>
+          ))}
+        </div>
+
+        <FieldLabel>Message (optional)</FieldLabel>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="A short note included at the top of the email…" style={{ ...inputStyle, resize: "vertical" }} />
+
+        <div style={{ marginTop: 14, fontSize: 11.5, color: "#a6a698", lineHeight: 1.6 }}>
+          Delivery uses your workspace’s email sender. If email isn’t configured yet, the run is logged with the reason in Recent activity.
+        </div>
+      </SideWindow>
+
+      {/* Import responses side-window */}
+      <SideWindow
+        open={importOpen}
+        title="Import responses"
+        sub="Anonymous CSV merge into an assessment"
+        onClose={() => setImportOpen(false)}
+        footer={<button onClick={submitImport} disabled={pending || !parsed || parsed.rows.length === 0} style={{ ...primaryBtn, opacity: pending || !parsed || parsed.rows.length === 0 ? 0.6 : 1, cursor: !parsed || parsed.rows.length === 0 ? "default" : "pointer" }}>{parsed && parsed.rows.length ? `Import ${parsed.rows.length} response${parsed.rows.length === 1 ? "" : "s"}` : "Import responses"}</button>}
+      >
+        <FieldLabel>Target assessment</FieldLabel>
+        <select value={importSurvey} onChange={(e) => setImportSurvey(e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+          {surveys.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+        </select>
+
+        <FieldLabel>CSV file</FieldLabel>
+        <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onFile} style={{ ...inputStyle, padding: "9px 12px", cursor: "pointer" }} />
+        <div style={{ marginTop: 9, fontSize: 11.5, color: "#a6a698", lineHeight: 1.6 }}>
+          Header row = item keys (one column per question). Numeric cells only; an optional <code>hash</code> column dedupes re-imports.
+        </div>
+
+        {parsed && (
+          <div style={{ marginTop: 16, background: "#fff", border: "1px solid #e4e1d5", borderRadius: 8, padding: "14px 16px" }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#2a2a26" }}>{fileName}</div>
+            <div style={{ fontSize: 12.5, color: parsed.rows.length ? "#3f7d5a" : "#b8584a", marginTop: 4 }}>
+              {parsed.rows.length} valid response{parsed.rows.length === 1 ? "" : "s"} · {parsed.columns.length} item column{parsed.columns.length === 1 ? "" : "s"}
+            </div>
+            {parsed.columns.length > 0 && (
+              <div style={{ fontSize: 11.5, color: "#8a8a7e", marginTop: 6, lineHeight: 1.5 }}>{parsed.columns.slice(0, 12).join(", ")}{parsed.columns.length > 12 ? "…" : ""}</div>
+            )}
+          </div>
+        )}
+      </SideWindow>
+    </div>
+  );
+}
+
+// Per-row actions menu in the scheduled-reports table.
+function RowMenu({ schedule, pending, onSend, onToggle, onDelete }: {
+  schedule: ReportScheduleVM; pending: boolean; onSend: () => void; onToggle: () => void; onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const items = [
+    { label: "Send now", fn: onSend },
+    { label: schedule.status === "active" ? "Pause" : "Resume", fn: onToggle },
+    { label: "Delete", fn: onDelete, danger: true },
+  ];
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} aria-label="Report actions" disabled={pending} style={{ width: 32, height: 32, borderRadius: 7, border: "1px solid #d8d4c6", background: "#fff", color: "#585850", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>⋯</button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 59 }} />
+          <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, width: 150, background: "#fff", border: "1px solid #e4e1d5", borderRadius: 9, boxShadow: "0 12px 30px rgba(42,42,38,.16)", padding: 5, zIndex: 60 }}>
+            {items.map((it) => (
+              <button key={it.label} onClick={() => { setOpen(false); it.fn(); }} style={{ display: "block", width: "100%", textAlign: "left", border: "none", background: "transparent", borderRadius: 6, padding: "8px 10px", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", color: it.danger ? "#b8584a" : "#404040" }}>{it.label}</button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 /* ===================== root ===================== */
 export function InsightDashboard(props: DashboardProps) {
   const [tab, setTab] = useState<TabId>("overview");
   const [selected, setSelected] = useState<string | null>(props.defaultAssessmentId);
   const [detail, setDetail] = useState<AssessmentDetailVM | null>(props.defaultDetail);
   const [pending, startTransition] = useTransition();
+  const [toast, setToast] = useState<string | null>(null);
+  function flash(m: string) {
+    setToast(m);
+    setTimeout(() => setToast(null), 2600);
+  }
 
   // Select an assessment and lazily load its detail via the server action. The
   // default one is pre-loaded server-side, so this only fires on an actual
@@ -754,7 +1192,14 @@ export function InsightDashboard(props: DashboardProps) {
         <AssessmentPanel rows={props.assessmentRows} selected={selected} detail={detail} loading={pending} onSelect={selectAssessment} />
       )}
       {tab === "workshop" && <WorkshopPanel rows={props.workshopOutcomes} kpis={props.workshopKpis} />}
-      {tab === "reports" && <Placeholder note="scheduled reports and one-off exports (PDF / Excel / CSV)." />}
+      {tab === "reports" && (
+        <ReportsPanel reports={props.reports} assessmentRows={props.assessmentRows} exportData={props.assessmentRows} onToast={flash} />
+      )}
+
+      <div className={`toast${toast ? " show" : ""}`}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
+        <span>{toast}</span>
+      </div>
     </div>
   );
 }

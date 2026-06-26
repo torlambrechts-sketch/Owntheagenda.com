@@ -133,9 +133,8 @@ const ICONS = {
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
+  { href: "/insight", label: "Insights", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/leadership-teams", label: "Leadership Teams", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops" },
@@ -207,6 +206,9 @@ export function Shell({
   const navItemActive = (href: string) => {
     if (href.includes("?")) return false;
     if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take"));
+    // "Insights" (the dashboard) owns exactly /insight; the sub-pages
+    // (Leadership Teams) light up their own item.
+    if (href === "/insight") return path === "/insight";
     // "Workshops" (the section landing) owns the home, templates, builder and a
     // specific workshop (/workshops/<id>), but NOT the Whiteboards or Run
     // sibling nav items.
@@ -222,8 +224,9 @@ export function Shell({
   // keeps the sub-links). Non-admins land on Teams — the first tab they can see.
   const orgHref = admin ? "/organization" : "/teams";
   const orgActive = ["/organization", "/teams", "/members", "/integrations"].some((h) => active(h));
-  // Insight collapses to one rail icon; the text menu keeps the three sub-pages.
-  const insightHref = "/insight/leadership-teams";
+  // Insight collapses to one rail icon → the Insights dashboard; the text menu
+  // keeps Insights + Leadership Teams.
+  const insightHref = "/insight";
   const insightActive = active("/insight");
   // Assessments collapses to one rail icon; the text menu keeps its sub-pages.
   const assessHref = "/assessments";

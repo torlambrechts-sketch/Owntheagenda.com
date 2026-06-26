@@ -1,6 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireSession } from "@/lib/workspace";
+import { isAdmin } from "@/lib/util";
 import { resolveInstrument } from "@/lib/assessments";
 import { dimensionMeans, strengthItemKeys, climateStrength, instrumentFromRow } from "@/lib/survey";
 
@@ -179,4 +182,263 @@ export async function assessmentDetail(surveyId: string): Promise<{ error?: stri
       note,
     },
   };
+}
+
+/* ===================== Reports subsystem (Phase D) =====================
+ *
+ * Durable scheduled / one-off reports backed by report_schedule + report_run.
+ * Admin-gated (RLS enforces it too; we guard here for clean errors). Delivery is
+ * the send-reports edge function (Resend), kicked daily by pg_cron and on demand
+ * by request_report_dispatch. Sends stay inert until RESEND_API_KEY + a verified
+ * sender are set as Supabase secrets — runs then log as failed with the reason.
+ */
+
+export type ReportFormat = "pdf" | "excel" | "csv";
+export type ReportFrequency = "once" | "weekly" | "monthly";
+
+export type ReportScheduleVM = {
+  id: string;
+  name: string;
+  format: string;
+  frequency: string;
+  recipients: string[];
+  include: Record<string, boolean>;
+  message: string | null;
+  status: string; // active | paused
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  createdAt: string;
+};
+
+export type ReportRunVM = {
+  id: string;
+  scheduleName: string;
+  format: string;
+  recipientCount: number;
+  status: string; // queued | sent | failed
+  error: string | null;
+  sentAt: string | null;
+  createdAt: string;
+};
+
+export type ReportsData = { schedules: ReportScheduleVM[]; runs: ReportRunVM[]; canManage: boolean };
+
+type ScheduleRow = {
+  id: string; name: string; format: string; frequency: string; recipients: string[] | null;
+  include: unknown; message: string | null; status: string;
+  next_run_at: string | null; last_run_at: string | null; created_at: string;
+};
+type RunRow = {
+  id: string; schedule_id: string | null; format: string; recipients: string[] | null;
+  status: string; error: string | null; sent_at: string | null; created_at: string;
+};
+
+function toIncludeMap(v: unknown): Record<string, boolean> {
+  if (v && typeof v === "object") {
+    const out: Record<string, boolean> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) out[k] = !!val;
+    return out;
+  }
+  return {};
+}
+
+// Next run for a recurring cadence (matches private.report_next_run). One-off
+// reports carry no next_run_at — they're enqueued immediately on create.
+function computeNextRun(freq: ReportFrequency): string | null {
+  const now = new Date();
+  if (freq === "weekly") return new Date(now.getTime() + 7 * 86_400_000).toISOString();
+  if (freq === "monthly") { const d = new Date(now); d.setMonth(d.getMonth() + 1); return d.toISOString(); }
+  return null;
+}
+
+export async function listReports(): Promise<ReportsData> {
+  const ctx = await requireSession();
+  const supabase = createClient();
+  const [{ data: schedRows }, { data: runRows }] = await Promise.all([
+    supabase
+      .from("report_schedule")
+      .select("id, name, format, frequency, recipients, include, message, status, next_run_at, last_run_at, created_at")
+      .eq("workspace_id", ctx.workspace.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("report_run")
+      .select("id, schedule_id, format, recipients, status, error, sent_at, created_at")
+      .eq("workspace_id", ctx.workspace.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
+  ]);
+
+  const schedules: ReportScheduleVM[] = ((schedRows ?? []) as ScheduleRow[]).map((s) => ({
+    id: s.id,
+    name: s.name,
+    format: s.format,
+    frequency: s.frequency,
+    recipients: s.recipients ?? [],
+    include: toIncludeMap(s.include),
+    message: s.message,
+    status: s.status,
+    nextRunAt: s.next_run_at,
+    lastRunAt: s.last_run_at,
+    createdAt: s.created_at,
+  }));
+  const nameById = new Map(schedules.map((s) => [s.id, s.name]));
+  const runs: ReportRunVM[] = ((runRows ?? []) as RunRow[]).map((r) => ({
+    id: r.id,
+    scheduleName: (r.schedule_id && nameById.get(r.schedule_id)) || "One-off report",
+    format: r.format,
+    recipientCount: (r.recipients ?? []).length,
+    status: r.status,
+    error: r.error,
+    sentAt: r.sent_at,
+    createdAt: r.created_at,
+  }));
+
+  return { schedules, runs, canManage: isAdmin(ctx.role) };
+}
+
+export type CreateReportInput = {
+  name: string;
+  format: ReportFormat;
+  frequency: ReportFrequency;
+  recipients: string[];
+  include: Record<string, boolean>;
+  message: string;
+};
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export async function createReport(input: CreateReportInput): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await requireSession();
+  if (!isAdmin(ctx.role)) return { error: "Only admins can schedule reports." };
+
+  const name = input.name.trim();
+  if (!name) return { error: "Give the report a name." };
+  const recipients = Array.from(new Set(input.recipients.map((r) => r.trim()).filter(Boolean)));
+  if (recipients.length === 0) return { error: "Add at least one recipient." };
+  const bad = recipients.find((r) => !EMAIL_RE.test(r));
+  if (bad) return { error: `“${bad}” isn’t a valid email.` };
+  if (!["pdf", "excel", "csv"].includes(input.format)) return { error: "Unknown format." };
+  if (!["once", "weekly", "monthly"].includes(input.frequency)) return { error: "Unknown frequency." };
+
+  const supabase = createClient();
+  const { data: ins, error } = await supabase
+    .from("report_schedule")
+    .insert({
+      workspace_id: ctx.workspace.id,
+      name,
+      format: input.format,
+      frequency: input.frequency,
+      recipients,
+      include: input.include,
+      message: input.message.trim() || null,
+      status: "active",
+      next_run_at: computeNextRun(input.frequency),
+      created_by: ctx.userId,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+
+  // A one-off report fires straight away: queue a run + kick the dispatcher.
+  if (input.frequency === "once" && ins?.id) {
+    await enqueueAndDispatch(ctx.workspace.id, ins.id, input.format, recipients);
+  }
+
+  revalidatePath("/insight");
+  return { ok: true };
+}
+
+export async function setReportStatus(id: string, status: "active" | "paused"): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await requireSession();
+  if (!isAdmin(ctx.role)) return { error: "Only admins can change reports." };
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("report_schedule")
+    .update({ status })
+    .eq("id", id)
+    .eq("workspace_id", ctx.workspace.id);
+  if (error) return { error: error.message };
+  revalidatePath("/insight");
+  return { ok: true };
+}
+
+export async function deleteReport(id: string): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await requireSession();
+  if (!isAdmin(ctx.role)) return { error: "Only admins can delete reports." };
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("report_schedule")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", ctx.workspace.id);
+  if (error) return { error: error.message };
+  revalidatePath("/insight");
+  return { ok: true };
+}
+
+// Send an existing schedule now: queue a run + dispatch. Idempotent enough —
+// each press logs a fresh run.
+export async function sendReportNow(id: string): Promise<{ error?: string; ok?: boolean }> {
+  const ctx = await requireSession();
+  if (!isAdmin(ctx.role)) return { error: "Only admins can send reports." };
+  const supabase = createClient();
+  const { data: sched } = await supabase
+    .from("report_schedule")
+    .select("id, format, recipients")
+    .eq("id", id)
+    .eq("workspace_id", ctx.workspace.id)
+    .maybeSingle();
+  if (!sched) return { error: "Report not found." };
+  const r = sched as { id: string; format: string; recipients: string[] | null };
+  await enqueueAndDispatch(ctx.workspace.id, r.id, r.format, r.recipients ?? []);
+  revalidatePath("/insight");
+  return { ok: true };
+}
+
+// Insert a queued run and kick the dispatcher (an async POST to the edge
+// function). Sending is inert until RESEND_API_KEY is configured — the run then
+// logs as failed with the reason, which the Reports tab surfaces.
+async function enqueueAndDispatch(workspaceId: string, scheduleId: string | null, format: string, recipients: string[]) {
+  const supabase = createClient();
+  await supabase.from("report_run").insert({
+    schedule_id: scheduleId,
+    workspace_id: workspaceId,
+    format,
+    recipients,
+    status: "queued",
+  });
+  // Best-effort kick; the daily cron also drains the queue.
+  const dispatch = supabase.rpc.bind(supabase) as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ error: unknown }>;
+  try {
+    await dispatch("request_report_dispatch", { p_workspace: workspaceId });
+  } catch {
+    /* dispatcher unreachable → the cron run still drains the queue */
+  }
+}
+
+// Anonymized CSV import of survey responses. `rows` are pre-parsed client-side
+// into { scores: {item_key: number} } objects; the admin-gated RPC writes them
+// as respondent_id-NULL responses (min-3 masking still applies on read).
+export async function importResponses(
+  surveyId: string,
+  rows: { scores: Record<string, number>; hash?: string }[],
+): Promise<{ error?: string; imported?: number }> {
+  const ctx = await requireSession();
+  if (!isAdmin(ctx.role)) return { error: "Only admins can import responses." };
+  if (!surveyId) return { error: "Pick an assessment to import into." };
+  const clean = rows.filter((r) => r.scores && Object.keys(r.scores).length > 0);
+  if (clean.length === 0) return { error: "No valid rows found in the file." };
+
+  const supabase = createClient();
+  const importRpc = supabase.rpc.bind(supabase) as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: number | null; error: { message: string } | null }>;
+  const { data, error } = await importRpc("import_survey_responses", { p_survey: surveyId, p_rows: clean });
+  if (error) return { error: error.message };
+  revalidatePath("/insight");
+  return { imported: data ?? 0 };
 }

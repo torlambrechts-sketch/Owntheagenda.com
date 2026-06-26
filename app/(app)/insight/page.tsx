@@ -16,7 +16,7 @@ import {
   type WorkshopOutcomeRow,
   type WorkshopKpis,
 } from "./InsightDashboard";
-import { assessmentDetail, type AssessmentDetailVM } from "./actions";
+import { assessmentDetail, listReports, type AssessmentDetailVM } from "./actions";
 
 // Insights dashboard (overview). Like Trends/Leadership Teams this rolls up
 // every team via definer RPCs, so scoped facilitators don't get it. Admins and
@@ -451,6 +451,9 @@ export default async function InsightPage() {
     attendance: attendanceVals.length ? Math.round(attendanceVals.reduce((a, b) => a + b, 0) / attendanceVals.length) : null,
   };
 
+  // ---- Reports subsystem data (schedules + recent runs) ----
+  const reports = await listReports();
+
   const props: DashboardProps = {
     kpis: {
       activeAssessments,
@@ -470,6 +473,7 @@ export default async function InsightPage() {
     defaultDetail,
     workshopOutcomes,
     workshopKpis,
+    reports,
   };
 
   return <InsightDashboard {...props} />;
