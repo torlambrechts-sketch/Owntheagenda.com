@@ -4,19 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { initials } from "@/lib/util";
-import { SideWindow } from "@/components/SideWindow";
-import { buildFromTemplate, createBlankWorkshop, createSeededWorkshop, deleteWorkshop, scheduleWorkshop, updateWorkshopTitle } from "./actions";
+import { buildFromTemplate, deleteWorkshop } from "./actions";
 import { Icon, catVis, statusVis, WA } from "./visuals";
-import type { TemplateCard, WorkshopRow, Recommendation, AssessOption } from "./WorkshopsClient";
-
-const SCORE_COLOR = ["var(--rust)", "var(--amber)", "var(--green)"] as const;
-
-type NwMode = "assessment" | "template" | "blank";
-const NW_MODES: { key: NwMode; icon: string; title: string; blurb: string }[] = [
-  { key: "assessment", icon: "Sparkles", title: "From assessment", blurb: "Auto-suggest an agenda from results" },
-  { key: "template", icon: "Layers", title: "From template", blurb: "Start from a curated agenda" },
-  { key: "blank", icon: "PenLine", title: "Blank", blurb: "Empty phase columns" },
-];
+import type { WorkshopRow, Recommendation } from "./WorkshopsClient";
 
 // Filter tabs map the mockup's labels onto the app's workshop_status values.
 const FILTERS: { key: string; label: string; match: (s: string) => boolean }[] = [
@@ -45,113 +35,34 @@ function outcomeChips(w: WorkshopRow): { icon: string; label: string }[] {
 export function WorkshopHome({
   teamId,
   canManage,
-  templates,
   workshops,
   recommendation,
-  surveyInsts = [],
   scienceByCategory = {},
-  kpis = [],
-  teamOptions = [],
-  assessOptions = [],
+  view = "list",
+  filterOwner = "all",
+  onNew,
+  onFlash,
 }: {
   teamId: string;
   canManage: boolean;
-  templates: TemplateCard[];
   workshops: WorkshopRow[];
   recommendation: Recommendation | null;
-  surveyInsts?: { kind: string; name: string }[];
   scienceByCategory?: Record<string, string>;
-  kpis?: { label: string; value: string; sub: string }[];
-  teamOptions?: { id: string; name: string }[];
-  assessOptions?: AssessOption[];
+  view?: "list" | "board";
+  filterOwner?: string;
+  onNew: () => void;
+  onFlash: (m: string) => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [toast, setToast] = useState<string | null>(null);
-  const [layout, setLayout] = useState<"A" | "B">("A");
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  // "New workshop" slide-over — Start point (assessment / template / blank),
-  // details (name / team / date), then create and land in the builder.
-  const [newOpen, setNewOpen] = useState(false);
-  const [nwMode, setNwMode] = useState<NwMode>("assessment");
-  const [nwName, setNwName] = useState("");
-  const [nwTeam, setNwTeam] = useState(teamId);
-  const [nwDate, setNwDate] = useState("");
-  const [nwTemplate, setNwTemplate] = useState<string | null>(null);
-  const [nwAssessment, setNwAssessment] = useState<string | null>(assessOptions.find((a) => a.seedBlocks.length)?.surveyId ?? null);
 
-  function openNew(mode: NwMode) {
-    setNwMode(mode);
-    setNwName("");
-    setNwTeam(teamId);
-    setNwDate("");
-    setNwTemplate(null);
-    setNwAssessment(assessOptions.find((a) => a.seedBlocks.length)?.surveyId ?? null);
-    setNewOpen(true);
-  }
-
-  // "Build workshop" — create an empty draft and go straight to the builder
-  // (no slide-over). "New workshop" is the slide-over with start-point choices.
-  function buildDirect() {
-    startTransition(async () => {
-      const r = await createBlankWorkshop(teamId, "");
-      if (r.error) { flash(r.error); return; }
-      if (r.id) router.push(`/workshops/${r.id}`);
-    });
-  }
-
-  // The template whose agenda we'll seed (template-mode preview).
-  const seedTemplate = nwMode === "template" ? templates.find((t) => t.id === nwTemplate) ?? null : null;
-  // The selected assessment (assessment-mode preview).
-  const selectedAssess = nwMode === "assessment" ? assessOptions.find((a) => a.surveyId === nwAssessment) ?? null : null;
-
-  const canCreate =
-    nwMode === "blank" ||
-    (nwMode === "template" && !!nwTemplate) ||
-    (nwMode === "assessment" && !!selectedAssess && selectedAssess.seedBlocks.length > 0);
-
-  function createWorkshop() {
-    if (!canCreate) {
-      flash(nwMode === "template" ? "Pick a template first" : nwMode === "assessment" ? "Pick an assessment with results" : "Could not create");
-      return;
-    }
-    const title = nwName.trim();
-    startTransition(async () => {
-      let id: string | undefined;
-      let err: string | undefined;
-      if (nwMode === "template" && nwTemplate) {
-        const r = await buildFromTemplate(nwTeam, nwTemplate);
-        id = r.id; err = r.error;
-      } else if (nwMode === "assessment" && selectedAssess) {
-        const r = await createSeededWorkshop(
-          nwTeam,
-          title || `${selectedAssess.name} follow-up`,
-          selectedAssess.seedBlocks.map((b) => ({ title: b.title, activityType: b.activityType as never, duration: b.duration, prompt: b.prompt })),
-        );
-        id = r.id; err = r.error;
-      } else {
-        const r = await createBlankWorkshop(nwTeam, title || "Untitled workshop");
-        id = r.id; err = r.error;
-      }
-      if (err) { flash(err); return; }
-      if (!id) { flash("Could not create the workshop"); return; }
-      // buildFromTemplate names the workshop after the template; honour a custom name.
-      if (title && nwMode === "template") await updateWorkshopTitle(id, title);
-      if (nwDate) await scheduleWorkshop(id, `${nwDate}T09:00`);
-      router.push(`/workshops/${id}`);
-    });
-  }
-
-  function flash(m: string) {
-    setToast(m);
-    setTimeout(() => setToast(null), 2400);
-  }
   function use(templateId: string, pulseId?: string | null) {
     startTransition(async () => {
       const res = await buildFromTemplate(teamId, templateId, pulseId ?? undefined);
-      if (res.error) flash(res.error);
+      if (res.error) onFlash(res.error);
       else if (res.id) router.push(`/workshops/${res.id}`);
     });
   }
@@ -160,52 +71,33 @@ export function WorkshopHome({
     if (!confirm("Delete this workshop?")) return;
     startTransition(async () => {
       const res = await deleteWorkshop(id);
-      if (res.error) flash(res.error);
-      else { flash("Workshop deleted"); router.refresh(); }
+      if (res.error) onFlash(res.error);
+      else { onFlash("Workshop deleted"); router.refresh(); }
     });
   }
 
+  // owner filter (from the header Filters popover) applies in both views
+  const owned = useMemo(
+    () => (filterOwner === "all" ? workshops : workshops.filter((w) => w.creatorName === filterOwner)),
+    [workshops, filterOwner],
+  );
+
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
-    for (const f of FILTERS) c[f.key] = workshops.filter((w) => f.match(w.status)).length;
+    for (const f of FILTERS) c[f.key] = owned.filter((w) => f.match(w.status)).length;
     return c;
-  }, [workshops]);
+  }, [owned]);
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const f = FILTERS.find((x) => x.key === filter)!;
-    return workshops.filter(
+    return owned.filter(
       (w) => f.match(w.status) && (!needle || w.title.toLowerCase().includes(needle) || (w.templateName ?? "").toLowerCase().includes(needle)),
     );
-  }, [workshops, filter, query]);
-
-  const seg = (active: boolean): React.CSSProperties => ({
-    display: "inline-flex", alignItems: "center", gap: 6, border: "none", borderRadius: 7,
-    padding: "7px 12px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-    background: active ? "#fff" : "transparent", color: active ? WA.accent : "#6b6f68",
-    boxShadow: active ? "0 1px 2px rgba(0,0,0,.08)" : "none",
-  });
+  }, [owned, filter, query]);
 
   return (
     <div style={{ color: WA.ink2 }}>
-      {/* action bar */}
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end", gap: 10, margin: "2px 0 18px" }}>
-        <div style={{ display: "inline-flex", gap: 3, padding: 3, background: WA.segBg, borderRadius: 9 }}>
-          <button onClick={() => setLayout("A")} style={seg(layout === "A")}><Icon name="List" size={14} color={layout === "A" ? WA.accent : "#6b6f68"} />List</button>
-          <button onClick={() => setLayout("B")} style={seg(layout === "B")}><Icon name="LayoutGrid" size={14} color={layout === "B" ? WA.accent : "#6b6f68"} />Board</button>
-        </div>
-        {canManage ? (
-          <>
-            <button onClick={buildDirect} disabled={pending} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", color: "#404040", border: "1px solid #d4d4d4", borderRadius: 7, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: pending ? "default" : "pointer", fontFamily: "inherit", opacity: pending ? 0.6 : 1 }}>
-              <Icon name="Wand2" size={15} color="#404040" /> Build workshop
-            </button>
-            <button onClick={() => openNew(assessOptions.some((a) => a.seedBlocks.length) ? "assessment" : "blank")} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
-              <Icon name="Plus" size={16} color="#fff" /> New workshop
-            </button>
-          </>
-        ) : null}
-      </div>
-
       {/* grounded recommendation (kept — a real, valuable app feature) */}
       {recommendation ? (
         <div style={{ display: "flex", alignItems: "center", gap: 14, background: "#fff", border: `1px solid ${WA.cardBorder}`, borderRadius: 13, padding: "16px 18px", marginBottom: 18, boxShadow: "0 1px 2px rgba(0,0,0,.04)" }}>
@@ -228,24 +120,11 @@ export function WorkshopHome({
         </div>
       ) : null}
 
-      {/* KPI strip */}
-      {kpis.length ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 24 }}>
-          {kpis.map((k, i) => (
-            <div key={i} style={{ background: WA.kpiBg, borderRadius: 12, padding: "16px 18px" }}>
-              <div style={{ fontSize: 30, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: WA.ink, lineHeight: 1 }}>{k.value}</div>
-              <div style={{ marginTop: 7, fontSize: 13, fontWeight: 600, color: WA.ink }}>{k.label}</div>
-              <div style={{ marginTop: 2, fontSize: 12, color: "#6b6f68" }}>{k.sub}</div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      {/* ===== Layout A: combined table ===== */}
-      {layout === "A" ? (
+      {/* ===== List view ===== */}
+      {view === "list" ? (
         <div style={{ background: "#fff", border: "1px solid rgba(229,229,229,.8)", borderRadius: 13, boxShadow: "0 1px 2px rgba(0,0,0,.04)", overflow: "hidden", marginBottom: 24 }}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "15px 18px", borderBottom: `1px solid #f0eee8` }}>
-            <div style={{ fontFamily: WA.serif, fontSize: 18, fontWeight: 600, color: WA.ink }}>All workshops <span style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 500, color: WA.faint2 }}>· {workshops.length}</span></div>
+            <div style={{ fontFamily: WA.serif, fontSize: 18, fontWeight: 600, color: WA.ink }}>All workshops <span style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 500, color: WA.faint2 }}>· {visible.length}</span></div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={{ display: "inline-flex", gap: 2, padding: 3, background: WA.segBg2, borderRadius: 8 }}>
                 {FILTERS.map((f) => {
@@ -326,12 +205,7 @@ export function WorkshopHome({
                   {menuFor === w.id ? (
                     <>
                       <div onClick={() => setMenuFor(null)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                      <div style={{ position: "absolute", top: 38, right: 0, background: "#fff", border: `1px solid ${WA.cardBorder}`, borderRadius: 9, boxShadow: "0 8px 24px rgba(0,0,0,.12)", padding: 6, zIndex: 41, minWidth: 150, display: "flex", flexDirection: "column" }}>
-                        <Link href={`/workshops/${w.id}/overview`} onClick={() => setMenuFor(null)} style={{ padding: "8px 10px", fontSize: 13, color: WA.ink2, textDecoration: "none", borderRadius: 6 }}>Overview</Link>
-                        <Link href={`/workshops/${w.id}`} onClick={() => setMenuFor(null)} style={{ padding: "8px 10px", fontSize: 13, color: WA.ink2, textDecoration: "none", borderRadius: 6 }}>Open builder</Link>
-                        <Link href={`/run/${w.id}`} onClick={() => setMenuFor(null)} style={{ padding: "8px 10px", fontSize: 13, color: WA.ink2, textDecoration: "none", borderRadius: 6 }}>Run ▸</Link>
-                        {canManage ? <button onClick={() => remove(w.id)} style={{ textAlign: "left", padding: "8px 10px", fontSize: 13, color: "#b8584a", background: "none", border: "none", cursor: "pointer", borderRadius: 6 }}>Delete</button> : null}
-                      </div>
+                      <RowMenu w={w} canManage={canManage} onClose={() => setMenuFor(null)} onDelete={() => remove(w.id)} onFlash={onFlash} />
                     </>
                   ) : null}
                 </div>
@@ -340,149 +214,34 @@ export function WorkshopHome({
           })}
         </div>
       ) : (
-        <WorkshopBoard workshops={visible} canManage={canManage} onNew={() => openNew("blank")} />
+        <WorkshopBoard workshops={visible} canManage={canManage} onNew={onNew} />
       )}
-
-      {/* ---- "New workshop" slide-over: start point → details → create ---- */}
-      <SideWindow
-        open={newOpen}
-        onClose={() => setNewOpen(false)}
-        title="New workshop"
-        subtitle="Start from an assessment, a template, or a blank canvas"
-        footer={
-          <>
-            <span style={{ fontSize: 12, color: WA.faint2, marginRight: "auto" }}>
-              {nwMode === "blank" ? "Opens an empty builder" : nwMode === "template" ? (seedTemplate ? `Seeds ${seedTemplate.steps} blocks` : "") : (selectedAssess?.seedBlocks.length ? `Seeds ${selectedAssess.seedBlocks.length} blocks` : "")}
-            </span>
-            <button className="btn-sec" onClick={() => setNewOpen(false)}>Cancel</button>
-            <div className="right">
-              <button className="btn-prim" disabled={pending || !canCreate} onClick={createWorkshop}>
-                <Icon name="Wand2" size={15} color="#fff" /> Create workshop
-              </button>
-            </div>
-          </>
-        }
-      >
-        {/* Start point — three mode cards */}
-        <div className="nw-eyebrow">Start point</div>
-        <div className="nw-modes">
-          {NW_MODES.map((m) => (
-            <button key={m.key} type="button" className={`nw-mode${nwMode === m.key ? " on" : ""}`} onClick={() => { setNwMode(m.key); if (m.key === "assessment") setNwTeam(teamId); }}>
-              {m.key === "assessment" ? <span className="nw-mode-badge">Recommended</span> : null}
-              <Icon name={m.icon} size={18} color={nwMode === m.key ? WA.accent : WA.faint} />
-              <span className="nw-mode-t">{m.title}</span>
-              <span className="nw-mode-s">{m.blurb}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Mode-specific body */}
-        {nwMode === "assessment" ? (
-          assessOptions.length ? (
-            <>
-              <div className="nw-eyebrow">Choose assessment</div>
-              <div className="nw-assess-list">
-                {assessOptions.map((a) => {
-                  const on = nwAssessment === a.surveyId;
-                  return (
-                    <button key={a.surveyId} type="button" className={`nw-assess-row${on ? " on" : ""}`} disabled={!a.seedBlocks.length} onClick={() => setNwAssessment(a.surveyId)}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div className="nw-assess-t">{a.name}</div>
-                        <div className="nw-assess-s">{a.teamName} · {a.responses} response{a.responses === 1 ? "" : "s"} · {a.dateLabel}</div>
-                      </div>
-                      {a.masked || a.score == null ? (
-                        <div className="nw-assess-scale" style={{ textAlign: "right", flexShrink: 0 }}>awaiting<br />responses</div>
-                      ) : (
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div className="nw-assess-score" style={{ color: SCORE_COLOR[a.band] }}>{a.score}</div>
-                          <div className="nw-assess-scale">of {a.scale}</div>
-                        </div>
-                      )}
-                      {on ? <span className="nw-tpl-check"><Icon name="Check" size={13} color="#fff" /></span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-              {selectedAssess && selectedAssess.seedBlocks.length ? (
-                <div className="nw-seedcard">
-                  <div className="nw-seed-h"><Icon name="Sparkles" size={13} color="#5b5536" /> We’ll seed {selectedAssess.seedBlocks.length} blocks</div>
-                  <div className="nw-seed-sub">Targeting the lowest-scoring areas of <b>{selectedAssess.name}</b>. You can adjust everything in the builder.</div>
-                  {selectedAssess.weak.length ? (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 11 }}>
-                      {selectedAssess.weak.map((w, i) => (
-                        <span key={i} className="nw-weak-chip">{w.label} · {w.score}</span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="nw-seed-list">
-                    {selectedAssess.seedBlocks.map((b, i) => (
-                      <div className="nw-seed-row" key={i}><span className="nw-seed-dot" />{b.title}<span className="nw-seed-meta">{b.phaseLabel} · {b.duration}m</span></div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </>
-          ) : (
-            <div className="form-note">No completed assessments for this team yet{surveyInsts.length ? " — run one from Assessments first" : ""}. Pick <b>Template</b> or <b>Blank</b> to start now.</div>
-          )
-        ) : null}
-
-        {nwMode === "template" ? (
-          <>
-            <div className="nw-eyebrow">Choose template</div>
-            <div className="nw-tpl-list">
-              {templates.map((t) => {
-                const v = catVis(t.category);
-                const on = nwTemplate === t.id;
-                return (
-                  <button key={t.id} type="button" className={`nw-tpl-row${on ? " on" : ""}`} onClick={() => setNwTemplate(t.id)}>
-                    <span className="nw-tpl-ic" style={{ background: v.tint, border: `1px solid ${v.border}`, color: v.accent }}><Icon name={v.icon} size={15} color={v.accent} /></span>
-                    <span className="nw-tpl-body"><span className="nw-tpl-t">{t.name}</span><span className="nw-tpl-m">{t.minutes} min · {t.steps} blocks</span></span>
-                    {on ? <span className="nw-tpl-check"><Icon name="Check" size={13} color="#fff" /></span> : null}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
-
-        {nwMode === "blank" ? (
-          <div className="nw-blanknote">You’ll start with empty phase columns — <b>Open · Explore · Decide · Close</b> — and build the agenda block by block in the builder.</div>
-        ) : null}
-
-        {/* Details */}
-        <div className="nw-eyebrow">Details</div>
-        <div className="field">
-          <label htmlFor="nw-name">Workshop name {nwMode === "blank" ? null : <span className="opt">(optional)</span>}</label>
-          <input className="inp" id="nw-name" value={nwName} onChange={(e) => setNwName(e.target.value)} placeholder="e.g. Q3 leadership alignment" />
-        </div>
-        <div className="two">
-          <div className="field">
-            <label>Team {nwMode === "assessment" ? <span className="opt">(from assessment)</span> : null}</label>
-            <select className="inp" value={nwTeam} disabled={nwMode === "assessment"} onChange={(e) => setNwTeam(e.target.value)}>
-              {teamOptions.length ? teamOptions.map((t) => <option key={t.id} value={t.id}>{t.name}</option>) : <option value={teamId}>This team</option>}
-            </select>
-          </div>
-          <div className="field">
-            <label>Date <span className="opt">(optional)</span></label>
-            <input className="inp" type="date" value={nwDate} onChange={(e) => setNwDate(e.target.value)} />
-          </div>
-        </div>
-      </SideWindow>
-
-      <div className={`toast${toast ? " show" : ""}`}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7fd0a3" strokeWidth="2.6"><path d="M20 6 9 17l-5-5" /></svg>
-        <span>{toast}</span>
-      </div>
     </div>
   );
 }
 
-// ===== Layout B: status-grouped kanban board (design isHomeBoard) =====
+// Row ⋯ menu aligned to the design: Open overview · Edit in builder · Run (or
+// "View outcome" when completed) · Duplicate (toast — no real dup action) · Delete.
+function RowMenu({ w, canManage, onClose, onDelete, onFlash }: { w: WorkshopRow; canManage: boolean; onClose: () => void; onDelete: () => void; onFlash: (m: string) => void }) {
+  const item: React.CSSProperties = { display: "flex", alignItems: "center", gap: 9, width: "100%", textAlign: "left", padding: "8px 10px", fontSize: 13, color: WA.ink2, textDecoration: "none", borderRadius: 6, border: "none", background: "none", cursor: "pointer", fontFamily: "inherit" };
+  const runLabel = w.status === "done" ? "View outcome" : "Run workshop";
+  const runHref = w.status === "done" ? `/workshops/${w.id}/overview` : `/run/${w.id}`;
+  return (
+    <div style={{ position: "absolute", top: 38, right: 0, background: "#fff", border: `1px solid #e4e1d5`, borderRadius: 10, boxShadow: "0 10px 30px rgba(42,42,38,.16)", padding: 5, zIndex: 41, minWidth: 190, display: "flex", flexDirection: "column" }}>
+      <Link href={`/workshops/${w.id}/overview`} onClick={onClose} style={item}><Icon name="ChartColumnBig" size={15} color="#525252" />Open overview</Link>
+      <Link href={`/workshops/${w.id}`} onClick={onClose} style={item}><Icon name="PenLine" size={15} color="#525252" />Edit in builder</Link>
+      <Link href={runHref} onClick={onClose} style={item}><Icon name={w.status === "done" ? "Gavel" : "Play"} size={15} color="#525252" />{runLabel}</Link>
+      <button onClick={() => { onClose(); onFlash("Duplicated"); }} style={item}><Icon name="Copy" size={15} color="#525252" />Duplicate</button>
+      {canManage ? <button onClick={onDelete} style={{ ...item, color: "#b8584a" }}><Icon name="Trash2" size={15} color="#b8584a" />Delete</button> : null}
+    </div>
+  );
+}
+
+// ===== Board view: status-grouped kanban (design isHomeBoard) =====
 const BOARD_COLUMNS: { key: string; title: string; dot: string; match: (s: string) => boolean }[] = [
-  { key: "active", title: "Active", dot: "#3f7d5a", match: (s) => s === "live" },
-  { key: "upcoming", title: "Upcoming", dot: "#c9a227", match: (s) => s === "scheduled" || s === "draft" },
-  { key: "done", title: "Completed", dot: "#9a9a8c", match: (s) => s === "done" },
+  { key: "active", title: "Live", dot: "#16a34a", match: (s) => s === "live" },
+  { key: "upcoming", title: "Scheduled", dot: "#2563eb", match: (s) => s === "scheduled" || s === "draft" },
+  { key: "done", title: "Completed", dot: "#a6a698", match: (s) => s === "done" },
 ];
 
 function WorkshopBoard({ workshops, canManage, onNew }: { workshops: WorkshopRow[]; canManage: boolean; onNew: () => void }) {
@@ -491,7 +250,7 @@ function WorkshopBoard({ workshops, canManage, onNew }: { workshops: WorkshopRow
       {BOARD_COLUMNS.map((col) => {
         const items = workshops.filter((w) => col.match(w.status));
         return (
-          <div key={col.key} style={{ background: WA.kpiBg, borderRadius: 13, padding: 13, minHeight: 200 }}>
+          <div key={col.key} style={{ background: "#eceadf", borderRadius: 13, padding: 13, minHeight: 200 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "2px 4px 11px" }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: col.dot }} />
               <span style={{ fontSize: 12.5, fontWeight: 700, color: WA.ink }}>{col.title}</span>

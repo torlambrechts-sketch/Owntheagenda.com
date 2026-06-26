@@ -5,13 +5,14 @@ import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
 import { resolveInstrument } from "@/lib/assessments";
 import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
 import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation, type AssessOption, type SeedBlock } from "./WorkshopsClient";
+import { type DashboardData } from "./WorkshopDashboard";
 import { type SessionRow } from "./SessionsTable";
 import { type TemplateVM } from "./templates/TemplatesClient";
 import { parsePhases } from "./blocks";
 import type { Enums } from "@/types/database.types";
 
-const TABS = ["workshops", "templates"] as const;
-type Tab = (typeof TABS)[number];
+const SECTIONS = ["dashboard", "workshops", "board", "templates"] as const;
+type Section = (typeof SECTIONS)[number];
 
 function bandOf(pct: number): 0 | 1 | 2 {
   return pct < 45 ? 0 : pct < 62 ? 1 : 2;
@@ -33,7 +34,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
   const ctx = await requireSession();
   const supabase = createClient();
   const wsId = ctx.workspace.id;
-  const initialTab: Tab = TABS.includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : "workshops";
+  const initialSection: Section = SECTIONS.includes(searchParams.tab as Section) ? (searchParams.tab as Section) : "dashboard";
 
   const { data: teams } = await supabase
     .from("team")
@@ -341,26 +342,109 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
   const now = new Date();
   const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
   const liveScheduled = workshops.filter((w) => w.status === "live" || w.status === "scheduled").length;
-  const nextScheduled = workshops
-    .filter((w) => w.status === "scheduled" && w.scheduledAt)
-    .map((w) => w.scheduledAt as string)
-    .sort()[0];
   const ranThisQuarter = sessions.filter((s) => s.startedAt && new Date(s.startedAt) >= qStart).length;
   const totalActions = sessions.reduce((s, x) => s + (x.actions ?? 0), 0);
+  const liveCount = workshops.filter((w) => w.status === "live").length;
+  const scheduledCount = workshops.filter((w) => w.status === "scheduled").length;
   const completedCount = workshops.filter((w) => w.status === "done").length;
-  const kpis: { label: string; value: string; sub: string }[] = [
-    { value: String(liveScheduled), label: "Live & scheduled", sub: nextScheduled ? `next: ${new Date(nextScheduled).toLocaleDateString(undefined, { day: "2-digit", month: "short" })}` : "nothing booked" },
-    { value: String(ranThisQuarter), label: "Run this quarter", sub: `${sessions.length} sessions all-time` },
-    { value: String(totalActions), label: "Action items", sub: "captured live" },
-    { value: String(completedCount), label: "Completed", sub: `${tplCards.length} frameworks ready` },
-  ];
+
+  // ----- Dashboard: sessions-run per month (last 8 months) from the non-dry-run
+  // session rows already queried above (workspace-wide, by started_at). -----
+  const monthBuckets: { key: string; label: string }[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthBuckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: "short" }) });
+  }
+  const monthCount = new Map<string, number>();
+  for (const s of sList) {
+    if (!s.started_at) continue;
+    const d = new Date(s.started_at);
+    monthCount.set(`${d.getFullYear()}-${d.getMonth()}`, (monthCount.get(`${d.getFullYear()}-${d.getMonth()}`) ?? 0) + 1);
+  }
+  const dashMonths = monthBuckets.map((b) => ({ label: b.label, value: monthCount.get(b.key) ?? 0 }));
+  // delta = recent 4 months vs the prior 4 months; null when the older half is empty
+  const recentHalf = dashMonths.slice(4).reduce((a, m) => a + m.value, 0);
+  const olderHalf = dashMonths.slice(0, 4).reduce((a, m) => a + m.value, 0);
+  const monthDelta = olderHalf > 0 ? Math.round(((recentHalf - olderHalf) / olderHalf) * 100) : null;
+
+  // ----- Action-item follow-through for this team. action_item carries team_id
+  // directly, so we bucket all of the team's items: done vs open, and overdue
+  // (open & due_at in the past) = At risk. The action_status enum is only
+  // open|done, so we cannot distinguish "Not started" — it stays 0 rather than
+  // being invented; open-and-not-overdue items map to "On track". -----
+  let aiDone = 0, aiOpen = 0, aiOverdue = 0;
+  if (team) {
+    const { data: ais } = await supabase
+      .from("action_item")
+      .select("status, due_at")
+      .eq("team_id", team.id);
+    for (const a of ais ?? []) {
+      if (a.status === "done") { aiDone++; continue; }
+      aiOpen++;
+      if (a.due_at && new Date(a.due_at) < now) aiOverdue++;
+    }
+  }
+  const dashActions = { done: aiDone, onTrack: Math.max(0, aiOpen - aiOverdue), atRisk: aiOverdue, notStarted: 0 };
+
+  // ----- Avg alignment: mean of the team-dynamics pct (0-100) → /5 (pct/20).
+  // No data / no pulse → null ("—"). -----
+  let avgAlignment: number | null = null;
+  if (team) {
+    const { data: dyn } = await supabase.rpc("team_dynamics", { p_team: team.id });
+    const pcts = ((dyn ?? []) as { pct: number | null }[])
+      .filter((d) => d.pct != null)
+      .map((d) => d.pct as number);
+    if (pcts.length) {
+      const meanPct = pcts.reduce((a, p) => a + p, 0) / pcts.length;
+      avgAlignment = Math.round((meanPct / 20) * 10) / 10;
+    }
+  }
+
+  // ----- Participation: completed responders of the team's latest closed pulse
+  // (pulse_participation RPC) vs team size. null when unknown. -----
+  let participation: number | null = null;
+  if (team) {
+    const { count: teamSize } = await supabase
+      .from("team_member")
+      .select("user_id", { count: "exact", head: true })
+      .eq("team_id", team.id);
+    const { data: lastPulse } = await supabase
+      .from("pulse")
+      .select("id")
+      .eq("team_id", team.id)
+      .eq("status", "closed")
+      .order("closed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastPulse?.id && teamSize && teamSize > 0) {
+      const { data: pp } = await supabase.rpc("pulse_participation", { p_pulse: lastPulse.id });
+      const responders = (pp ?? []).filter((r) => r.completed).length;
+      participation = Math.round((responders / teamSize) * 100);
+    }
+  }
+
+  const dashboard: DashboardData = {
+    kpis: [
+      { num: String(ranThisQuarter), suffix: "", label: "Run this quarter", color: "#2a2a26" },
+      { num: String(liveScheduled), suffix: "", label: "Live & scheduled", color: "#2a2a26" },
+      { num: String(totalActions), suffix: "", label: "Action items", color: "#a8862f" },
+      { num: avgAlignment != null ? avgAlignment.toFixed(1) : "—", suffix: avgAlignment != null ? "/5" : "", label: "Avg alignment", color: "#3f7d5a" },
+      { num: participation != null ? String(participation) : "—", suffix: participation != null ? "%" : "", label: "Participation", color: "#42729e" },
+    ],
+    months: dashMonths,
+    monthDelta,
+    status: { live: liveCount, scheduled: scheduledCount, done: completedCount },
+    actions: dashActions,
+  };
+
+  // Upcoming = scheduled workshops, soonest first, top 3.
+  const upcoming = workshops
+    .filter((w) => w.status === "scheduled" && w.scheduledAt)
+    .sort((a, b) => new Date(a.scheduledAt as string).getTime() - new Date(b.scheduledAt as string).getTime())
+    .slice(0, 3);
 
   return (
     <div>
-      <h1 className="page-title">Workshops</h1>
-      <p className="page-sub">
-        Start from a proven framework, then run it live — we build the agenda for you.
-      </p>
       {team ? (
         <WorkshopsClient
           teamId={team.id}
@@ -371,13 +455,17 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           surveyInsts={surveyInsts}
           scienceByCategory={scienceByCategory}
           templateVMs={templateVMs}
-          initialTab={initialTab}
-          kpis={kpis}
+          initialSection={initialSection}
+          dashboard={dashboard}
+          upcoming={upcoming}
           teamOptions={teamOptions}
           assessOptions={assessOptions}
         />
       ) : (
-        <div className="card empty">Create a team first to build a workshop.</div>
+        <>
+          <h1 className="page-title">Workshops</h1>
+          <div className="card empty">Create a team first to build a workshop.</div>
+        </>
       )}
     </div>
   );
