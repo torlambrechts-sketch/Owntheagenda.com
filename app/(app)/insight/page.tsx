@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
+import { resolveInstrument } from "@/lib/assessments";
 import {
   InsightDashboard,
   type DashboardProps,
@@ -11,7 +12,11 @@ import {
   type TrendPoint,
   type BarPoint,
   type WorkshopVM,
+  type AssessmentRow,
+  type WorkshopOutcomeRow,
+  type WorkshopKpis,
 } from "./InsightDashboard";
+import { assessmentDetail, type AssessmentDetailVM } from "./actions";
 
 // Insights dashboard (overview). Like Trends/Leadership Teams this rolls up
 // every team via definer RPCs, so scoped facilitators don't get it. Admins and
@@ -243,8 +248,208 @@ export default async function InsightPage() {
     };
   });
 
-  // isAdmin retained for the upcoming per-role scoping pass (assessment list).
   void isAdmin(ctx.role);
+
+  // ---- Overview "All assessments" table: surveys + pulses across the
+  // workspace. Surveys are enriched with assessment_suite_overview (same
+  // untyped-cast + guard pattern as the suite page) for score/responses/flag.
+  // Pulses get their team-dynamics average as a score and pulse_participation
+  // counts where cheap. No per-row trend queries (deferred — see note). ----
+  const { data: surveyListRows } = await supabase
+    .from("survey")
+    .select("id, name, kind, status, team_id, created_at, closed_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .order("created_at", { ascending: false });
+
+  type SuiteMetric = {
+    survey_id: string;
+    respondents: number;
+    invited: number;
+    masked: boolean;
+    overall_pct: number | null;
+    below_count: number | null;
+  };
+  const metricBySurvey = new Map<string, SuiteMetric>();
+  try {
+    const callMetrics = supabase.rpc.bind(supabase) as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: SuiteMetric[] | null; error: unknown }>;
+    const { data: mRows, error: mErr } = await callMetrics("assessment_suite_overview", { p_workspace: ctx.workspace.id });
+    if (!mErr) for (const m of mRows ?? []) metricBySurvey.set(m.survey_id, m);
+  } catch {
+    /* RPC absent → scores stay hidden, counts fall back below */
+  }
+
+  // Instrument display names for the Type label (resolved once per distinct kind).
+  const surveyKinds = Array.from(new Set((surveyListRows ?? []).map((s) => s.kind)));
+  const instByKind = new Map<string, { name: string } | null>();
+  await Promise.all(
+    surveyKinds.map(async (k) => {
+      instByKind.set(k, await resolveInstrument(k));
+    }),
+  );
+  const statusToVariant: Record<string, { variant: string; label: string }> = {
+    open: { variant: "open", label: "Active" },
+    draft: { variant: "draft", label: "Draft" },
+    closed: { variant: "internal", label: "Review" },
+  };
+
+  const surveyAssessmentRows: AssessmentRow[] = (surveyListRows ?? []).map((s) => {
+    const m = metricBySurvey.get(s.id);
+    const st = statusToVariant[s.status] ?? { variant: "draft", label: s.status };
+    return {
+      id: s.id,
+      kind: "survey",
+      name: s.name ?? instByKind.get(s.kind)?.name ?? s.kind,
+      type: instByKind.get(s.kind)?.name ?? s.kind,
+      statusVariant: st.variant,
+      statusLabel: st.label,
+      respondents: m?.respondents ?? 0,
+      invited: m?.invited ?? null,
+      score: m && !m.masked ? m.overall_pct : null,
+      flagged: (m?.below_count ?? 0) > 0,
+      date: s.closed_at ?? s.created_at,
+    };
+  });
+
+  // Pulses: score from the team's team_dynamics average; participation from
+  // pulse_participation when a small set of pulses (cheap), else "—".
+  const { data: pulseListRows } = await supabase
+    .from("pulse")
+    .select("id, name, status, team_id, closed_at")
+    .eq("workspace_id", ctx.workspace.id)
+    .order("closed_at", { ascending: false });
+  const pulseRowsCapped = (pulseListRows ?? []).slice(0, 12);
+  const pulseMetrics = await Promise.all(
+    pulseRowsCapped.map(async (p) => {
+      if (!p.team_id) return { dyn: null as { pct: number | null }[] | null, part: null as { completed: boolean }[] | null };
+      const [dynRes, partRes] = await Promise.all([
+        supabase.rpc("team_dynamics", { p_team: p.team_id, p_pulse: p.id }),
+        supabase.rpc("pulse_participation", { p_pulse: p.id }).then((r) => r, () => ({ data: null })),
+      ]);
+      return {
+        dyn: (dynRes.data ?? null) as { pct: number | null }[] | null,
+        part: (partRes.data ?? null) as { completed: boolean }[] | null,
+      };
+    }),
+  );
+  const pulseAssessmentRows: AssessmentRow[] = pulseRowsCapped.map((p, i) => {
+    const { dyn, part } = pulseMetrics[i];
+    const pcts = (dyn ?? []).map((d) => d.pct).filter((v): v is number => v != null);
+    const score = pcts.length ? Math.round(pcts.reduce((a, b) => a + Number(b), 0) / pcts.length) : null;
+    const st = statusToVariant[p.status] ?? { variant: "draft", label: p.status };
+    const responded = part ? part.filter((r) => r.completed).length : null;
+    return {
+      id: p.id,
+      kind: "pulse",
+      name: p.name ?? "Team pulse",
+      type: "Pulse",
+      statusVariant: st.variant,
+      statusLabel: st.label,
+      respondents: responded ?? 0,
+      invited: part ? part.length : null,
+      score,
+      flagged: false,
+      date: p.closed_at,
+    };
+  });
+
+  const assessmentRows: AssessmentRow[] = [...surveyAssessmentRows, ...pulseAssessmentRows].sort(
+    (a, b) => (b.date ? new Date(b.date).getTime() : 0) - (a.date ? new Date(a.date).getTime() : 0),
+  );
+
+  // Default By-assessment selection: most recent flagged survey, else the most
+  // recent survey. Pulses aren't drillable (no per-section instrument), so the
+  // default is always a survey id when one exists.
+  const defaultAssessmentId =
+    surveyAssessmentRows.find((r) => r.flagged)?.id ?? surveyAssessmentRows[0]?.id ?? null;
+  let defaultDetail: AssessmentDetailVM | null = null;
+  if (defaultAssessmentId) {
+    const { detail } = await assessmentDetail(defaultAssessmentId);
+    defaultDetail = detail ?? null;
+  }
+
+  // ---- By workshop: workshops with at least one real (non-dry-run) session,
+  // newest session first. Per workshop: latest session participants, action
+  // items closed/total, and the mean session_pulse_delta. ----
+  const { data: realSessions } = await supabase
+    .from("session")
+    .select("id, workshop_id, started_at, is_dry_run")
+    .eq("is_dry_run", false)
+    .order("started_at", { ascending: false });
+  // Latest real session per workshop.
+  const latestSessionByWorkshop = new Map<string, { id: string; startedAt: string | null }>();
+  for (const s of realSessions ?? []) {
+    if (s.workshop_id && !latestSessionByWorkshop.has(s.workshop_id)) {
+      latestSessionByWorkshop.set(s.workshop_id, { id: s.id, startedAt: s.started_at });
+    }
+  }
+  const workshopIdsWithSession = Array.from(latestSessionByWorkshop.keys());
+  const { data: wkOutcomeRows } = workshopIdsWithSession.length
+    ? await supabase
+        .from("workshop")
+        .select("id, title, team_id, scheduled_at")
+        .eq("workspace_id", ctx.workspace.id)
+        .in("id", workshopIdsWithSession)
+    : { data: [] as { id: string; title: string; team_id: string; scheduled_at: string | null }[] };
+
+  // Team sizes for the attendance KPI denominator (outcome workshops' teams).
+  const outcomeTeamIds = Array.from(new Set((wkOutcomeRows ?? []).map((w) => w.team_id)));
+  const { data: outcomeTmRows } = outcomeTeamIds.length
+    ? await supabase.from("team_member").select("team_id").in("team_id", outcomeTeamIds)
+    : { data: [] as { team_id: string }[] };
+  const outcomeSizeByTeam = new Map<string, number>();
+  for (const m of outcomeTmRows ?? []) outcomeSizeByTeam.set(m.team_id, (outcomeSizeByTeam.get(m.team_id) ?? 0) + 1);
+
+  const workshopOutcomes: WorkshopOutcomeRow[] = await Promise.all(
+    (wkOutcomeRows ?? []).map(async (w) => {
+      const sess = latestSessionByWorkshop.get(w.id)!;
+      const [{ data: parts }, { count: doneCount }, { count: totalCount }, deltaRes] = await Promise.all([
+        supabase.from("participant").select("user_id").eq("session_id", sess.id),
+        supabase.from("action_item").select("id", { count: "exact", head: true }).eq("session_id", sess.id).eq("status", "done"),
+        supabase.from("action_item").select("id", { count: "exact", head: true }).eq("session_id", sess.id),
+        supabase.rpc("session_pulse_delta", { p_session: sess.id }).then((r) => r, () => ({ data: null })),
+      ]);
+      const deltas = ((deltaRes.data ?? []) as { delta: number | null }[])
+        .map((d) => d.delta)
+        .filter((v): v is number => v != null);
+      const meanDelta = deltas.length ? Math.round((deltas.reduce((a, b) => a + Number(b), 0) / deltas.length) * 10) / 10 : null;
+      const participants = (parts ?? []).length;
+      const teamSize = outcomeSizeByTeam.get(w.team_id) ?? 0;
+      let outcome: "improved" | "flat" | "pending";
+      if (meanDelta == null) outcome = "pending";
+      else if (meanDelta > 0.05) outcome = "improved";
+      else if (meanDelta < -0.05) outcome = "flat";
+      else outcome = "flat";
+      return {
+        id: w.id,
+        title: w.title,
+        when: sess.startedAt ?? w.scheduled_at,
+        participants,
+        teamSize,
+        actionsDone: doneCount ?? 0,
+        actionsTotal: totalCount ?? 0,
+        delta: meanDelta,
+        outcome,
+      };
+    }),
+  );
+  workshopOutcomes.sort((a, b) => (b.when ? new Date(b.when).getTime() : 0) - (a.when ? new Date(a.when).getTime() : 0));
+
+  const allDeltas = workshopOutcomes.map((w) => w.delta).filter((v): v is number => v != null);
+  const totalDone = workshopOutcomes.reduce((a, w) => a + w.actionsDone, 0);
+  const totalActions = workshopOutcomes.reduce((a, w) => a + w.actionsTotal, 0);
+  const attendanceVals = workshopOutcomes
+    .filter((w) => w.teamSize > 0)
+    .map((w) => Math.min(100, (w.participants / w.teamSize) * 100));
+  const workshopKpis: WorkshopKpis = {
+    workshopsRun: workshopOutcomes.length,
+    avgLift: allDeltas.length ? Math.round((allDeltas.reduce((a, b) => a + b, 0) / allDeltas.length) * 10) / 10 : null,
+    actionsDone: totalDone,
+    actionsTotal: totalActions,
+    attendance: attendanceVals.length ? Math.round(attendanceVals.reduce((a, b) => a + b, 0) / attendanceVals.length) : null,
+  };
 
   const props: DashboardProps = {
     kpis: {
@@ -260,6 +465,11 @@ export default async function InsightPage() {
     sections,
     workshops,
     teams,
+    assessmentRows,
+    defaultAssessmentId,
+    defaultDetail,
+    workshopOutcomes,
+    workshopKpis,
   };
 
   return <InsightDashboard {...props} />;

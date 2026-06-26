@@ -9,7 +9,8 @@
 // the real 0-100 scale (not the design's illustrative 1-5), so the band cutoffs
 // and target line are expressed in 0-100 terms.
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { assessmentDetail, type AssessmentDetailVM } from "./actions";
 
 /* ===================== view-model types (from the server) ===================== */
 export type KpiVM = {
@@ -54,6 +55,42 @@ export type TeamVM = {
   dynamics: TeamDynVM[];
 };
 
+// One row in the Overview "All assessments" table (surveys + pulses).
+export type AssessmentRow = {
+  id: string;
+  kind: "survey" | "pulse";
+  name: string;
+  type: string; // instrument name / "Pulse"
+  statusVariant: string; // Pill variant
+  statusLabel: string; // Active / Draft / Review
+  respondents: number;
+  invited: number | null;
+  score: number | null; // 0-100, null when masked / unavailable
+  flagged: boolean;
+  date: string | null;
+};
+
+// One row in the By-workshop outcomes table.
+export type WorkshopOutcomeRow = {
+  id: string;
+  title: string;
+  when: string | null;
+  participants: number;
+  teamSize: number;
+  actionsDone: number;
+  actionsTotal: number;
+  delta: number | null; // mean session_pulse_delta, null when no post data
+  outcome: "improved" | "flat" | "pending";
+};
+
+export type WorkshopKpis = {
+  workshopsRun: number;
+  avgLift: number | null;
+  actionsDone: number;
+  actionsTotal: number;
+  attendance: number | null; // mean participant/team-size %
+};
+
 export type DashboardProps = {
   kpis: KpiVM;
   trend: TrendPoint[];
@@ -61,6 +98,11 @@ export type DashboardProps = {
   sections: SectionVM[];
   workshops: WorkshopVM[];
   teams: TeamVM[];
+  assessmentRows: AssessmentRow[];
+  defaultAssessmentId: string | null;
+  defaultDetail: AssessmentDetailVM | null;
+  workshopOutcomes: WorkshopOutcomeRow[];
+  workshopKpis: WorkshopKpis;
 };
 
 /* ===================== colour helpers ===================== */
@@ -77,6 +119,28 @@ function bandColor(pct: number | null, targetLow: number): string {
 }
 
 const fmtPct = (v: number | null) => (v == null ? "—" : `${Math.round(v)}%`);
+
+// Colour for a 0-100 overall/assessment score: healthy green ≥62, amber ≥45,
+// rust below. Matches the band cutoffs used across the dashboard.
+function scoreColor100(v: number | null): string {
+  if (v == null) return "#c2c0b3";
+  if (v >= 62) return "#3f7d5a";
+  if (v >= 45) return "#a8862f";
+  return "#b8584a";
+}
+
+// Signed Δ formatter for the workshop outcomes (1 decimal, "—" when null).
+const fmtDelta = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}`);
+
+// Grounded chip — signals the read is anchored in a validated signal (here the
+// climate-strength dispersion), mirroring the design's shield-check pill.
+function Grounded() {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, background: "#dcebdf", border: "1px solid #bcd6c4", color: "#3f7d5a", borderRadius: 999, padding: "4px 10px" }}>
+      ✓ Grounded
+    </span>
+  );
+}
 
 /* ===================== chart atoms (ported) ===================== */
 function LineChart({
@@ -352,7 +416,14 @@ function Placeholder({ note }: { note: string }) {
   );
 }
 
-function OverviewPanel({ trend, participationByTeam, sections, workshops }: DashboardProps) {
+function OverviewPanel({
+  trend,
+  participationByTeam,
+  sections,
+  workshops,
+  assessmentRows,
+  onOpen,
+}: DashboardProps & { onOpen: (id: string) => void }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)", gap: 16 }}>
@@ -398,11 +469,208 @@ function OverviewPanel({ trend, participationByTeam, sections, workshops }: Dash
         </Card>
       </div>
 
-      <Card title="All assessments">
-        <div style={{ fontSize: 13, color: "#585850", lineHeight: 1.6 }}>Assessment list — next pass.</div>
+      <Card title="All assessments" sub={`${assessmentRows.length} total`}>
+        {assessmentRows.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#a6a698" }}>No assessments yet.</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 130px 110px 110px 80px 40px", padding: "0 0 10px", borderBottom: "1px solid #e4e1d5", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>
+              <div>Assessment</div><div>Type</div><div>Status</div><div>Responses</div><div style={{ textAlign: "right" }}>Score</div><div></div>
+            </div>
+            {assessmentRows.map((r, i) => {
+              const drillable = r.kind === "survey";
+              return (
+                <div
+                  key={r.id}
+                  onClick={drillable ? () => onOpen(r.id) : undefined}
+                  style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 130px 110px 110px 80px 40px", alignItems: "center", padding: "13px 0", borderBottom: i < assessmentRows.length - 1 ? "1px solid #ece9df" : "none", cursor: drillable ? "pointer" : "default" }}
+                >
+                  <div style={{ minWidth: 0, paddingRight: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                    {r.flagged && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#b8584a", flexShrink: 0 }} />}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: "#2a2a26", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+                      <div style={{ fontSize: 11, color: "#a6a698", fontFamily: "ui-monospace,monospace" }}>{r.id.slice(0, 8)}</div>
+                    </div>
+                  </div>
+                  <div><span style={{ fontSize: 11, fontWeight: 700, color: "#585850" }}>{r.type}</span></div>
+                  <div><Pill variant={r.statusVariant} dot>{r.statusLabel}</Pill></div>
+                  <div style={{ fontSize: 12, color: "#585850", fontVariantNumeric: "tabular-nums" }}>{r.invited == null ? `${r.respondents}` : `${r.respondents} / ${r.invited}`}</div>
+                  <div style={{ textAlign: "right", fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: scoreColor100(r.score) }}>{r.score == null ? "—" : Math.round(r.score)}</div>
+                  <div style={{ textAlign: "right", color: "#c2c0b3", fontSize: 15 }}>{drillable ? "›" : ""}</div>
+                </div>
+              );
+            })}
+          </>
+        )}
       </Card>
     </div>
   );
+}
+
+/* ---- By assessment panel (lazily-loaded detail) ---- */
+function AssessmentPanel({
+  rows,
+  selected,
+  detail,
+  loading,
+  onSelect,
+}: {
+  rows: AssessmentRow[];
+  selected: string | null;
+  detail: AssessmentDetailVM | null;
+  loading: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const drillable = rows.filter((r) => r.kind === "survey");
+  if (drillable.length === 0) {
+    return (
+      <Card title="By assessment">
+        <div style={{ fontSize: 13, color: "#a6a698" }}>No surveys to break down yet.</div>
+      </Card>
+    );
+  }
+
+  const kpis: { big: string; title: string; sub: string; color: string }[] = detail
+    ? [
+        { big: detail.overallPct == null ? "—" : `${Math.round(detail.overallPct)}`, title: "Overall score", sub: detail.masked ? "masked" : "0–100 composite", color: scoreColor100(detail.overallPct) },
+        { big: detail.invited == null ? `${detail.respondents}` : `${detail.respondents} / ${detail.invited}`, title: "Responses", sub: detail.participationPct == null ? "participation —" : `${detail.participationPct}% participation`, color: "#2a2a26" },
+        { big: detail.masked ? "—" : `${detail.belowCount}`, title: "Sections below band", sub: `of ${detail.sectionCount} sections`, color: "#a8862f" },
+        { big: fmtReviewed(detail.lastReviewed), title: "Last reviewed", sub: detail.instrumentName, color: "#3a4d3f" },
+      ]
+    : [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>Assessment</span>
+        <select
+          value={selected ?? ""}
+          onChange={(e) => onSelect(e.target.value)}
+          style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "#2a2a26", background: "#fff", border: "1px solid #d8d4c6", borderRadius: 7, padding: "8px 12px", minWidth: 280, cursor: "pointer" }}
+        >
+          {drillable.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}{r.flagged ? " ⚑" : ""}</option>
+          ))}
+        </select>
+        {loading && <span style={{ fontSize: 12, color: "#a6a698" }}>Loading…</span>}
+      </div>
+
+      {!detail ? (
+        <Card title="By assessment"><div style={{ fontSize: 13, color: "#a6a698" }}>Select an assessment to see its breakdown.</div></Card>
+      ) : (
+        <div style={{ opacity: loading ? 0.55 : 1, transition: "opacity .12s", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+            {kpis.map((k, i) => (
+              <div key={i} style={{ background: "#fff", border: "1px solid #e4e1d5", borderRadius: 8, boxShadow: "0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05)", padding: "15px 17px" }}>
+                <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 26, fontWeight: 600, fontVariantNumeric: "tabular-nums", lineHeight: 1, color: k.color }}>{k.big}</div>
+                <div style={{ marginTop: 8, fontSize: 13, fontWeight: 600, color: "#2a2a26" }}>{k.title}</div>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#8a8a7e" }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 16, alignItems: "start" }}>
+            <Card title="Section scores" sub="bands · 0–100 scale">
+              {detail.masked ? (
+                <div style={{ fontSize: 13, color: "#a6a698" }}>Results stay hidden until enough people respond.</div>
+              ) : detail.sections.length === 0 ? (
+                <div style={{ fontSize: 13, color: "#a6a698" }}>No section scores yet.</div>
+              ) : (
+                detail.sections.map((s) => (
+                  <BandRow key={s.key} name={s.label} pct={s.pct} targetLow={s.targetLow} targetHigh={100} />
+                ))
+              )}
+            </Card>
+            <Card title="Score over time" sub={`${detail.trend.length} ${detail.trend.length === 1 ? "cycle" : "cycles"}`}>
+              <LineChart data={detail.trend} target={TARGET_MID} w={420} h={150} />
+            </Card>
+          </div>
+
+          {detail.note && (
+            <div style={{ background: "#f7f5ee", border: "1px solid #e4e1d5", borderRadius: 8, padding: "16px 18px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>Human note · {detail.note.label}</span>
+                <Grounded />
+              </div>
+              <p style={{ fontSize: 13, fontStyle: "italic", lineHeight: 1.6, color: "#4a4a44", margin: 0 }}>{detail.note.copy}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtReviewed(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+}
+
+/* ---- By workshop panel ---- */
+const OUTCOME_TINT: Record<string, [string, string]> = {
+  improved: ["#dcebdf", "#3f7d5a"],
+  pending: ["#ece7d6", "#8a7a52"],
+  flat: ["#f3e9cf", "#a8862f"],
+};
+const OUTCOME_LABEL: Record<string, string> = { improved: "Improved", pending: "Pending", flat: "Flat" };
+
+function WorkshopPanel({ rows, kpis }: { rows: WorkshopOutcomeRow[]; kpis: WorkshopKpis }) {
+  const cells: [string, string, string][] = [
+    [String(kpis.workshopsRun), "Workshops run", "#2a2a26"],
+    [fmtDelta(kpis.avgLift), "Avg score lift", kpis.avgLift != null && kpis.avgLift > 0 ? "#3f7d5a" : "#a6a698"],
+    [`${kpis.actionsDone} / ${kpis.actionsTotal}`, "Actions closed", "#a8862f"],
+    [kpis.attendance == null ? "—" : `${kpis.attendance}%`, "Attendance", "#2a2a26"],
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
+        {cells.map(([b, l, c], i) => (
+          <div key={i} style={{ background: "#fff", border: "1px solid #e4e1d5", borderRadius: 8, boxShadow: "0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05)", padding: "15px 17px" }}>
+            <div style={{ fontFamily: "'Playfair Display',Georgia,serif", fontSize: 26, fontWeight: 600, lineHeight: 1, color: c, fontVariantNumeric: "tabular-nums" }}>{b}</div>
+            <div style={{ marginTop: 7, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <Card title="Workshop outcomes" sub="Score change measured at follow-up pulse">
+        {rows.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#a6a698" }}>No workshops with a completed session yet.</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 110px 90px 90px 90px 120px", padding: "0 0 10px", borderBottom: "1px solid #e4e1d5", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", color: "#8a8a7e" }}>
+              <div>Workshop</div><div>Date</div><div>Particip.</div><div>Actions</div><div style={{ textAlign: "right" }}>Δ Score</div><div style={{ textAlign: "right" }}>Outcome</div>
+            </div>
+            {rows.map((r, i) => {
+              const [bg, fg] = OUTCOME_TINT[r.outcome] ?? OUTCOME_TINT.pending;
+              return (
+                <div key={r.id} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 110px 90px 90px 90px 120px", alignItems: "center", padding: "13px 0", borderBottom: i < rows.length - 1 ? "1px solid #ece9df" : "none" }}>
+                  <div style={{ minWidth: 0, paddingRight: 14 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: "#2a2a26", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.title}</div>
+                    <div style={{ fontSize: 11, color: "#a6a698", fontFamily: "ui-monospace,monospace" }}>#{r.id.slice(0, 4).toUpperCase()}</div>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#585850", fontVariantNumeric: "tabular-nums" }}>{fmtOutcomeDate(r.when)}</div>
+                  <div style={{ fontSize: 12.5, color: "#585850", fontVariantNumeric: "tabular-nums" }}>{r.participants || "—"}</div>
+                  <div style={{ fontSize: 12.5, color: "#585850", fontVariantNumeric: "tabular-nums" }}>{r.actionsDone} / {r.actionsTotal}</div>
+                  <div style={{ textAlign: "right", fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: r.delta != null && r.delta > 0 ? "#3f7d5a" : r.delta != null && r.delta < 0 ? "#b8584a" : "#a6a698" }}>{fmtDelta(r.delta)}</div>
+                  <div style={{ textAlign: "right" }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", padding: "3px 9px", borderRadius: 999, background: bg, color: fg }}>{OUTCOME_LABEL[r.outcome]}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function fmtOutcomeDate(iso: string | null) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function TeamPanel({ teams }: { teams: TeamVM[] }) {
@@ -447,6 +715,26 @@ function fmtWhen(iso: string | null) {
 /* ===================== root ===================== */
 export function InsightDashboard(props: DashboardProps) {
   const [tab, setTab] = useState<TabId>("overview");
+  const [selected, setSelected] = useState<string | null>(props.defaultAssessmentId);
+  const [detail, setDetail] = useState<AssessmentDetailVM | null>(props.defaultDetail);
+  const [pending, startTransition] = useTransition();
+
+  // Select an assessment and lazily load its detail via the server action. The
+  // default one is pre-loaded server-side, so this only fires on an actual
+  // change. A row click in Overview also switches to the assessment tab.
+  function selectAssessment(id: string) {
+    setSelected(id);
+    if (detail?.surveyId === id) return;
+    startTransition(async () => {
+      const { detail: vm } = await assessmentDetail(id);
+      setDetail(vm ?? null);
+    });
+  }
+  function openFromOverview(id: string) {
+    setTab("assessment");
+    selectAssessment(id);
+  }
+
   return (
     <div style={{ fontFamily: "'Inter',system-ui,sans-serif", color: "#2a2a26" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
@@ -460,10 +748,12 @@ export function InsightDashboard(props: DashboardProps) {
 
       <KpiStrip kpis={props.kpis} />
 
-      {tab === "overview" && <OverviewPanel {...props} />}
+      {tab === "overview" && <OverviewPanel {...props} onOpen={openFromOverview} />}
       {tab === "team" && <TeamPanel teams={props.teams} />}
-      {tab === "assessment" && <Placeholder note="per-assessment section scores, response rates and human notes." />}
-      {tab === "workshop" && <Placeholder note="workshop outcomes and score lift at follow-up." />}
+      {tab === "assessment" && (
+        <AssessmentPanel rows={props.assessmentRows} selected={selected} detail={detail} loading={pending} onSelect={selectAssessment} />
+      )}
+      {tab === "workshop" && <WorkshopPanel rows={props.workshopOutcomes} kpis={props.workshopKpis} />}
       {tab === "reports" && <Placeholder note="scheduled reports and one-off exports (PDF / Excel / CSV)." />}
     </div>
   );
