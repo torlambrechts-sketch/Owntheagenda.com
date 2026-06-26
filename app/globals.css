@@ -470,6 +470,39 @@ button { font-family:inherit; }
 .as-fchip{border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .as-fchip.on{border-color:var(--green);background:var(--open-bg);color:var(--open-fg)}
 .as-fcheck{display:flex;align-items:center;gap:9px;cursor:pointer;padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--ink)}
+/* H3 — forest segmented tab band */
+.as-tabband{display:flex;gap:4px;background:var(--forest);border-radius:10px;padding:5px;margin:0 0 20px}
+.as-tabbtn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 14px;border:none;border-radius:7px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;background:transparent;color:rgba(255,255,255,.82)}
+.as-tabbtn:hover{color:#fff}
+.as-tabbtn.on{background:var(--canvas);color:var(--forest)}
+.as-tabbtn-n{font-size:11px;font-weight:700;color:rgba(255,255,255,.9);background:rgba(255,255,255,.16);border-radius:999px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.as-tabbtn.on .as-tabbtn-n{color:var(--green);background:var(--open-bg)}
+/* H3 — filters count + date/team radios */
+.as-filtercount{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--forest);color:#fff;font-size:10.5px;font-weight:700;padding:0 5px;font-variant-numeric:tabular-nums}
+.as-filtermenu{width:250px;border-radius:11px}
+.as-filterhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-family:var(--font-display);font-size:16px;font-weight:600;color:var(--ink)}
+.as-fradios{display:flex;flex-direction:column;gap:1px;margin-bottom:14px}
+.as-fradio{display:flex;align-items:center;gap:10px;padding:6px 2px;cursor:pointer;font-size:13px;color:var(--ink)}
+.as-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--line-2);flex-shrink:0;position:relative}
+.as-radio.on{border-color:var(--green)}
+.as-radio.on::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--green)}
+/* H3 — "…" overflow + row menu */
+.as-morebtn{font-size:18px;line-height:1}
+.as-moremenu{position:absolute;top:calc(100% + 8px);right:0;z-index:40;width:212px;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:0 14px 40px rgba(42,42,38,.18);padding:7px;text-align:left}
+.as-moreitem{display:flex;align-items:center;gap:10px;width:100%;padding:9px 11px;border:none;border-radius:7px;background:none;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink);text-align:left}
+.as-moreitem:hover{background:var(--canvas)}
+.as-moreitem.danger{color:var(--rust)}
+.as-moreitem.danger:hover{background:var(--reject-bg)}
+.as-moresec{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);padding:10px 11px 5px;border-top:1px solid var(--line);margin-top:5px}
+/* H3 — KPI warn glyph */
+.as-kpiwarn{color:var(--amber);font-size:15px;cursor:help}
+/* H3 — center confirm dialog (DESIGN §7.5) */
+.as-confirm{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:90;width:min(92vw,420px);background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 24px 60px rgba(42,42,38,.28);padding:24px}
+.as-confirm h2{font-family:var(--font-display);font-size:20px;font-weight:600;margin:0 0 8px;color:var(--ink)}
+.as-confirm p{font-size:13.5px;line-height:1.55;color:var(--muted);margin:0 0 16px}
+.as-confirm-foot{display:flex;justify-content:flex-end;gap:10px}
+.btn-prim.danger{background:var(--rust)}
+.btn-prim.danger:hover{background:var(--reject-fg,#9a4538)}
 /* scheduled cards */
 .as-sched{display:flex;flex-direction:column;gap:10px}
 .as-schedcard{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer}
