@@ -132,6 +132,55 @@ export async function sendAssessment(input: {
   return { id };
 }
 
+// Edit an existing assessment's metadata + schedule, and optionally add
+// recipients. Anonymity + the instrument are intentionally not editable (would
+// corrupt scoring / de-anonymise once responses exist). An empty-string date
+// means "clear it". Backed by the update_assessment RPC (manager-gated).
+export async function updateAssessment(input: {
+  surveyId: string;
+  title?: string;
+  startAt?: string | null; // yyyy-mm-dd, "" clears
+  dueAt?: string | null; // yyyy-mm-dd, "" clears
+  reminders?: boolean;
+  minParticipants?: number;
+  addTeams?: string[];
+  addEmails?: string[];
+}): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const toIso = (d: string, end: boolean) => {
+    const dt = new Date(`${d}T${end ? "23:59" : "09:00"}:00`);
+    return isNaN(dt.getTime()) ? undefined : dt.toISOString();
+  };
+  const { error } = await supabase.rpc("update_assessment", {
+    p_survey: input.surveyId,
+    p_name: input.title?.trim() ? input.title.trim() : undefined,
+    p_start: input.startAt ? toIso(input.startAt, false) : undefined,
+    p_due: input.dueAt ? toIso(input.dueAt, true) : undefined,
+    p_clear_start: input.startAt === "",
+    p_clear_due: input.dueAt === "",
+    p_reminders: input.reminders ?? undefined,
+    p_min_participants: input.minParticipants ?? undefined,
+    p_add_teams: input.addTeams ?? [],
+    p_add_emails: input.addEmails ?? [],
+  });
+  if (error) return { error: error.message };
+  await logEvent(supabase, "assessment.updated", "survey", input.surveyId);
+  revalidatePath("/assessments");
+  return {};
+}
+
+// Remove an assessment: hard-delete when it has no responses (a draft),
+// otherwise soft-archive (data retained, drops out of the lists).
+export async function removeAssessment(surveyId: string): Promise<{ error?: string; result?: "deleted" | "archived" }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("delete_or_archive_assessment", { p_survey: surveyId });
+  if (error) return { error: error.message };
+  const result = (data as "deleted" | "archived") ?? "archived";
+  await logEvent(supabase, result === "deleted" ? "assessment.deleted" : "assessment.archived", "survey", surveyId);
+  revalidatePath("/assessments");
+  return { result };
+}
+
 export async function remindSurvey(surveyId: string): Promise<{ error?: string; pending?: number }> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc("remind_survey", { p_survey: surveyId });
