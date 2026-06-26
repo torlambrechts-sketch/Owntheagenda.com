@@ -94,6 +94,13 @@ const ICONS = {
       <path d="M3 9h18M8 18v2.5M16 18v2.5" />
     </svg>
   ),
+  whiteboard: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="4" width="18" height="13" rx="1.5" />
+      <path d="M8 17v3.5M16 17v3.5" />
+      <path d="m9 12 2.5-3 2 2.5L16 8" />
+    </svg>
+  ),
   org: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M3 21V7l6-3 6 3v14" />
@@ -128,10 +135,11 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/insight/leadership-teams", label: "Leadership Teams", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
   { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
+  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Activities" },
+  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Activities" },
+  { href: "/whiteboard", label: "Whiteboard", icon: ICONS.whiteboard, group: "Activities" },
   { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
-  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
-  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
@@ -149,6 +157,7 @@ const SECTION_HELP: Record<string, string> = {
   workshops: "run-first-workshop",
   sessions: "facilitate-live-session",
   canvas: "the-canvas",
+  whiteboard: "the-canvas",
   actions: "turn-talk-into-action",
   library: "the-template-library",
   assessments: "run-an-assessment",
@@ -191,7 +200,7 @@ export function Shell({
   // Insight collapses to one rail icon; the text menu keeps the three sub-pages.
   const insightHref = "/insight/leadership-teams";
   const insightActive = active("/insight");
-  const groups = ["Workspace", "Insight", "Effectiveness", "Organization", "Help"].filter((g) =>
+  const groups = ["Workspace", "Insight", "Activities", "Effectiveness", "Organization", "Help"].filter((g) =>
     visibleNav.some((n) => n.group === g),
   );
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
