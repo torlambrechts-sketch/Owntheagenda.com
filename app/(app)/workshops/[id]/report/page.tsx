@@ -4,7 +4,7 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { initials } from "@/lib/util";
 import { ACTIVITY } from "@/lib/util";
-import { PHASE_LABEL, phaseOf } from "../../blocks";
+import { PHASE_LABEL, phaseOf, type PhaseKey } from "../../blocks";
 import { Icon, WA, actIcon, PHASE_VIS } from "../../visuals";
 import { ReportExport } from "./ReportExport";
 
@@ -150,7 +150,9 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
           <div style={{ fontFamily: WA.serif, fontSize: 17, fontWeight: 600, color: WA.ink, margin: "0 0 4px" }}>Captured by block</div>
           <div>
             {blocks.map((b) => {
-              const ph = phaseOf((b.phase as string) ?? b.activity_type);
+              // Prefer the block's own phase override (already a PhaseKey); only
+              // derive from the activity type when it isn't a valid phase.
+              const ph: PhaseKey = b.phase && b.phase in PHASE_LABEL ? (b.phase as PhaseKey) : phaseOf(b.activity_type);
               const pv = PHASE_VIS[ph];
               const blockIdeas = ideasByBlock(b.ord);
               const lane = (l: string) => blockIdeas.filter((i) => (i.lane ?? "") === l);
