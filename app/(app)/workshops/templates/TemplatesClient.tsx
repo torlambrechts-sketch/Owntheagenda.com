@@ -89,6 +89,15 @@ export function TemplatesClient({ items, canManage }: { items: TemplateVM[]; can
       else { flash("Template deleted"); setDraft(null); router.refresh(); }
     });
   }
+  // Inline delete from a template card (center confirm per DESIGN §7.5).
+  function deleteById(t: TemplateVM) {
+    if (!confirm(`Delete “${t.name}”? Workshops already built from it are unaffected.`)) return;
+    startTransition(async () => {
+      const res = await deleteWorkshopTemplate(t.id);
+      if (res.error) flash(res.error);
+      else { flash("Template deleted"); router.refresh(); }
+    });
+  }
 
   const toastEl = (
     <div className={`toast${toast ? " show" : ""}`}>
@@ -109,21 +118,21 @@ export function TemplatesClient({ items, canManage }: { items: TemplateVM[]; can
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 16 }}>
         <span style={{ fontSize: 13, color: WA.faint }}>{items.length} templates · {owned.length} you can edit</span>
         {canManage ? (
-          <button onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 7, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}><Icon name="Plus" size={16} color="#fff" /> New template</button>
+          <button onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 6, padding: "11px 16px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}><Icon name="Plus" size={15} color="#fff" /> New template</button>
         ) : null}
       </div>
 
       {owned.length ? (
         <>
           <SectionHead label="Your templates" n={owned.length} />
-          <Grid items={owned} canManage={canManage} onOpen={openEdit} onDuplicate={duplicate} />
+          <Grid items={owned} canManage={canManage} onOpen={openEdit} onDuplicate={duplicate} onDelete={deleteById} pending={pending} />
         </>
       ) : null}
 
       <div style={{ marginTop: owned.length ? 26 : 4 }}>
         <SectionHead label="Framework library" n={system.length} />
       </div>
-      {system.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: WA.faint }}>No system templates yet.</div> : <Grid items={system} canManage={canManage} onOpen={openEdit} onDuplicate={duplicate} />}
+      {system.length === 0 ? <div style={{ padding: 40, textAlign: "center", color: WA.faint }}>No system templates yet.</div> : <Grid items={system} canManage={canManage} onOpen={openEdit} onDuplicate={duplicate} onDelete={deleteById} pending={pending} />}
 
       {toastEl}
     </div>
@@ -134,7 +143,13 @@ function SectionHead({ label, n }: { label: string; n: number }) {
   return <div style={{ fontFamily: WA.serif, fontSize: 19, fontWeight: 600, color: WA.ink, marginBottom: 12 }}>{label} <span style={{ fontFamily: "inherit", fontSize: 13, fontWeight: 500, color: WA.faint2 }}>· {n}</span></div>;
 }
 
-function Grid({ items, canManage, onOpen, onDuplicate }: { items: TemplateVM[]; canManage: boolean; onOpen: (t: TemplateVM) => void; onDuplicate: (t: TemplateVM) => void }) {
+function Grid({ items, canManage, onOpen, onDuplicate, onDelete, pending }: { items: TemplateVM[]; canManage: boolean; onOpen: (t: TemplateVM) => void; onDuplicate: (t: TemplateVM) => void; onDelete: (t: TemplateVM) => void; pending: boolean }) {
+  // Small square icon-button for the inline footer actions (Duplicate / Delete).
+  const iconBtn = (danger?: boolean): React.CSSProperties => ({
+    display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30,
+    borderRadius: 7, border: `1px solid ${danger ? "#e8cfca" : WA.cardBorder}`, background: "#fff",
+    color: danger ? "#b8584a" : WA.faint, cursor: pending ? "default" : "pointer", opacity: pending ? 0.6 : 1,
+  });
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(248px,1fr))", gap: 12, marginBottom: 4 }}>
       {items.map((t) => {
@@ -149,19 +164,23 @@ function Grid({ items, canManage, onOpen, onDuplicate }: { items: TemplateVM[]; 
                   <div style={{ marginTop: 2, fontSize: 12.5, color: WA.faint, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{t.description ?? `${CATEGORY[t.category] ?? t.category} workshop`}</div>
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 13, paddingTop: 12, borderTop: `1px solid ${WA.hair}`, fontSize: 11.5, color: WA.faint }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Clock" size={13} color={WA.faint2} />{t.minutes} min</span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Layers" size={13} color={WA.faint2} />{t.steps} blocks</span>
-                {t.used > 0 ? <span style={{ marginLeft: "auto", color: WA.faint2 }}>Used {t.used}×</span> : null}
-              </div>
             </button>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderTop: `1px solid ${WA.hair}`, background: "#faf9f5" }}>
-              <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color: t.owned ? v.accent : WA.faint2 }}>{t.owned ? "Editable" : "Framework"}</span>
-              {canManage ? (
-                t.owned
-                  ? <button onClick={() => onOpen(t)} style={{ border: "none", background: "none", color: WA.accent, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Edit</button>
-                  : <button onClick={() => onDuplicate(t)} style={{ border: "none", background: "none", color: WA.accent, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Duplicate</button>
-              ) : null}
+            {/* single-row footer: time / blocks left, inline actions right */}
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderTop: `1px solid ${WA.hair}`, background: "#faf9f5", fontSize: 11.5, color: WA.faint }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Clock" size={13} color={WA.faint2} />{t.minutes}m</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="Layers" size={13} color={WA.faint2} />{t.steps}</span>
+              {t.used > 0 ? <span style={{ color: WA.faint2 }}>· {t.used}×</span> : null}
+              <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                {canManage ? (
+                  <>
+                    <button onClick={() => onOpen(t)} style={{ border: "none", background: "none", color: WA.accent, fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "0 2px" }}>{t.owned ? "Edit" : "View"}</button>
+                    <button onClick={() => onDuplicate(t)} title="Duplicate" aria-label="Duplicate" style={iconBtn()}><Icon name="Copy" size={14} color={WA.faint} /></button>
+                    {t.owned ? <button onClick={() => onDelete(t)} disabled={pending} title="Delete" aria-label="Delete" style={iconBtn(true)}><Icon name="Trash2" size={14} color="#b8584a" /></button> : null}
+                  </>
+                ) : (
+                  <span style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".04em", color: t.owned ? v.accent : WA.faint2 }}>{t.owned ? "Editable" : "Framework"}</span>
+                )}
+              </span>
             </div>
           </div>
         );

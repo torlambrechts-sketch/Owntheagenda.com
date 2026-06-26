@@ -506,7 +506,7 @@ export function RunClient({
         ) : (
           <div className="roletag">Participant</div>
         )}
-        {acting ? <button className="exitbtn" onClick={endSession}>Close ▸</button> : null}
+        {acting ? <button className="exitbtn" onClick={endSession}>End session</button> : null}
       </div>
 
       <div className="run-progress" aria-hidden>

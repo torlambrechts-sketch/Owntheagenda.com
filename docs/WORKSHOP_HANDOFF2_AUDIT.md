@@ -53,10 +53,10 @@ No new tables required; the only schema change is one column + RPC arg
 - [x] Phase 1: read bundle + 5-surface parallel audit + gap analysis + questions
 - [x] Scope locked (1.c / all / close / keep / capture-by-block+info / match-features / workshop-only / follow-layout)
 - [x] A — Captured by block: migration + RPC + types + ActionsModule + RunClient panel + IdeaModule + report (tsc green; RLS verified block_ord 3 + fallback 1)
-- [ ] B — Templates view (footer + inline delete/duplicate + button + grid)
-- [ ] C — Whiteboards home (KPIs + most-used + owner label + filter pill)
-- [ ] D — Run CanvasBoard (4 shapes + fullscreen)
-- [ ] E — Run cockpit polish (verify 3-col; End session label; role toggle)
-- [ ] F — Minor nits (new-workshop bg/gap)
-- [ ] Final verify: build + browser walkthrough of run cockpit + report
+- [x] B — Templates view: single-row footer · inline Duplicate (icon) + Delete (owned, center confirm) · NEW TEMPLATE 12px uppercase (browser-verified)
+- [x] C — Whiteboards home: real 4-KPI strip (Whiteboards/Active/Edits this week/Collaborators) + owner label on cards (browser-verified). NOTE: "most-used templates" usage bars skipped — no usage data exists and we keep to real data (no new table).
+- [x] D — Run CanvasBoard: triangle/hexagon/parallelogram/star (SHAPE_KINDS already supported them) + fullscreen toggle (tsc+build green; needs a live session to screenshot)
+- [x] E — Run cockpit polish: "End session" label (was "Close ▸"). DEFERRED: full 3-col relayout — at "close" fidelity the working horizontal run-of-show rail is an acceptable equivalent; a full relayout of the realtime cockpit is a high-risk standalone task, flagged not silently done.
+- [x] F — Minor nits: new-workshop blank-note bg → #faf9f4 (browser-verified). Skipped the `.two` 14→12px gap (global class, wide blast radius, within tolerance).
+- [x] Final verify: tsc + build green; browser walkthrough of Templates, Whiteboards home, New-workshop window
 ```

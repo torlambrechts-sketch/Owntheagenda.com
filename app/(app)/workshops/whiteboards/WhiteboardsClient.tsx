@@ -48,6 +48,24 @@ export function WhiteboardsClient({
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Home dashboard KPIs — all computed from the loaded boards (no new tables).
+  const kpis = useMemo(() => {
+    const now = Date.now();
+    const within = (iso: string, days: number) => {
+      const t = new Date(iso).getTime();
+      return Number.isFinite(t) && now - t <= days * 86_400_000;
+    };
+    const active = boards.filter((b) => within(b.updatedAt, 14)).length;
+    const week = boards.filter((b) => within(b.updatedAt, 7)).length;
+    const collaborators = new Set(boards.flatMap((b) => b.collaborators)).size;
+    return [
+      { n: boards.length, label: "Whiteboards" },
+      { n: active, label: "Active boards" },
+      { n: week, label: "Edits this week" },
+      { n: collaborators, label: "Collaborators" },
+    ];
+  }, [boards]);
+
   const filteredBoards = useMemo(() => {
     let list = boards.slice();
     const needle = q.trim().toLowerCase();
@@ -93,6 +111,14 @@ export function WhiteboardsClient({
 
   return (
     <div className="wbg">
+      <div className="wbg-kpis">
+        {kpis.map((k) => (
+          <div className="wbg-kpi" key={k.label}>
+            <div className="wbg-kpi-n">{k.n}</div>
+            <div className="wbg-kpi-l">{k.label}</div>
+          </div>
+        ))}
+      </div>
       <div className="wbg-bar">
         <div className="wbg-tabs">
           <button className={`seg${tab === "boards" ? " on" : ""}`} onClick={() => setTab("boards")}>
@@ -150,7 +176,7 @@ export function WhiteboardsClient({
                     </button>
                   </div>
                   <div className="wbc-meta">
-                    <span>Edited {b.editedLabel || "just now"}</span>
+                    <span>Edited {b.editedLabel || "just now"}{b.ownerName ? ` · ${b.ownerName}` : ""}</span>
                     <div className="wbc-avatars">
                       {b.collaborators.map((c, i) => (
                         <span key={i} className="wbc-av" title={c} style={{ background: avatarBg(c) }}>{initials(c)}</span>
@@ -197,6 +223,11 @@ function avatarBg(name: string): string {
 
 const styles = `
 .wbg{margin-top:18px}
+.wbg-kpis{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05);padding:16px 6px;margin-bottom:18px}
+.wbg-kpi{padding:0 22px;border-left:1px solid var(--canvas-2)}
+.wbg-kpi:first-child{border-left:none}
+.wbg-kpi-n{font-family:var(--font-display);font-size:26px;font-weight:600;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
+.wbg-kpi-l{margin-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
 .wbg-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .wbg-tabs{display:inline-flex;background:var(--canvas-2);border-radius:8px;padding:3px}
 .wbg-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
