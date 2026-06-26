@@ -513,8 +513,23 @@ export function RunClient({
         <div className="run-progress-fill" style={{ width: `${Math.round((Math.min(session.currentBlockOrd, N) / Math.max(N, 1)) * 100)}%` }} />
       </div>
 
-      {blocks.length > 1 ? (
-        <div className="runrail" aria-label="Run of show">
+      {endErr ? (
+        <div className="closegate">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+          </svg>
+          <span>Can’t close yet — {endErr}</span>
+          <button className="cg-x" onClick={() => setEndErr(null)}>Dismiss</button>
+        </div>
+      ) : null}
+
+      {pulseOpen && measuresDynamic ? (
+        <SessionPulse sessionId={sid} isFacilitator={isFacilitator} userId={userId} onClose={() => setPulseOpen(false)} />
+      ) : null}
+
+      <div className="runbody">
+        <nav className="runagenda" aria-label="Run of show">
+          <div className="runagenda-h">Agenda</div>
           {blocks.map((b) => {
             const cur = b.ord === session.currentBlockOrd;
             const done = b.ord < session.currentBlockOrd;
@@ -532,24 +547,7 @@ export function RunClient({
               </button>
             );
           })}
-        </div>
-      ) : null}
-
-      {endErr ? (
-        <div className="closegate">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </svg>
-          <span>Can’t close yet — {endErr}</span>
-          <button className="cg-x" onClick={() => setEndErr(null)}>Dismiss</button>
-        </div>
-      ) : null}
-
-      {pulseOpen && measuresDynamic ? (
-        <SessionPulse sessionId={sid} isFacilitator={isFacilitator} userId={userId} onClose={() => setPulseOpen(false)} />
-      ) : null}
-
-      <div className="runbody">
+        </nav>
         {block?.activityType === "canvas" ? (
           <div className="stage canvasstage">
             <CanvasBoard
@@ -739,23 +737,6 @@ export function RunClient({
         )}
 
         <aside className="runside">
-          <div className="rs">
-            <h5>Run of show {acting ? <span style={{ color: "var(--faint)" }}>tap to jump</span> : null}</h5>
-            {blocks.map((b) => {
-              const state = b.ord < session.currentBlockOrd ? "done" : b.ord === session.currentBlockOrd ? "now" : "";
-              return (
-                <div
-                  className={`mini-step ${state}${acting ? " click" : ""}`}
-                  key={b.ord}
-                  onClick={() => acting && phase(b.ord)}
-                >
-                  <span className="n">{b.ord < session.currentBlockOrd ? "✓" : b.ord}</span>
-                  {b.title}
-                </div>
-              );
-            })}
-          </div>
-
           <div className="rs">
             <h5>Agreement · fist of five</h5>
             <div className="fist">

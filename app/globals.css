@@ -1275,8 +1275,15 @@ textarea.inp{resize:vertical;min-height:80px;line-height:1.5}
 .runrail-step.done .runrail-n{background:var(--open-bg);color:var(--green)}
 .runrail-step.on{border-color:var(--green);color:var(--ink);background:var(--open-bg)}
 .runrail-step.on .runrail-n{background:var(--green);color:#fff}
-.runbody{flex:1;display:flex;min-height:0}
-.stage{flex:1;padding:28px;overflow:auto}
+.runbody{flex:1;display:grid;grid-template-columns:minmax(210px,240px) minmax(0,1fr) 320px;min-height:0}
+/* left agenda column (run of show) */
+.runagenda{background:#faf9f3;border-right:1px solid var(--line);overflow:auto;padding:14px;display:flex;flex-direction:column;gap:5px;min-height:0}
+.runagenda-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:7px}
+.runagenda .runrail-step{width:100%;justify-content:flex-start;white-space:normal;text-align:left}
+.runagenda .runrail-step .runrail-t{overflow:hidden;text-overflow:ellipsis}
+.stage{padding:28px;overflow:auto;min-width:0}
+@media (max-width:1100px){.runbody{grid-template-columns:minmax(0,1fr) 300px}.runagenda{display:none}}
+@media (max-width:780px){.runbody{grid-template-columns:minmax(0,1fr)}.runside{display:none}}
 .stage-prompt{background:var(--forest);border-radius:14px;padding:30px;color:#fff;max-width:760px;margin:0 auto;box-shadow:var(--shadow)}
 .stage-prompt .pact{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,.6)}
 .stage-prompt h2{font-family:var(--font-display);font-size:28px;font-weight:600;margin:8px 0 16px}

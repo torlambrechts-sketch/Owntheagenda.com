@@ -56,7 +56,8 @@ No new tables required; the only schema change is one column + RPC arg
 - [x] B — Templates view: single-row footer · inline Duplicate (icon) + Delete (owned, center confirm) · NEW TEMPLATE 12px uppercase (browser-verified)
 - [x] C — Whiteboards home: real 4-KPI strip (Whiteboards/Active/Edits this week/Collaborators) + owner label on cards (browser-verified). NOTE: "most-used templates" usage bars skipped — no usage data exists and we keep to real data (no new table).
 - [x] D — Run CanvasBoard: triangle/hexagon/parallelogram/star (SHAPE_KINDS already supported them) + fullscreen toggle (tsc+build green; needs a live session to screenshot)
-- [x] E — Run cockpit polish: "End session" label (was "Close ▸"). DEFERRED: full 3-col relayout — at "close" fidelity the working horizontal run-of-show rail is an acceptable equivalent; a full relayout of the realtime cockpit is a high-risk standalone task, flagged not silently done.
+- [x] E — Run cockpit polish: "End session" label (was "Close ▸").
+- [x] E2 — Run cockpit **3-column relayout**: agenda moved to a vertical left column inside `.runbody` (now a 3-col grid: agenda / stage / actions+discussion), redundant right-side run-of-show removed, responsive fallbacks added. Verified by seeding a live dry-run session + screenshot — matches the design (agenda left, module + React bar center, Agreement/Commitments/Discussion right). Seed data cleaned up.
 - [x] F — Minor nits: new-workshop blank-note bg → #faf9f4 (browser-verified). Skipped the `.two` 14→12px gap (global class, wide blast radius, within tolerance).
 - [x] Final verify: tsc + build green; browser walkthrough of Templates, Whiteboards home, New-workshop window
 ```
