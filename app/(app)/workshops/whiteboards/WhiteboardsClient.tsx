@@ -28,7 +28,10 @@ export type TemplateCard = {
   objects: WBObject[];
 };
 
-type Tab = "boards" | "templates";
+// Section tabs match the design's whiteboards home (Dashboard / Boards /
+// Templates), mirroring the Workshops home. The Dashboard tab carries the KPI
+// strip + "Recently edited" + "Most-used templates"; Boards/Templates are grids.
+type Tab = "dashboard" | "boards" | "templates";
 type Sort = "recent" | "az" | "za";
 
 export function WhiteboardsClient({
@@ -41,30 +44,34 @@ export function WhiteboardsClient({
   currentUserId: string;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("boards");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<Sort>("recent");
   const [owner, setOwner] = useState<string>("all");
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
 
-  // Home dashboard KPIs — all computed from the loaded boards (no new tables).
+  // Dashboard KPIs — all computed from loaded data (no new tables), matching the
+  // design's wbDashKpis (Active boards / Templates / Edits this week / Collaborators).
   const kpis = useMemo(() => {
     const now = Date.now();
     const within = (iso: string, days: number) => {
       const t = new Date(iso).getTime();
       return Number.isFinite(t) && now - t <= days * 86_400_000;
     };
-    const active = boards.filter((b) => within(b.updatedAt, 14)).length;
     const week = boards.filter((b) => within(b.updatedAt, 7)).length;
     const collaborators = new Set(boards.flatMap((b) => b.collaborators)).size;
     return [
-      { n: boards.length, label: "Whiteboards" },
-      { n: active, label: "Active boards" },
-      { n: week, label: "Edits this week" },
-      { n: collaborators, label: "Collaborators" },
+      { n: boards.length, label: "Active boards", color: "#2a2a26" },
+      { n: templates.length, label: "Templates", color: "#2a2a26" },
+      { n: week, label: "Edits this week", color: "#42729e" },
+      { n: collaborators, label: "Collaborators", color: "#3f7d5a" },
     ];
-  }, [boards]);
+  }, [boards, templates]);
+
+  // Dashboard sub-lists.
+  const recent = useMemo(() => boards.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5), [boards]);
+  const topTemplates = useMemo(() => templates.slice(0, 6), [templates]);
 
   const filteredBoards = useMemo(() => {
     let list = boards.slice();
@@ -109,51 +116,104 @@ export function WhiteboardsClient({
     });
   }
 
+  const TABS: { key: Tab; label: string; icon: string; n?: number }[] = [
+    { key: "dashboard", label: "Dashboard", icon: "LayoutGrid" },
+    { key: "boards", label: "Boards", icon: "Layers", n: boards.length },
+    { key: "templates", label: "Templates", icon: "Presentation", n: templates.length },
+  ];
+
   return (
     <div className="wbg">
-      <div className="wbg-kpis">
-        {kpis.map((k) => (
-          <div className="wbg-kpi" key={k.label}>
-            <div className="wbg-kpi-n">{k.n}</div>
-            <div className="wbg-kpi-l">{k.label}</div>
-          </div>
-        ))}
-      </div>
+      {/* New whiteboard — prominent, above the tabs (design) */}
+      <button className="wbg-new" disabled={pending && busy === "new"} onClick={() => newBoard()}>
+        <Icon name="Plus" size={15} color="#fff" /> New whiteboard
+      </button>
+
       <div className="wbg-bar">
         <div className="wbg-tabs">
-          <button className={`seg${tab === "boards" ? " on" : ""}`} onClick={() => setTab("boards")}>
-            Boards <span className="sn">{boards.length}</span>
-          </button>
-          <button className={`seg${tab === "templates" ? " on" : ""}`} onClick={() => setTab("templates")}>
-            Templates <span className="sn">{templates.length}</span>
-          </button>
+          {TABS.map((t) => (
+            <button key={t.key} className={`seg${tab === t.key ? " on" : ""}`} onClick={() => setTab(t.key)}>
+              {t.label}{t.n != null ? <span className="sn">{t.n}</span> : null}
+            </button>
+          ))}
         </div>
-        <div className="wbg-controls">
-          <label className="wbg-search">
-            <Icon name="Search" size={14} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" />
-          </label>
-          {tab === "boards" && ownerOptions.length ? (
-            <select className="wbg-sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
-              <option value="all">All owners</option>
-              <option value="me">My boards</option>
-              {ownerOptions.filter((o) => o.id !== currentUserId).map((o) => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
+        {tab !== "dashboard" ? (
+          <div className="wbg-controls">
+            <label className="wbg-search">
+              <Icon name="Search" size={14} />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" />
+            </label>
+            {tab === "boards" && ownerOptions.length ? (
+              <select className="wbg-sel" value={owner} onChange={(e) => setOwner(e.target.value)}>
+                <option value="all">All owners</option>
+                <option value="me">My boards</option>
+                {ownerOptions.filter((o) => o.id !== currentUserId).map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            ) : null}
+            <select className="wbg-sel" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+              <option value="recent">Most recent</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
             </select>
-          ) : null}
-          <select className="wbg-sel" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
-            <option value="recent">Most recent</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
-          </select>
-          <button className="btn-prim" disabled={pending && busy === "new"} onClick={() => newBoard()}>
-            <Icon name="Plus" size={14} color="#fff" /> New whiteboard
-          </button>
-        </div>
+          </div>
+        ) : null}
       </div>
 
-      {tab === "boards" ? (
+      {tab === "dashboard" ? (
+        <>
+          <div className="wbg-kpis">
+            {kpis.map((k) => (
+              <div className="wbg-kpi" key={k.label}>
+                <div className="wbg-kpi-n" style={{ color: k.color }}>{k.n}</div>
+                <div className="wbg-kpi-l">{k.label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="wbg-dash">
+            {/* Recently edited */}
+            <div className="wbg-card">
+              <div className="wbg-card-h">
+                <span className="wbg-card-t">Recently edited</span>
+                <button className="wbg-card-link" onClick={() => setTab("boards")}>View all</button>
+              </div>
+              <div className="wbg-card-b">
+                {recent.length === 0 ? (
+                  <div className="wbg-empty">No whiteboards yet.</div>
+                ) : recent.map((b) => (
+                  <button key={b.id} className="wbg-recent" onClick={() => router.push(`/workshops/whiteboards/${b.id}`)}>
+                    <span className="wbg-recent-thumb" style={{ borderTopColor: accentHex(b.accent) }}><MiniPreview objects={b.objects} /></span>
+                    <span className="wbg-recent-main">
+                      <span className="wbg-recent-t">{b.title}</span>
+                      <span className="wbg-recent-m">Edited {b.editedLabel || "just now"}{b.ownerName ? ` · ${b.ownerName}` : ""}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Templates ready to run */}
+            <div className="wbg-card">
+              <div className="wbg-card-h">
+                <span className="wbg-card-t">Most-used templates</span>
+                <button className="wbg-card-link" onClick={() => setTab("templates")}>View all</button>
+              </div>
+              <div className="wbg-card-b">
+                {topTemplates.map((t) => (
+                  <button key={t.key} className="wbg-toprow" onClick={() => newBoard(t.fromBoardId ? undefined : t.key, t.key)}>
+                    <span className="wbg-toprow-l"><span className="wbg-dot" style={{ background: accentHex(t.accent) }} />{t.title}</span>
+                    <span className="wbg-toprow-use">Use →</span>
+                  </button>
+                ))}
+                <div className="wbg-tplfoot">
+                  <span className="wbg-tplfoot-n">{templates.length}</span>
+                  <span>facilitation templates ready to run</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : tab === "boards" ? (
         filteredBoards.length === 0 ? (
           <div className="card empty" style={{ marginTop: 16 }}>
             No whiteboards yet — start one from scratch or pick a template.
@@ -223,17 +283,40 @@ function avatarBg(name: string): string {
 
 const styles = `
 .wbg{margin-top:18px}
-.wbg-kpis{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05);padding:16px 6px;margin-bottom:18px}
-.wbg-kpi{padding:0 22px;border-left:1px solid var(--canvas-2)}
-.wbg-kpi:first-child{border-left:none}
-.wbg-kpi-n{font-family:var(--font-display);font-size:26px;font-weight:600;color:var(--ink);line-height:1;font-variant-numeric:tabular-nums}
-.wbg-kpi-l{margin-top:5px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.wbg-new{display:inline-flex;align-items:center;gap:7px;background:var(--forest);color:#fff;border:none;border-radius:6px;padding:11px 16px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;font-family:inherit;margin-bottom:16px}
+.wbg-new:hover{background:var(--forest-2)}
 .wbg-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .wbg-tabs{display:inline-flex;background:var(--canvas-2);border-radius:8px;padding:3px}
 .wbg-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .wbg-search{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:7px 11px;color:var(--muted)}
 .wbg-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:150px;color:var(--ink)}
 .wbg-sel{background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:8px 11px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.wbg-kpis{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05);padding:20px 8px;margin-bottom:16px}
+.wbg-kpi{padding:0 22px;border-left:1px solid var(--canvas-2)}
+.wbg-kpi:first-child{border-left:none}
+.wbg-kpi-n{font-family:var(--font-display);font-size:32px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+.wbg-kpi-l{margin-top:9px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.wbg-dash{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.wbg-card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 2px rgba(58,77,63,.05),0 6px 18px rgba(58,77,63,.05);overflow:hidden}
+.wbg-card-h{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid #ece9df}
+.wbg-card-t{font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--ink)}
+.wbg-card-link{border:none;background:none;font-size:12px;font-weight:600;color:var(--forest);cursor:pointer}
+.wbg-card-b{padding:8px 12px 14px}
+.wbg-empty{padding:24px;text-align:center;color:var(--faint);font-size:13px}
+.wbg-recent{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;background:none;cursor:pointer;padding:10px 8px;border-radius:8px;font-family:inherit}
+.wbg-recent:hover{background:var(--canvas)}
+.wbg-recent-thumb{width:46px;height:34px;border-top:2px solid var(--forest);border-radius:5px;background:#fbfaf6;overflow:hidden;flex:none;display:flex;align-items:center;justify-content:center}
+.wbg-recent-main{min-width:0;flex:1}
+.wbg-recent-t{display:block;font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wbg-recent-m{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.wbg-toprow{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;background:none;cursor:pointer;padding:9px 8px;border-radius:8px;font-family:inherit}
+.wbg-toprow:hover{background:var(--canvas)}
+.wbg-toprow-l{font-size:12.5px;color:#404040;display:inline-flex;align-items:center;gap:8px;min-width:0}
+.wbg-dot{width:9px;height:9px;border-radius:50%;flex:none}
+.wbg-toprow-use{font-size:11.5px;font-weight:700;color:var(--forest)}
+.wbg-tplfoot{margin:10px 8px 4px;padding-top:14px;border-top:1px solid #ece9df;display:flex;align-items:center;gap:10px}
+.wbg-tplfoot-n{font-family:var(--font-display);font-size:28px;font-weight:600;color:var(--forest)}
+.wbg-tplfoot span:last-child{font-size:12.5px;color:#585850;line-height:1.4}
 .wbg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
 .wbc{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:box-shadow .15s,transform .15s;display:flex;flex-direction:column}
 .wbc:hover{box-shadow:0 10px 26px rgba(0,0,0,.09);transform:translateY(-2px)}
@@ -250,4 +333,5 @@ const styles = `
 .wbc-av{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--surface);color:#fff;font-size:9.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;margin-left:-6px}
 .wbc-desc{font-size:12.5px;color:var(--muted);margin:6px 0 10px;line-height:1.45}
 .wbc-use{font-size:12px;font-weight:700;color:var(--forest)}
+@media (max-width:780px){.wbg-dash{grid-template-columns:1fr}}
 `;
