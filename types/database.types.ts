@@ -917,6 +917,44 @@ export type Database = {
         Update: { [k: string]: unknown }
         Relationships: []
       }
+      report_schedule: {
+        Row: {
+          id: string
+          workspace_id: string
+          name: string
+          format: string
+          frequency: string
+          recipients: string[]
+          include: Json
+          scope: Json
+          message: string | null
+          status: string
+          next_run_at: string | null
+          last_run_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
+      report_run: {
+        Row: {
+          id: string
+          schedule_id: string | null
+          workspace_id: string
+          format: string
+          recipients: string[]
+          status: string
+          error: string | null
+          sent_at: string | null
+          created_at: string
+        }
+        Insert: { [k: string]: unknown }
+        Update: { [k: string]: unknown }
+        Relationships: []
+      }
       whiteboard: {
         Row: {
           id: string
