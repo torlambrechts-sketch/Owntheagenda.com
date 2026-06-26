@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ACTIVITY, CATEGORY } from "@/lib/util";
 import type { Enums } from "@/types/database.types";
@@ -45,7 +45,7 @@ const CATEGORY_OPTIONS = Object.keys(CATEGORY) as Category[];
 const uid = (p: string) => p + Math.random().toString(36).slice(2, 8);
 const blankPhase = (type: Activity): TemplatePhase => ({ id: uid("p"), title: ACTIVITY[type]?.label ?? "Step", type, minutes: DEFAULT_MINUTES[type] ?? 10, prompt: null });
 
-export function TemplatesClient({ items, canManage }: { items: TemplateVM[]; canManage: boolean }) {
+export function TemplatesClient({ items, canManage, embedded = false, newSignal = 0 }: { items: TemplateVM[]; canManage: boolean; embedded?: boolean; newSignal?: number }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
@@ -54,6 +54,9 @@ export function TemplatesClient({ items, canManage }: { items: TemplateVM[]; can
   function flash(m: string) { setToast(m); setTimeout(() => setToast(null), 2400); }
 
   const openNew = () => setDraft({ id: null, name: "Untitled template", category: "team", description: "", phases: [blankPhase("checkin"), blankPhase("brainstorm"), blankPhase("vote"), blankPhase("outcome")], readOnly: false });
+  // Open a fresh draft when the parent (Workshops section header) fires its
+  // "New template" button via an incrementing signal.
+  useEffect(() => { if (newSignal > 0) openNew(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [newSignal]);
   const openEdit = (t: TemplateVM) => setDraft({ id: t.id, name: t.name, category: t.category, description: t.description ?? "", phases: t.phases.map((p) => ({ ...p, id: uid("p") })), readOnly: !t.owned });
   const duplicate = (t: TemplateVM) => setDraft({ id: null, name: `${t.name} (copy)`, category: t.category, description: t.description ?? "", phases: t.phases.map((p) => ({ ...p, id: uid("p") })), readOnly: false });
 
@@ -117,7 +120,7 @@ export function TemplatesClient({ items, canManage }: { items: TemplateVM[]; can
     <div style={{ color: WA.ink2 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 16 }}>
         <span style={{ fontSize: 13, color: WA.faint }}>{items.length} templates · {owned.length} you can edit</span>
-        {canManage ? (
+        {canManage && !embedded ? (
           <button onClick={openNew} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: WA.accent, color: "#fff", border: "none", borderRadius: 6, padding: "11px 16px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}><Icon name="Plus" size={15} color="#fff" /> New template</button>
         ) : null}
       </div>

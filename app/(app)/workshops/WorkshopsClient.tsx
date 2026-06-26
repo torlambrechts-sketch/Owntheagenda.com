@@ -114,6 +114,7 @@ export function WorkshopsClient({
   const [filterOpen, setFilterOpen] = useState(false);
   const [pageMenuOpen, setPageMenuOpen] = useState(false);
   const [filterOwner, setFilterOwner] = useState("all");
+  const [newTemplateSignal, setNewTemplateSignal] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
   function flash(m: string) {
@@ -157,9 +158,15 @@ export function WorkshopsClient({
         <h1 className="page-title" style={{ margin: 0 }}>Workshops</h1>
         {canManage ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={() => setNewOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#3a4d3f", color: "#fff", border: "none", borderRadius: 6, padding: "11px 16px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}>
-              <Icon name="Plus" size={15} color="#fff" /> New workshop
-            </button>
+            {section === "templates" ? (
+              <button onClick={() => setNewTemplateSignal((n) => n + 1)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#3a4d3f", color: "#fff", border: "none", borderRadius: 6, padding: "11px 16px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}>
+                <Icon name="Plus" size={15} color="#fff" /> New template
+              </button>
+            ) : (
+              <button onClick={() => setNewOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#3a4d3f", color: "#fff", border: "none", borderRadius: 6, padding: "11px 16px", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", cursor: "pointer", fontFamily: "inherit" }}>
+                <Icon name="Plus" size={15} color="#fff" /> New workshop
+              </button>
+            )}
 
             {/* Filters pill + popover (owner) */}
             <div style={{ position: "relative" }}>
@@ -220,7 +227,7 @@ export function WorkshopsClient({
       {section === "dashboard" ? (
         <WorkshopDashboard data={dashboard} upcoming={upcoming} onViewAll={() => setSection("workshops")} />
       ) : section === "templates" ? (
-        <TemplatesClient items={templateVMs} canManage={canManage} />
+        <TemplatesClient items={templateVMs} canManage={canManage} embedded newSignal={newTemplateSignal} />
       ) : (
         <WorkshopHome
           teamId={teamId}
