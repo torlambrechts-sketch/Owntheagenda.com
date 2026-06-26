@@ -133,18 +133,21 @@ const ICONS = {
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
   { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
-  { href: "/insight", label: "Insights", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Effectiveness" },
-  { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
-  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops" },
-  { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops" },
-  { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
-  { href: "/assessments/frameworks", label: "Frameworks", icon: ICONS.library, group: "Assessments" },
-  { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
-  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
-  { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
-  { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Organization", adminOnly: true },
+  // Workshops & Assessments — the things teams build and run.
+  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops & Assessments" },
+  { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops & Assessments" },
+  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Workshops & Assessments" },
+  // Administration — analytics, flows, actions and org management.
+  { href: "/insight", label: "Insights", icon: ICONS.health, group: "Administration", facilitatorHidden: true },
+  { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Administration" },
+  { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Administration" },
+  { href: "/organization", label: "Organization", icon: ICONS.org, group: "Administration", adminOnly: true },
+  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Administration" },
+  { href: "/members", label: "Members", icon: ICONS.members, group: "Administration" },
+  { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Administration", adminOnly: true },
+  // Help — guidance + the assessment Frameworks reference.
   { href: "/help", label: "Help & Science", icon: ICONS.help, group: "Help" },
+  { href: "/assessments/frameworks", label: "Frameworks", icon: ICONS.library, group: "Help" },
 ];
 
 // Per-section contextual help: route segment → the guide's slug.
@@ -200,11 +203,12 @@ export function Shell({
   }
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
-  // Per-nav-item active. "/assessments" (Overview) must NOT light up on the
-  // Builder/Templates sub-routes; query-only links (Take survey demo) never do.
+  // Per-nav-item active. "/assessments" must NOT light up on the
+  // Builder/Templates sub-routes, nor on Frameworks (now a Help item);
+  // query-only links (Take survey demo) never do.
   const navItemActive = (href: string) => {
     if (href.includes("?")) return false;
-    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take"));
+    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take") && !path.startsWith("/assessments/frameworks"));
     // "Workshops" (the section landing) owns the home, templates, builder and a
     // specific workshop (/workshops/<id>), but NOT the Whiteboards or Run
     // sibling nav items.
@@ -216,24 +220,31 @@ export function Shell({
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
-  // The Organization section collapses to a single rail icon (the text menu
-  // keeps the sub-links). Non-admins land on Teams — the first tab they can see.
+  // The Organization sub-pages collapse to a single "Organization" entry (its
+  // own tabs route within the page). Non-admins land on Teams — their first tab.
+  const ORG_TABS = ["/organization", "/teams", "/members", "/integrations"];
   const orgHref = admin ? "/organization" : "/teams";
-  const orgActive = ["/organization", "/teams", "/members", "/integrations"].some((h) => active(h));
-  // Insight is a single destination: the Insights dashboard (rail icon + menu).
-  const insightHref = "/insight";
-  const insightActive = active("/insight");
-  // Assessments collapses to one rail icon; the text menu keeps its sub-pages.
-  const assessHref = "/assessments";
-  const assessActive = active("/assessments");
-  // Workshops is its own section: one rail icon → the text menu lists
-  // Workshops / Whiteboards (running a workshop happens from a workshop's
-  // Overview → Enter run, not a standalone nav item).
-  const workshopsHref = "/workshops";
-  const workshopsActive = active("/workshops");
-  const groups = ["Workspace", "Insight", "Effectiveness", "Workshops", "Assessments", "Organization", "Help"].filter((g) =>
-    visibleNav.some((n) => n.group === g),
-  );
+  const orgActive = ORG_TABS.some((h) => active(h));
+
+  // Sidebar groups, in order. Each is one labelled section in the text menu and
+  // one icon in the collapsed rail.
+  const GROUP_ORDER = ["Workspace", "Workshops & Assessments", "Administration", "Help"];
+  const GROUP_ICON: Record<string, JSX.Element> = {
+    "Workspace": ICONS.dashboard,
+    "Workshops & Assessments": ICONS.workshops,
+    "Administration": ICONS.org,
+    "Help": ICONS.help,
+  };
+  const groups = GROUP_ORDER.filter((g) => visibleNav.some((n) => n.group === g));
+  // A group is active when any of its items is — Organization tabs fold into orgActive.
+  const groupActive = (g: string) =>
+    visibleNav.some((n) => n.group === g && (ORG_TABS.includes(n.href) ? orgActive : navItemActive(n.href)));
+  // Rail target: the group's first visible item (Organization → its landing tab).
+  const groupHref = (g: string) => {
+    const first = visibleNav.find((n) => n.group === g);
+    if (!first) return "/dashboard";
+    return ORG_TABS.includes(first.href) ? orgHref : first.href;
+  };
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
   const helpHref = helpSlug ? `/help/${helpSlug}` : "/help";
   const canSwitch = chrome.workspaces.length > 1;
@@ -250,55 +261,11 @@ export function Shell({
         {collapsed ? (
           <button className="rail-expand" onClick={onLogoClick} title="Expand menu" aria-label="Expand menu">›</button>
         ) : null}
-        {(() => {
-          let orgDone = false;
-          let insightDone = false;
-          let assessDone = false;
-          let workshopsDone = false;
-          return visibleNav.map((n) => {
-            if (n.group === "Organization") {
-              if (orgDone) return null;
-              orgDone = true;
-              return (
-                <Link key="org-rail" className={`ri${orgActive ? " active" : ""}`} href={orgHref} title="Organization">
-                  {ICONS.org}
-                </Link>
-              );
-            }
-            if (n.group === "Insight") {
-              if (insightDone) return null;
-              insightDone = true;
-              return (
-                <Link key="insight-rail" className={`ri${insightActive ? " active" : ""}`} href={insightHref} title="Insight">
-                  {ICONS.health}
-                </Link>
-              );
-            }
-            if (n.group === "Assessments") {
-              if (assessDone) return null;
-              assessDone = true;
-              return (
-                <Link key="assess-rail" className={`ri${assessActive ? " active" : ""}`} href={assessHref} title="Assessments">
-                  {ICONS.assess}
-                </Link>
-              );
-            }
-            if (n.group === "Workshops") {
-              if (workshopsDone) return null;
-              workshopsDone = true;
-              return (
-                <Link key="workshops-rail" className={`ri${workshopsActive ? " active" : ""}`} href={workshopsHref} title="Workshops">
-                  {ICONS.workshops}
-                </Link>
-              );
-            }
-            return (
-              <Link key={n.href} className={`ri${active(n.href) ? " active" : ""}`} href={n.href} title={n.label}>
-                {n.icon}
-              </Link>
-            );
-          });
-        })()}
+        {groups.map((g) => (
+          <Link key={g} className={`ri${groupActive(g) ? " active" : ""}`} href={groupHref(g)} title={g}>
+            {GROUP_ICON[g]}
+          </Link>
+        ))}
         <div className="spacer" />
         <div className="av sm" title={chrome.userName}>
           {initials(chrome.userName)}
@@ -313,28 +280,29 @@ export function Shell({
           </span>
           <button className="nav-collapse" onClick={toggleCollapsed} title="Collapse menu" aria-label="Collapse menu">‹</button>
         </div>
-        {groups.map((g) => (
-          <div className="grp" key={g}>
-            <h4>{g}</h4>
-            {g === "Organization" ? (
-              <Link href={orgHref} className={orgActive ? "active" : ""}>
-                <span className="dot" />
-                Organization
-              </Link>
-            ) : (
-              visibleNav.filter((n) => n.group === g).map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={navItemActive(n.href) ? "active" : ""}
-                >
+        {groups.map((g) => {
+          // List the group's items; the Organization sub-tabs fold into a
+          // single "Organization" link rendered in place.
+          const items = visibleNav.filter((n) => n.group === g && !ORG_TABS.includes(n.href));
+          const hasOrg = visibleNav.some((n) => n.group === g && ORG_TABS.includes(n.href));
+          return (
+            <div className="grp" key={g}>
+              <h4>{g}</h4>
+              {items.map((n) => (
+                <Link key={n.href} href={n.href} className={navItemActive(n.href) ? "active" : ""}>
                   <span className="dot" />
                   {n.label}
                 </Link>
-              ))
-            )}
-          </div>
-        ))}
+              ))}
+              {hasOrg ? (
+                <Link href={orgHref} className={orgActive ? "active" : ""}>
+                  <span className="dot" />
+                  Organization
+                </Link>
+              ) : null}
+            </div>
+          );
+        })}
       </aside>
 
       {/* main */}
