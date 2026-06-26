@@ -140,10 +140,8 @@ const NAV: { href: string; label: string; icon: JSX.Element; group: string; admi
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops" },
   { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops" },
-  { href: "/workshops/run", label: "Run workshop", icon: ICONS.sessions, group: "Workshops" },
   { href: "/assessments", label: "Overview", icon: ICONS.assess, group: "Assessments" },
   { href: "/assessments/frameworks", label: "Frameworks", icon: ICONS.library, group: "Assessments" },
-  { href: "/assessments/take", label: "Take assessment", icon: ICONS.assess, group: "Assessments" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
   { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
   { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
@@ -212,7 +210,7 @@ export function Shell({
     // "Workshops" (the section landing) owns the home, templates, builder and a
     // specific workshop (/workshops/<id>), but NOT the Whiteboards or Run
     // sibling nav items.
-    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/whiteboards") && !path.startsWith("/workshops/run"));
+    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/whiteboards"));
     return active(href);
   };
   // Breadcrumb: prefer an exact route match, then the longest prefix.
@@ -231,7 +229,8 @@ export function Shell({
   const assessHref = "/assessments";
   const assessActive = active("/assessments");
   // Workshops is its own section: one rail icon → the text menu lists
-  // Workshops / Whiteboards / Run workshop.
+  // Workshops / Whiteboards (running a workshop happens from a workshop's
+  // Overview → Enter run, not a standalone nav item).
   const workshopsHref = "/workshops";
   const workshopsActive = active("/workshops");
   const groups = ["Workspace", "Insight", "Effectiveness", "Workshops", "Assessments", "Organization", "Help"].filter((g) =>
