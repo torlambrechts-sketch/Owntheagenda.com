@@ -356,11 +356,27 @@ function TabBand({ tab, setTab }: { tab: TabId; setTab: (t: TabId) => void }) {
   );
 }
 
-/* ===================== Toolbar (ported, presentational) ===================== */
-function Toolbar() {
+/* ===================== Toolbar ===================== */
+// Wired: the date range re-scopes the assessment lists (lifted to the root),
+// "Export as …" generate real files from the scoped rows, and Send report /
+// Import responses jump to the Reports tab where those flows live.
+const RANGE_OPTS = ["Last 30 days", "Last 3 months", "Last 6 months", "Last 12 months"] as const;
+function Toolbar({ range, setRange, rows, onTab, onToast }: {
+  range: string;
+  setRange: (r: string) => void;
+  rows: AssessmentRow[];
+  onTab: (t: TabId) => void;
+  onToast: (m: string) => void;
+}) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [range, setRange] = useState("Last 6 months");
+  const menuActions: Record<string, () => void> = {
+    "Send report": () => { setMoreOpen(false); onTab("reports"); },
+    "Import responses": () => { setMoreOpen(false); onTab("reports"); },
+    "Export as PDF": () => { setMoreOpen(false); onToast("Opening print dialog…"); setTimeout(() => window.print(), 120); },
+    "Export as Excel": () => { setMoreOpen(false); downloadBlob(assessmentsXls(rows), "insights-assessments.xls", "application/vnd.ms-excel"); onToast("Excel exported"); },
+    "Export as CSV": () => { setMoreOpen(false); downloadBlob(assessmentsCsv(rows), "insights-assessments.csv", "text/csv;charset=utf-8"); onToast("CSV exported"); },
+  };
   const head = (t: string) => (
     <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em", color: "#a6a698", padding: "8px 0 2px" }}>{t}</div>
   );
@@ -408,6 +424,7 @@ function Toolbar() {
             {["Send report", "Import responses", "Export as PDF", "Export as Excel", "Export as CSV"].map((l, i) => (
               <button
                 key={i}
+                onClick={menuActions[l]}
                 style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", background: "transparent", border: "none", borderRadius: 5, padding: "9px 10px", fontSize: 13, fontWeight: 500, color: "#2a2a26", cursor: "pointer" }}
               >
                 {l}
@@ -1146,16 +1163,28 @@ function RowMenu({ schedule, pending, onSend, onToggle, onDelete }: {
 }
 
 /* ===================== root ===================== */
+const RANGE_DAYS: Record<string, number> = { "Last 30 days": 30, "Last 3 months": 90, "Last 6 months": 180, "Last 12 months": 365 };
+
 export function InsightDashboard(props: DashboardProps) {
   const [tab, setTab] = useState<TabId>("overview");
   const [selected, setSelected] = useState<string | null>(props.defaultAssessmentId);
   const [detail, setDetail] = useState<AssessmentDetailVM | null>(props.defaultDetail);
   const [pending, startTransition] = useTransition();
   const [toast, setToast] = useState<string | null>(null);
+  const [range, setRange] = useState("Last 6 months");
   function flash(m: string) {
     setToast(m);
     setTimeout(() => setToast(null), 2600);
   }
+
+  // The date range re-scopes the assessment lists (the rows carry a date).
+  const winDays = RANGE_DAYS[range] ?? 0;
+  const inWin = (d: string | null) => {
+    if (!winDays || !d) return true;
+    const t = new Date(d).getTime();
+    return isNaN(t) || Date.now() - t <= winDays * 86_400_000;
+  };
+  const scopedRows = props.assessmentRows.filter((r) => inWin(r.date));
 
   // Select an assessment and lazily load its detail via the server action. The
   // default one is pre-loaded server-side, so this only fires on an actual
@@ -1177,7 +1206,7 @@ export function InsightDashboard(props: DashboardProps) {
     <div style={{ fontFamily: "'Inter',system-ui,sans-serif", color: "#2a2a26" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
         <h1 className="page-title" style={{ margin: 0 }}>Insights</h1>
-        <Toolbar />
+        <Toolbar range={range} setRange={setRange} rows={scopedRows} onTab={setTab} onToast={flash} />
       </div>
 
       <div style={{ margin: "2px 0 20px" }}>
@@ -1186,14 +1215,14 @@ export function InsightDashboard(props: DashboardProps) {
 
       <KpiStrip kpis={props.kpis} />
 
-      {tab === "overview" && <OverviewPanel {...props} onOpen={openFromOverview} />}
+      {tab === "overview" && <OverviewPanel {...props} assessmentRows={scopedRows} onOpen={openFromOverview} />}
       {tab === "team" && <TeamPanel teams={props.teams} />}
       {tab === "assessment" && (
-        <AssessmentPanel rows={props.assessmentRows} selected={selected} detail={detail} loading={pending} onSelect={selectAssessment} />
+        <AssessmentPanel rows={scopedRows} selected={selected} detail={detail} loading={pending} onSelect={selectAssessment} />
       )}
       {tab === "workshop" && <WorkshopPanel rows={props.workshopOutcomes} kpis={props.workshopKpis} />}
       {tab === "reports" && (
-        <ReportsPanel reports={props.reports} assessmentRows={props.assessmentRows} exportData={props.assessmentRows} onToast={flash} />
+        <ReportsPanel reports={props.reports} assessmentRows={scopedRows} exportData={scopedRows} onToast={flash} />
       )}
 
       <div className={`toast${toast ? " show" : ""}`}>

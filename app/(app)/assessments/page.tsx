@@ -86,6 +86,7 @@ export default async function AssessmentSuitePage({ searchParams }: { searchPara
         .from("survey")
         .select("id, name, kind, status, team_id, created_at, created_by, start_at, due_at")
         .in("team_id", teamIds)
+        .is("archived_at", null)
         .order("created_at", { ascending: false })
         .limit(200)
     : { data: [] as { id: string; name: string | null; kind: string; status: string; team_id: string; created_at: string; created_by: string | null; start_at: string | null; due_at: string | null }[] };

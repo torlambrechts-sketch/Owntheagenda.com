@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { initials } from "@/lib/util";
 import { FrameworkIcon } from "@/components/FrameworkIcon";
+import { SideWindow } from "@/components/SideWindow";
 import type { IconKey } from "@/lib/frameworks";
 import { loadAssessmentDetail, type AssessmentDetail, type SectionScore, type QuestionScore } from "./actions";
+import { updateAssessment, removeAssessment } from "../actions";
 import { NewAssessment } from "./NewAssessment";
 
 export type FrameworkChip = { key: string; title: string; accent: string; accentBg: string; iconKey: IconKey };
@@ -41,7 +44,10 @@ export type TemplateCard = {
   custom: boolean;
 };
 
-type OverviewTab = "active" | "scheduled" | "templates";
+type OverviewTab = "dashboard" | "assessments" | "templates";
+type DateRange = "30d" | "3m" | "6m" | "12m" | "all";
+const DATE_DAYS: Record<DateRange, number> = { "30d": 30, "3m": 90, "6m": 180, "12m": 365, all: 0 };
+const DATE_LABEL: Record<DateRange, string> = { "30d": "Last 30 days", "3m": "Last 3 months", "6m": "Last 6 months", "12m": "Last 12 months", all: "All time" };
 
 // Band index from a 0–100 position (mirrors the detail view: below 45% / mid / above).
 function bandOfPct(pct: number): 0 | 1 | 2 {
@@ -127,15 +133,34 @@ export function AssessmentSuite({ rows, kpis, alert = null, isAdmin = false, can
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [otab, setOtab] = useState<OverviewTab>("active");
+  const [otab, setOtab] = useState<OverviewTab>("dashboard");
   const [filterOpen, setFilterOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [fStatus, setFStatus] = useState<string>("all");
   const [fBelow, setFBelow] = useState(false);
+  const [fDate, setFDate] = useState<DateRange>("6m");
+  const [fTeam, setFTeam] = useState<string>("all");
+  const [editTarget, setEditTarget] = useState<SuiteRow | null>(null);
+  const [editSchedOnly, setEditSchedOnly] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<SuiteRow | null>(null);
+  const router = useRouter();
   // A framework's "Use this framework" CTA deep-links to ?compose=<key>; open
   // the send wizard with that instrument preselected.
   useEffect(() => {
     if (composeKind && canStart) setNewOpen(true);
   }, [composeKind, canStart]);
+  // Close popovers on Escape / outside click.
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      const t = e.target as HTMLElement;
+      if (!t.closest?.("[data-filter-root]")) setFilterOpen(false);
+      if (!t.closest?.("[data-menu-root]")) setMenuOpen(false);
+      if (!t.closest?.("[data-rowmenu-root]")) setRowMenu(null);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   async function open(row: SuiteRow) {
     setActive(row);
@@ -194,200 +219,267 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
   if (view === "overview") {
     const q = query.trim().toLowerCase();
     const matches = (r: SuiteRow) => !q || `${r.name} ${r.team ?? ""}`.toLowerCase().includes(q);
-    const activeRows = rows.filter((r) => r.status !== "scheduled" && r.status !== "draft");
-    const scheduledRows = rows.filter((r) => r.status === "scheduled" || r.status === "draft");
-    const filtered = activeRows.filter(
+    // Date-range + team scope drives both the Dashboard KPIs and the table.
+    const days = DATE_DAYS[fDate];
+    const inWindow = (r: SuiteRow) => {
+      if (!days) return true;
+      const t = new Date(r.date).getTime();
+      return isNaN(t) || Date.now() - t <= days * 86_400_000;
+    };
+    const teamMatch = (r: SuiteRow) => fTeam === "all" || r.teamId === fTeam;
+    const scoped = rows.filter((r) => inWindow(r) && teamMatch(r));
+    const activeRows = scoped.filter((r) => r.status !== "scheduled" && r.status !== "draft");
+    const scheduledRows = scoped.filter((r) => r.status === "scheduled" || r.status === "draft");
+    const tableRows = activeRows.filter(
       (r) => matches(r) && (fStatus === "all" || r.status === fStatus) && (!fBelow || r.below > 0),
     );
-    const filterActive = fStatus !== "all" || fBelow;
+    const filterCount = (fStatus !== "all" ? 1 : 0) + (fBelow ? 1 : 0) + (fDate !== "6m" ? 1 : 0) + (fTeam !== "all" ? 1 : 0);
+    const teamOpts = Array.from(new Map(rows.filter((r) => r.teamId).map((r) => [r.teamId as string, r.team ?? "Team"])).entries()).map(([id, name]) => ({ id, name }));
+
+    // Dashboard KPIs computed from the scoped set (handoff 3 set, floor-safe).
+    const kActive = activeRows.filter((r) => r.status === "open").length;
+    const scored = activeRows.filter((r) => r.pct != null);
+    const kAvg = scored.length ? Math.round(scored.reduce((a, r) => a + (r.pct ?? 0), 0) / scored.length) : null;
+    const kResp = scoped.reduce((a, r) => a + r.respondents, 0);
+    const kBelow = activeRows.reduce((a, r) => a + r.below, 0);
+    const belowAssess = activeRows.filter((r) => r.below > 0).length;
+    const dashKpis = [
+      { big: String(kActive), lab: "Active assessments", rust: false },
+      { big: kAvg == null ? "—" : String(kAvg), lab: "Avg score · /100", rust: false },
+      { big: String(kResp), lab: "Responses", rust: false },
+      { big: String(kBelow), lab: "Below target", rust: kBelow > 0, warn: kBelow > 0 ? `${kBelow} ${kBelow === 1 ? "section is" : "sections are"} below target across ${belowAssess} ${belowAssess === 1 ? "assessment" : "assessments"}. A follow-up workshop is recommended — a person reviews first.` : undefined },
+    ];
+
+    // Aggregate-only export of the current (scoped) assessment list.
+    const csvCell = (v: unknown) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+    const exportHead = ["Assessment", "Team", "Status", "Responses", "Invited", "Score (0-100)"];
+    const exportData = activeRows.map((r) => [r.name, r.team ?? "", r.status, r.respondents, r.invited ?? "", r.masked || r.pct == null ? "" : r.pct]);
+    const download = (name: string, mime: string, content: string) => {
+      const blob = new Blob([content], { type: mime });
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = u; a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(u), 0);
+    };
+    const esc = (s: string) => s.replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m] as string));
+    const tableHtml = `<table border="1" cellspacing="0" cellpadding="6"><thead><tr>${exportHead.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${exportData.map((row) => `<tr>${row.map((c) => `<td>${esc(String(c ?? ""))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    const exportCsv = () => { setMenuOpen(false); download("assessments.csv", "text/csv;charset=utf-8", [exportHead.join(","), ...exportData.map((r) => r.map(csvCell).join(","))].join("\n")); };
+    const exportXls = () => { setMenuOpen(false); download("assessments.xls", "application/vnd.ms-excel", `<html><head><meta charset="utf-8"></head><body>${tableHtml}</body></html>`); };
+    const exportPdf = () => {
+      setMenuOpen(false);
+      const w = window.open("", "_blank", "width=900,height=1000"); if (!w) return;
+      w.document.write(`<!doctype html><meta charset="utf-8"><title>Assessments</title><style>body{font-family:Georgia,serif;margin:40px}h1{font-size:22px}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #ddd;padding:6px;text-align:left}th{background:#f3f1e8}</style><h1>Assessments</h1>${tableHtml}<script>onload=()=>print()</script>`);
+      w.document.close();
+    };
 
     return (
       <>
-        <div className="a-phead">
-          <div>
-            <div className="a-pt">Assessments</div>
-            <div className="a-ps">Surveys across your teams — status, responses and where a section falls below the healthy band. Trigger a follow-up workshop where a section needs attention.</div>
-          </div>
-          <div className="a-pr">
-            <Link className="btn-sec" href="/assessments/frameworks">📖 Frameworks</Link>
-            <Link className="btn-sec" href="/assessments/builder">✎ Build</Link>
-            {canStart ? <button className="btn-prim" onClick={() => setNewOpen(true)}>＋ New assessment</button> : null}
+        <div className="a-phead" style={{ marginBottom: 18 }}>
+          <div><div className="a-pt">Assessments</div></div>
+          <div className="a-pr" style={{ alignItems: "center" }}>
+            {canStart ? (
+              <button className="btn-prim" onClick={() => (otab === "templates" ? router.push("/assessments/builder?new=template") : setNewOpen(true))}>
+                ＋ {otab === "templates" ? "New template" : "New assessment"}
+              </button>
+            ) : null}
+            {/* Filters */}
+            <div className="as-filterwrap" data-filter-root="1">
+              <button className={`btn-sec as-filterbtn${filterCount ? " on" : ""}`} onClick={() => { setFilterOpen((o) => !o); setMenuOpen(false); }} aria-expanded={filterOpen}>
+                ⚙ Filters{filterCount ? <span className="as-filtercount">{filterCount}</span> : null} ▾
+              </button>
+              {filterOpen ? (
+                <div className="as-filtermenu" role="menu">
+                  <div className="as-filterhead"><span>Filters</span><button className="linkbtn" onClick={() => { setFStatus("all"); setFBelow(false); setFDate("6m"); setFTeam("all"); }}>Clear all</button></div>
+                  <div className="as-flabel">Date range</div>
+                  <div className="as-fradios">
+                    {(["30d", "3m", "6m", "12m", "all"] as DateRange[]).map((d) => (
+                      <label key={d} className="as-fradio" onClick={(e) => { e.preventDefault(); setFDate(d); }}>
+                        <span className={`as-radio${fDate === d ? " on" : ""}`} aria-hidden />{DATE_LABEL[d]}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="as-flabel">Team</div>
+                  <div className="as-fradios">
+                    <label className="as-fradio" onClick={(e) => { e.preventDefault(); setFTeam("all"); }}><span className={`as-radio${fTeam === "all" ? " on" : ""}`} aria-hidden />All teams</label>
+                    {teamOpts.map((t) => (
+                      <label key={t.id} className="as-fradio" onClick={(e) => { e.preventDefault(); setFTeam(t.id); }}><span className={`as-radio${fTeam === t.id ? " on" : ""}`} aria-hidden />{t.name}</label>
+                    ))}
+                  </div>
+                  <div className="as-flabel">Status</div>
+                  <div className="as-fchips">
+                    {(["all", "open", "closed", "paused"] as const).map((s) => (
+                      <button key={s} className={`as-fchip${fStatus === s ? " on" : ""}`} onClick={() => setFStatus(s)}>{s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+                    ))}
+                  </div>
+                  <label className="as-fcheck" onClick={(e) => { e.preventDefault(); setFBelow((v) => !v); }}>
+                    <span className={`chk${fBelow ? " on" : ""}`} aria-hidden>{fBelow ? "✓" : ""}</span>Below target only
+                  </label>
+                </div>
+              ) : null}
+            </div>
+            {/* "…" overflow menu */}
+            <div className="as-filterwrap" data-menu-root="1">
+              <button className="icon-btn as-morebtn" title="More" onClick={() => { setMenuOpen((o) => !o); setFilterOpen(false); }}>⋯</button>
+              {menuOpen ? (
+                <div className="as-moremenu" role="menu">
+                  <button className="as-moreitem" onClick={() => { setMenuOpen(false); router.push("/assessments/frameworks"); }}>📖 Frameworks</button>
+                  <button className="as-moreitem" onClick={() => { setMenuOpen(false); router.push("/assessments/builder"); }}>✎ Build from scratch</button>
+                  <button className="as-moreitem" onClick={() => { setMenuOpen(false); router.push("/insight"); }}>⬆ Import responses</button>
+                  <div className="as-moresec">Export</div>
+                  <button className="as-moreitem" onClick={exportPdf}>📄 Export as PDF</button>
+                  <button className="as-moreitem" onClick={exportXls}>📊 Export as Excel</button>
+                  <button className="as-moreitem" onClick={exportCsv}>📑 Export as CSV</button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
-        {alert ? (
-          <div className="as-alert">
-            <span className="as-alert-ic" aria-hidden>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
-            </span>
-            <div>
-              <b>{alert.sections} {alert.sections === 1 ? "section" : "sections"}</b> across {alert.assessments} {alert.assessments === 1 ? "assessment" : "assessments"} {alert.sections === 1 ? "is" : "are"} below the healthy band. A follow-up workshop is a candidate — a person reviews before anything is scheduled.
-            </div>
-            <span className="grounded" style={{ marginLeft: "auto", flexShrink: 0 }}>Grounded</span>
-          </div>
-        ) : null}
-
-        <div className="as-kpis">
-          {kpis.map((k, i) => (
-            <div className="as-kpi" key={i}>
-              <div className="as-kpi-big" style={k.title === "Sections below band" && k.big !== "0" ? { color: "var(--rust)" } : undefined}>{k.big}</div>
-              <div className="as-kpi-title">{k.title}</div>
-              <div className="as-kpi-sub">{k.sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {frameworkChips.length ? (
-          <div className="fw-strip">
-            <div className="fw-strip-h">
-              <span className="fw-strip-t">📖 Built on validated frameworks <span className="fw-strip-sub">— every assessment maps to peer-reviewed science</span></span>
-              <Link href="/assessments/frameworks" className="linkbtn">View all →</Link>
-            </div>
-            <div className="fw-strip-grid">
-              {frameworkChips.map((f) => (
-                <Link key={f.key} href={`/assessments/frameworks/${encodeURIComponent(f.key)}`} className="fw-chip" style={{ borderLeftColor: f.accent }}>
-                  <span className="fw-chip-ic" style={{ background: f.accentBg, color: f.accent }}><FrameworkIcon icon={f.iconKey} size={16} /></span>
-                  <span className="fw-chip-t">{f.title}</span>
-                  <span className="fw-chip-arrow">↗</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <nav className="as-otabs" aria-label="Assessments">
+        {/* forest segmented tab band */}
+        <nav className="as-tabband" aria-label="Assessments">
           {([
-            ["active", "Active", activeRows.length],
-            ["scheduled", "Scheduled", scheduledRows.length],
+            ["dashboard", "Dashboard", activeRows.length],
+            ["assessments", "Assessments", tableRows.length],
             ["templates", "Templates", templateCards.length],
           ] as [OverviewTab, string, number][]).map(([key, label, count]) => (
-            <button key={key} className={`as-otab${otab === key ? " on" : ""}`} onClick={() => { setOtab(key); setFilterOpen(false); }}>
-              {label}<span className="as-otab-n">{count}</span>
+            <button key={key} className={`as-tabbtn${otab === key ? " on" : ""}`} onClick={() => { setOtab(key); setFilterOpen(false); setMenuOpen(false); }}>
+              {label}<span className="as-tabbtn-n">{count}</span>
             </button>
           ))}
         </nav>
 
-        {otab === "active" ? (
-          <div className="tbl-card">
-            <div className="as-tablehead">
-              <span className="cat-head" style={{ margin: 0 }}>All assessments <span className="n">{filtered.length}</span></span>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <input className="inp as-search" placeholder="Search title, team…" value={query} onChange={(e) => setQuery(e.target.value)} />
-                <div className="as-filterwrap">
-                  <button className={`btn-sec as-filterbtn${filterActive ? " on" : ""}`} onClick={() => setFilterOpen((o) => !o)} aria-expanded={filterOpen}>
-                    ⚙ Filter{filterActive ? <span className="as-filterdot" /> : null}
-                  </button>
-                  {filterOpen ? (
-                    <div className="as-filtermenu" role="menu">
-                      <div className="as-flabel">Status</div>
-                      <div className="as-fchips">
-                        {(["all", "open", "closed", "paused"] as const).map((s) => (
-                          <button key={s} className={`as-fchip${fStatus === s ? " on" : ""}`} onClick={() => setFStatus(s)}>
-                            {s === "all" ? "All" : s.charAt(0).toUpperCase() + s.slice(1)}
-                          </button>
-                        ))}
-                      </div>
-                      <label className="as-fcheck" onClick={(e) => { e.preventDefault(); setFBelow((v) => !v); }}>
-                        <span className={`chk${fBelow ? " on" : ""}`} aria-hidden>{fBelow ? "✓" : ""}</span>
-                        Below band only
-                      </label>
-                      <button className="btn-sec btn-full" style={{ marginTop: 10 }} onClick={() => { setFStatus("all"); setFBelow(false); }}>Clear filters</button>
-                    </div>
-                  ) : null}
+        {/* ---- DASHBOARD ---- */}
+        {otab === "dashboard" ? (
+          <>
+            <div className="as-kpis">
+              {dashKpis.map((k, i) => (
+                <div className="as-kpi" key={i}>
+                  <div className="as-kpi-big" style={k.rust ? { color: "var(--rust)" } : undefined}>
+                    {k.big}
+                    {k.warn ? <span className="as-kpiwarn" title={k.warn} aria-label={k.warn}> ⚠</span> : null}
+                  </div>
+                  <div className="as-kpi-title">{k.lab}</div>
                 </div>
-              </div>
+              ))}
             </div>
-            {filtered.length ? (
-              <table className="tbl">
-                <thead>
-                  <tr>
-                    <th>Assessment</th>
-                    <th style={{ width: 96 }}>Type</th>
-                    <th style={{ width: 100 }}>Status</th>
-                    <th style={{ width: 150 }}>Responses</th>
-                    <th style={{ width: 132 }}>Score</th>
-                    <th style={{ width: 120 }}>Owner</th>
-                    <th style={{ width: 56 }} />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} onClick={() => open(r)} style={{ cursor: "pointer" }}>
-                      <td>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          {r.below > 0 ? <span className="as-flagdot" title="Below band" /> : null}
-                          <span>
-                            <span style={{ fontWeight: 600 }}>{r.name}</span>
-                            <small style={{ display: "block", color: "var(--faint)" }}>{r.team ?? ""}{r.team ? " · " : ""}{fmtDate(r.date)}</small>
-                          </span>
-                        </span>
-                      </td>
-                      <td><span className="pill sm interview">Survey</span></td>
-                      <td>{statusPill(r.status)}</td>
-                      <td><RowResponses respondents={r.respondents} invited={r.invited} /></td>
-                      <td><RowScore score={r.score} pct={r.pct} masked={r.masked} respondents={r.respondents} /></td>
-                      <td>
-                        {r.ownerName ? (
-                          <span className="av sm green" title={r.ownerName}>{initials(r.ownerName)}</span>
-                        ) : <span style={{ color: "var(--faint)" }}>—</span>}
-                      </td>
-                      <td className="r">
-                        {canManageRow(r) ? (
-                          <button className="icon-btn" title="Open & manage" onClick={(e) => { e.stopPropagation(); open(r); }}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                          </button>
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="empty">
-                {activeRows.length ? "No assessments match these filters." : "No assessments run yet — start one with “New assessment”."}
-                {filterActive ? <><br /><button className="btn-sec" style={{ marginTop: 10 }} onClick={() => { setFStatus("all"); setFBelow(false); setQuery(""); }}>Clear filters</button></> : null}
-              </div>
-            )}
-          </div>
-        ) : null}
 
-        {otab === "scheduled" ? (
-          <div className="as-sched">
-            <p className="a-ps" style={{ marginBottom: 14 }}>Assessments queued to launch on their start date, plus drafts. A draft still needs a launch date before it sends.</p>
-            {scheduledRows.length ? scheduledRows.map((r) => (
-              <div key={r.id} className="as-schedcard" onClick={() => open(r)}>
-                <span className="as-schedaccent" style={{ background: r.status === "draft" ? "var(--draft-fg)" : "var(--role)" }} />
-                <div className="as-schedbody">
-                  <div className="as-schedmain">
-                    <div className="as-schedtitle">
-                      <span>{r.name}</span>
-                      <span className="pill sm interview">Survey</span>
-                    </div>
-                    <div className="as-schedmeta">
-                      <span>👥 {r.team ?? "—"}{r.invited ? ` · ${r.invited}` : ""}</span>
-                    </div>
-                  </div>
-                  <div className="as-schedwhen">
-                    <div><div className="as-schedlab">Starts</div><div className="as-schedval">{r.startAt ? fmtDate(r.startAt) : "—"}</div></div>
-                    <div><div className="as-schedlab">Due</div><div className="as-schedval">{r.dueAt ? fmtDate(r.dueAt) : "—"}</div></div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
-                      {statusPill(r.status)}
-                      <span style={{ fontSize: 11.5, color: "var(--faint)" }}>{startsInLabel(r.startAt)}</span>
-                    </div>
-                  </div>
+            {frameworkChips.length ? (
+              <div className="fw-strip">
+                <div className="fw-strip-h">
+                  <span className="fw-strip-t">📖 Built on validated frameworks <span className="fw-strip-sub">— every assessment maps to peer-reviewed science</span></span>
+                  <Link href="/assessments/frameworks" className="linkbtn">View all →</Link>
                 </div>
-              </div>
-            )) : <div className="empty">Nothing scheduled. Use “New assessment” and choose “Schedule” to queue one.</div>}
-          </div>
-        ) : null}
-
-        {otab === "templates" ? (
-          <div>
-            {isAdmin ? (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 14 }}>
-                <Link className="btn-sec" href="/assessments/builder?new=template">＋ New template</Link>
+                <div className="fw-strip-grid">
+                  {frameworkChips.map((f) => (
+                    <Link key={f.key} href={`/assessments/frameworks/${encodeURIComponent(f.key)}`} className="fw-chip" style={{ borderLeftColor: f.accent }}>
+                      <span className="fw-chip-ic" style={{ background: f.accentBg, color: f.accent }}><FrameworkIcon icon={f.iconKey} size={16} /></span>
+                      <span className="fw-chip-t">{f.title}</span>
+                      <span className="fw-chip-arrow">↗</span>
+                    </Link>
+                  ))}
+                </div>
               </div>
             ) : null}
+
+            <div className="as-tablehead" style={{ border: "none", padding: "4px 0 12px" }}>
+              <span className="cat-head" style={{ margin: 0 }}>Scheduled &amp; upcoming <span className="n">{scheduledRows.length}</span></span>
+              {canStart ? <button className="btn-sec" onClick={() => setNewOpen(true)}>＋ Schedule one</button> : null}
+            </div>
+            {scheduledRows.length ? (
+              <div className="as-sched">
+                {scheduledRows.map((r) => (
+                  <div key={r.id} className="as-schedcard" onClick={() => open(r)}>
+                    <span className="as-schedaccent" style={{ background: r.status === "draft" ? "var(--draft-fg)" : "var(--role)" }} />
+                    <div className="as-schedbody">
+                      <div className="as-schedmain">
+                        <div className="as-schedtitle"><span>{r.name}</span><span className="pill sm interview">Survey</span></div>
+                        <div className="as-schedmeta"><span>👥 {r.team ?? "—"}{r.invited ? ` · ${r.invited}` : ""}</span></div>
+                      </div>
+                      <div className="as-schedwhen">
+                        <div><div className="as-schedlab">Starts</div><div className="as-schedval">{r.startAt ? fmtDate(r.startAt) : "—"}</div></div>
+                        <div><div className="as-schedlab">Due</div><div className="as-schedval">{r.dueAt ? fmtDate(r.dueAt) : "—"}</div></div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 }}>
+                          {statusPill(r.status)}<span style={{ fontSize: 11.5, color: "var(--faint)" }}>{startsInLabel(r.startAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : <div className="empty">Nothing scheduled. Use “New assessment” and choose “Schedule” to queue one.</div>}
+          </>
+        ) : null}
+
+        {/* ---- ASSESSMENTS ---- */}
+        {otab === "assessments" ? (
+          <>
+            {kBelow > 0 ? (
+              <div className="as-alert">
+                <span className="as-alert-ic" aria-hidden>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+                </span>
+                <div><b>{kBelow} {kBelow === 1 ? "section" : "sections"}</b> across {belowAssess} {belowAssess === 1 ? "assessment" : "assessments"} {kBelow === 1 ? "is" : "are"} below target. A follow-up workshop is a candidate — a person reviews before anything is scheduled.</div>
+                <span className="grounded" style={{ marginLeft: "auto", flexShrink: 0 }}>Grounded</span>
+              </div>
+            ) : null}
+            <div className="tbl-card">
+              <div className="as-tablehead">
+                <span className="cat-head" style={{ margin: 0 }}>All assessments <span className="n">{tableRows.length}</span></span>
+                <input className="inp as-search" placeholder="Search title, team…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              </div>
+              {tableRows.length ? (
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Assessment</th><th style={{ width: 96 }}>Type</th><th style={{ width: 100 }}>Status</th>
+                      <th style={{ width: 150 }}>Responses</th><th style={{ width: 132 }}>Score</th><th style={{ width: 110 }}>Owner</th><th style={{ width: 48 }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tableRows.map((r) => (
+                      <tr key={r.id} onClick={() => open(r)} style={{ cursor: "pointer" }}>
+                        <td>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            {r.below > 0 ? <span className="as-flagdot" title="Below target" /> : null}
+                            <span><span style={{ fontWeight: 600 }}>{r.name}</span><small style={{ display: "block", color: "var(--faint)" }}>{r.team ?? ""}{r.team ? " · " : ""}{fmtDate(r.date)}</small></span>
+                          </span>
+                        </td>
+                        <td><span className="pill sm interview">Survey</span></td>
+                        <td>{statusPill(r.status)}</td>
+                        <td><RowResponses respondents={r.respondents} invited={r.invited} /></td>
+                        <td><RowScore score={r.score} pct={r.pct} masked={r.masked} respondents={r.respondents} /></td>
+                        <td>{r.ownerName ? <span className="av sm green" title={r.ownerName}>{initials(r.ownerName)}</span> : <span style={{ color: "var(--faint)" }}>—</span>}</td>
+                        <td className="r">
+                          {canManageRow(r) ? (
+                            <div className="as-filterwrap" data-rowmenu-root="1" style={{ display: "inline-block" }}>
+                              <button className="icon-btn" title="More" onClick={(e) => { e.stopPropagation(); setRowMenu((m) => (m === r.id ? null : r.id)); }}>⋯</button>
+                              {rowMenu === r.id ? (
+                                <div className="as-moremenu" role="menu" onClick={(e) => e.stopPropagation()}>
+                                  <button className="as-moreitem" onClick={() => { setRowMenu(null); setEditSchedOnly(false); setEditTarget(r); }}>✎ Edit assessment</button>
+                                  <button className="as-moreitem" onClick={() => { setRowMenu(null); setEditSchedOnly(true); setEditTarget(r); }}>🗓 Edit schedule</button>
+                                  <button className="as-moreitem" onClick={() => { setRowMenu(null); open(r); }}>👁 Preview</button>
+                                  <button className="as-moreitem danger" onClick={() => { setRowMenu(null); setConfirmTarget(r); }}>🗑 Delete</button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="empty">
+                  {activeRows.length ? "No assessments match these filters." : "No assessments run yet — start one with “New assessment”."}
+                  {(filterCount || q) ? <><br /><button className="btn-sec" style={{ marginTop: 10 }} onClick={() => { setFStatus("all"); setFBelow(false); setFDate("6m"); setFTeam("all"); setQuery(""); }}>Clear filters</button></> : null}
+                </div>
+              )}
+            </div>
+          </>
+        ) : null}
+
+        {/* ---- TEMPLATES ---- */}
+        {otab === "templates" ? (
+          <div>
             {templateCards.length ? (
               <div className="as-tplgrid">
                 {templateCards.map((t) => (
@@ -420,6 +512,10 @@ ${detail.scores.length ? bars : "<p>Results are hidden until the minimum number 
 
         {loading ? <div className="a-note" style={{ marginTop: 14 }}>Loading assessment…</div> : null}
         <NewAssessment open={newOpen} teams={teams} templates={templates} initialKind={composeKind} onClose={() => setNewOpen(false)} />
+        <EditAssessment target={editTarget} scheduleOnly={editSchedOnly} teams={teams} onClose={() => setEditTarget(null)} onSaved={() => { setEditTarget(null); router.refresh(); }} />
+        {confirmTarget ? (
+          <DeleteConfirm row={confirmTarget} onCancel={() => setConfirmTarget(null)} onDone={() => { setConfirmTarget(null); router.refresh(); }} />
+        ) : null}
       </>
     );
   }
@@ -804,4 +900,153 @@ function RowScore({ score, pct, masked, respondents }: { score: number | null; p
 
 function Fact({ k, v }: { k: string; v: string }) {
   return <div className="a-fact"><span className="k">{k}</span><span className="v">{v}</span></div>;
+}
+
+// Edit an existing assessment — title + schedule + reminders + min, and ADD
+// recipients. Anonymity + the instrument are deliberately not editable (would
+// corrupt scoring once responses exist). scheduleOnly trims it to the dates.
+function EditAssessment({ target, scheduleOnly, teams, onClose, onSaved }: {
+  target: SuiteRow | null;
+  scheduleOnly: boolean;
+  teams: { id: string; name: string; count?: number }[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [pending, startT] = useTransition();
+  const [title, setTitle] = useState("");
+  const [startAt, setStartAt] = useState("");
+  const [dueAt, setDueAt] = useState("");
+  const [reminders, setReminders] = useState(true);
+  const [minP, setMinP] = useState(5);
+  const [addTeams, setAddTeams] = useState<string[]>([]);
+  const [emails, setEmails] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (target) {
+      setTitle(target.name);
+      setStartAt(target.startAt ? target.startAt.slice(0, 10) : "");
+      setDueAt(target.dueAt ? target.dueAt.slice(0, 10) : "");
+      setAddTeams([]); setEmails(""); setError(null); setReminders(true); setMinP(5);
+    }
+  }, [target]);
+
+  function save() {
+    if (!target) return;
+    setError(null);
+    const emailList = emails.match(/[^\s,;]+@[^\s,;]+/g) ?? [];
+    startT(async () => {
+      const res = await updateAssessment({
+        surveyId: target.id,
+        title: scheduleOnly ? undefined : title.trim(),
+        startAt: target.startAt && startAt === "" ? "" : startAt || undefined,
+        dueAt: target.dueAt && dueAt === "" ? "" : dueAt || undefined,
+        reminders,
+        minParticipants: scheduleOnly ? undefined : minP,
+        addTeams: scheduleOnly ? [] : addTeams,
+        addEmails: scheduleOnly ? [] : emailList,
+      });
+      if (res.error) { setError(res.error); return; }
+      onSaved();
+    });
+  }
+
+  return (
+    <SideWindow
+      open={!!target}
+      onClose={onClose}
+      title={scheduleOnly ? "Edit schedule" : "Edit assessment"}
+      subtitle={target?.name}
+      footer={
+        <>
+          <button className="btn-sec" onClick={onClose} disabled={pending}>Cancel</button>
+          <div className="right"><button className="btn-prim" onClick={save} disabled={pending}>{pending ? "Saving…" : "Save"}</button></div>
+        </>
+      }
+    >
+      {error ? <div className="form-err">{error}</div> : null}
+      {!scheduleOnly ? (
+        <div className="field">
+          <label htmlFor="ea-title">Title</label>
+          <input className="inp" id="ea-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
+      ) : null}
+      <div className="field" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+        <div><label htmlFor="ea-start">Start date</label><input className="inp" id="ea-start" type="date" value={startAt} onChange={(e) => setStartAt(e.target.value)} /></div>
+        <div><label htmlFor="ea-due">Due date</label><input className="inp" id="ea-due" type="date" value={dueAt} onChange={(e) => setDueAt(e.target.value)} /></div>
+      </div>
+      <label className="sw-team" onClick={() => setReminders((r) => !r)} style={{ cursor: "pointer", marginBottom: 14 }}>
+        <span className={`chk${reminders ? " on" : ""}`} aria-hidden>{reminders ? "✓" : ""}</span>
+        <span style={{ flex: 1 }}><span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>Automatic reminders</span><span style={{ display: "block", fontSize: 12, color: "var(--muted)" }}>Nudge non-respondents before the due date.</span></span>
+      </label>
+      {!scheduleOnly ? (
+        <>
+          <div className="field">
+            <label>Minimum participants to show results</label>
+            <div className="sw-stepper" style={{ width: "fit-content" }}>
+              <button type="button" onClick={() => setMinP((n) => Math.max(3, n - 1))} aria-label="decrease">−</button>
+              <span>{minP}</span>
+              <button type="button" onClick={() => setMinP((n) => Math.min(50, n + 1))} aria-label="increase">+</button>
+            </div>
+            <div className="form-note">Already-set assessments keep their own floor unless you raise it here (never below 3).</div>
+          </div>
+          <div className="field">
+            <label>Add recipient teams <span className="opt">(additive — existing recipients are kept)</span></label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+              {teams.map((t) => {
+                const on = addTeams.includes(t.id);
+                return (
+                  <label key={t.id} className={`sw-team${on ? " on" : ""}`} onClick={() => setAddTeams((cur) => (cur.includes(t.id) ? cur.filter((x) => x !== t.id) : [...cur, t.id]))}>
+                    <span className={`chk${on ? " on" : ""}`} aria-hidden>{on ? "✓" : ""}</span>
+                    <span style={{ flex: 1, fontWeight: 600 }}>{t.name}</span>
+                    <span style={{ fontSize: 12, color: "var(--muted)" }}>{t.count ?? 0} people</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="ea-emails">Add individual / external emails</label>
+            <textarea className="inp" id="ea-emails" value={emails} onChange={(e) => setEmails(e.target.value)} placeholder="anna@acme.no, partner@firm.com" style={{ minHeight: 64, resize: "vertical" }} />
+          </div>
+        </>
+      ) : null}
+      <div className="form-note" style={{ marginTop: 6 }}>The instrument and anonymity mode can’t be changed after launch — they’re locked to keep scoring valid and responses anonymous.</div>
+    </SideWindow>
+  );
+}
+
+// Center confirm dialog (DESIGN §7.5) — the only sanctioned center modal.
+// Hard-deletes a response-less draft; archives anything with responses.
+function DeleteConfirm({ row, onCancel, onDone }: { row: SuiteRow; onCancel: () => void; onDone: () => void }) {
+  const [pending, startT] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const willArchive = row.respondents > 0;
+  function go() {
+    setError(null);
+    startT(async () => {
+      const res = await removeAssessment(row.id);
+      if (res.error) { setError(res.error); return; }
+      onDone();
+    });
+  }
+  return (
+    <>
+      <div className="scrim open" onClick={onCancel} aria-hidden />
+      <div className="as-confirm" role="dialog" aria-modal="true" aria-label="Remove assessment">
+        <h2>{willArchive ? "Archive this assessment?" : "Delete this assessment?"}</h2>
+        <p>
+          <b>{row.name}</b>{" "}
+          {willArchive
+            ? `has ${row.respondents} ${row.respondents === 1 ? "response" : "responses"}, so it will be archived — hidden from the lists but its data is kept.`
+            : "has no responses, so it will be permanently deleted."}
+        </p>
+        {error ? <div className="form-err">{error}</div> : null}
+        <div className="as-confirm-foot">
+          <button className="btn-sec" onClick={onCancel} disabled={pending}>Cancel</button>
+          <button className="btn-prim danger" onClick={go} disabled={pending}>{pending ? "Working…" : willArchive ? "Archive" : "Delete"}</button>
+        </div>
+      </div>
+    </>
+  );
 }

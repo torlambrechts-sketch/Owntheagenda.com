@@ -1236,6 +1236,7 @@ export type Database = {
       survey: {
         Row: {
           anonymity: string
+          archived_at: string | null
           channels: string[]
           closed_at: string | null
           created_at: string
@@ -1260,6 +1261,7 @@ export type Database = {
         }
         Insert: {
           anonymity?: string
+          archived_at?: string | null
           channels?: string[]
           closed_at?: string | null
           created_at?: string
@@ -1284,6 +1286,7 @@ export type Database = {
         }
         Update: {
           anonymity?: string
+          archived_at?: string | null
           channels?: string[]
           closed_at?: string | null
           created_at?: string
@@ -1564,6 +1567,57 @@ export type Database = {
         Args: { p_workspace: string; p_title: string; p_team?: string | null; p_min_responses?: number }
         Returns: string
       }
+      update_assessment: {
+        Args: {
+          p_add_emails?: string[]
+          p_add_teams?: string[]
+          p_clear_due?: boolean
+          p_clear_start?: boolean
+          p_due?: string
+          p_min_participants?: number
+          p_name?: string
+          p_reminders?: boolean
+          p_start?: string
+          p_survey: string
+        }
+        Returns: {
+          anonymity: string
+          archived_at: string | null
+          channels: string[]
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          definition: Json | null
+          due_at: string | null
+          id: string
+          kind: string
+          min_participants: number
+          name: string
+          opened_at: string | null
+          reminders: boolean
+          respondent_salt: string
+          share_token: string | null
+          shared_at: string | null
+          start_at: string | null
+          status: string
+          subject_user_id: string | null
+          team_id: string
+          updated_at: string
+          workspace_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "survey"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+
+      delete_or_archive_assessment: {
+        Args: { p_survey: string }
+        Returns: string
+      }
+
       create_assessment: {
         Args: {
           p_anonymity?: string
