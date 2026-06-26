@@ -555,10 +555,12 @@ function ActionsModule(p: ModuleProps) {
     const t = text.trim();
     if (!t) return;
     setErr(null);
-    // Reuse add_action RPC for text/owner/due, then patch priority+detail (new columns).
+    // Reuse add_action RPC for text/owner/due + block linkage, then patch
+    // priority+detail (columns the RPC doesn't take).
     const { data, error } = await supabase.rpc("add_action", {
       p_session: p.sessionId,
       p_text: t,
+      p_block_ord: p.blockOrd,
       ...(owner ? { p_owner: owner } : {}),
       ...(due ? { p_due: due } : {}),
     });

@@ -36,7 +36,7 @@ export type Participant = {
   isFacilitator: boolean;
   ready: boolean;
 };
-export type Action = { id: string; text: string; owner: string | null; due: string | null; done: boolean };
+export type Action = { id: string; text: string; owner: string | null; due: string | null; done: boolean; blockOrd: number | null };
 
 type SessionState = {
   id: string;
@@ -194,11 +194,11 @@ export function RunClient({
   const reloadActions = useCallback(async () => {
     const { data } = await supabase
       .from("action_item")
-      .select("id, text, owner_name, due_at, status")
+      .select("id, text, owner_name, due_at, status, block_ord")
       .eq("session_id", sid)
       .order("created_at", { ascending: true });
     setActions(
-      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done" })),
+      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done", blockOrd: a.block_ord ?? null })),
     );
   }, [supabase, sid]);
 
@@ -342,6 +342,7 @@ export function RunClient({
     await supabase.rpc("add_action", {
       p_session: sid,
       p_text: actText.trim(),
+      p_block_ord: session.currentBlockOrd,
       ...(actOwnerId ? { p_owner_id: actOwnerId } : {}),
       ...(actDue ? { p_due: actDue } : {}),
     });
@@ -780,21 +781,25 @@ export function RunClient({
               Commitments
               <span style={{ color: "var(--faint)" }}>{actions.length}</span>
             </h5>
-            {actions.map((a) => (
-              <div className={`actrow${a.done ? " done" : ""}`} key={a.id}>
-                <div className={`chk${a.done ? " on" : ""}`} onClick={() => toggleAction(a.id)} />
-                <div className="txt">
-                  {a.text}
-                  {a.owner || a.due ? (
-                    <span className="who">
-                      {a.owner ? `Owner · ${a.owner}` : ""}
-                      {a.owner && a.due ? " · " : ""}
-                      {a.due ? `Due ${new Date(a.due).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
-                    </span>
-                  ) : null}
+            {actions.map((a) => {
+              const srcBlock = a.blockOrd != null ? blocks.find((b) => b.ord === a.blockOrd)?.title ?? null : null;
+              return (
+                <div className={`actrow${a.done ? " done" : ""}`} key={a.id}>
+                  <div className={`chk${a.done ? " on" : ""}`} onClick={() => toggleAction(a.id)} />
+                  <div className="txt">
+                    {a.text}
+                    {a.owner || a.due ? (
+                      <span className="who">
+                        {a.owner ? `Owner · ${a.owner}` : ""}
+                        {a.owner && a.due ? " · " : ""}
+                        {a.due ? `Due ${new Date(a.due).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                      </span>
+                    ) : null}
+                    {srcBlock ? <span className="who" style={{ display: "block" }}>Captured in · {srcBlock}</span> : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div style={{ marginTop: 10 }}>
               <input className="inp" placeholder="Quick commitment…" value={actText}
                 onChange={(e) => setActText(e.target.value)} style={{ marginBottom: 6 }} />

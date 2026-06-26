@@ -325,6 +325,7 @@ export function IdeaModule({
     const { error } = await supabase.rpc("add_action", {
       p_session: sessionId,
       p_text: i.text,
+      p_block_ord: blockOrd,
       ...(ownerId ? { p_owner_id: ownerId } : ownerName ? { p_owner: ownerName } : {}),
     });
     if (error) {

@@ -893,6 +893,7 @@ export type Database = {
           due_at: string | null
           priority: string | null
           detail: string | null
+          block_ord: number | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -1901,7 +1902,7 @@ export type Database = {
       }
       end_session: { Args: { p_session: string }; Returns: undefined }
       add_action: {
-        Args: { p_owner?: string; p_session: string; p_text: string; p_owner_id?: string; p_due?: string }
+        Args: { p_owner?: string; p_session: string; p_text: string; p_owner_id?: string; p_due?: string; p_block_ord?: number }
         Returns: Database["public"]["Tables"]["action_item"]["Row"]
       }
       toggle_action: { Args: { p_action: string }; Returns: undefined }

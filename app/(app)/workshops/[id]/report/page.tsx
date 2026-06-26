@@ -42,7 +42,7 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
 
   type Idea = { block_ord: number; lane: string | null; text: string; detail: string | null; author_name: string | null; id: string };
   type Dec = { block_ord: number | null; title: string; rationale: string | null; status: string };
-  type Act = { id: string; text: string; owner_name: string | null; due_at: string | null; priority: string | null; detail: string | null; status: string };
+  type Act = { id: string; text: string; owner_name: string | null; due_at: string | null; priority: string | null; detail: string | null; status: string; block_ord: number | null };
   let ideas: Idea[] = [];
   let voteCount = new Map<string, number>();
   let decisions: Dec[] = [];
@@ -54,7 +54,7 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
       supabase.from("idea").select("id, block_ord, lane, text, detail, author_name").eq("session_id", sess.id),
       supabase.from("idea_vote").select("idea_id").eq("session_id", sess.id),
       supabase.from("decision").select("block_ord, title, rationale, status").eq("session_id", sess.id),
-      supabase.from("action_item").select("id, text, owner_name, due_at, priority, detail, status").eq("session_id", sess.id),
+      supabase.from("action_item").select("id, text, owner_name, due_at, priority, detail, status, block_ord").eq("session_id", sess.id),
       supabase.from("participant").select("user_id").eq("session_id", sess.id),
     ]);
     ideas = (id ?? []) as Idea[];
@@ -65,6 +65,8 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
   }
 
   const ideasByBlock = (ord: number) => ideas.filter((i) => i.block_ord === ord);
+  const actionsByBlock = (ord: number) => actions.filter((a) => a.block_ord === ord);
+  const blockTitle = (ord: number | null) => (ord == null ? null : blocks.find((b) => b.ord === ord)?.title ?? null);
   const decidedAll = decisions.filter((d) => d.status === "committed" || d.status === "decided");
   const ranBlocks = new Set(ideas.map((i) => i.block_ord));
   decisions.forEach((d) => d.block_ord != null && ranBlocks.add(d.block_ord));
@@ -135,6 +137,7 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
                       <div style={{ marginTop: 3, fontSize: 11.5, color: WA.faint2 }}>
                         {a.owner_name ?? "Unassigned"}{a.due_at ? ` · due ${new Date(a.due_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
                         {a.priority ? <span style={{ marginLeft: 6, color: PRIO_COLOR[a.priority] ?? WA.faint2, fontWeight: 700 }}>{a.priority}</span> : ""}
+                        {blockTitle(a.block_ord) ? <span style={{ marginLeft: 6 }}>· captured in {blockTitle(a.block_ord)}</span> : null}
                       </div>
                     </div>
                   </div>
@@ -153,8 +156,9 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
               const lane = (l: string) => blockIdeas.filter((i) => (i.lane ?? "") === l);
               const groups = blockIdeas.filter((i) => (i.lane ?? "").startsWith("group:"));
               const decs = decisions.filter((d) => d.block_ord === b.ord && (d.status === "committed" || d.status === "decided"));
+              const blockActions = actionsByBlock(b.ord);
               const body = captured(b.activity_type, { blockIdeas, lane, groups, decs, voteCount, accent: pv.accent });
-              if (!body) return null;
+              if (!body && !blockActions.length) return null;
               return (
                 <div key={b.ord} style={{ padding: "16px 0", borderBottom: `1px solid ${WA.hair}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
@@ -165,6 +169,20 @@ export default async function WorkshopReportPage({ params }: { params: { id: str
                     <span style={{ fontSize: 11, color: WA.faint2 }}>{PHASE_LABEL[ph]} · {ACTIVITY[b.activity_type]?.label ?? b.activity_type}</span>
                   </div>
                   {body}
+                  {blockActions.length ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: body ? 12 : 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".05em", color: WA.faint2 }}>Action items</div>
+                      {blockActions.map((a) => (
+                        <div key={a.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#404040", lineHeight: 1.45 }}>
+                          <span style={{ marginTop: 6, width: 5, height: 5, borderRadius: "50%", background: WA.accent, flexShrink: 0 }} />
+                          <div>
+                            <span style={{ textDecoration: a.status === "done" ? "line-through" : "none" }}>{a.text}</span>
+                            <span style={{ color: "#a6a698" }}>{a.owner_name ? ` — ${a.owner_name}` : ""}{a.due_at ? ` · due ${new Date(a.due_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}

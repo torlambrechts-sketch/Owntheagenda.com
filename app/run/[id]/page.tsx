@@ -116,7 +116,7 @@ export default async function RunPage({
 
   const { data: actions } = await supabase
     .from("action_item")
-    .select("id, text, owner_name, due_at, status")
+    .select("id, text, owner_name, due_at, status, block_ord")
     .eq("session_id", session.id)
     .order("created_at", { ascending: true });
   const initialActions: Action[] = (actions ?? []).map((a) => ({
@@ -125,6 +125,7 @@ export default async function RunPage({
     owner: a.owner_name,
     due: a.due_at,
     done: a.status === "done",
+    blockOrd: a.block_ord ?? null,
   }));
 
   // Resolve the instrument catalog from the template library (data-driven).
