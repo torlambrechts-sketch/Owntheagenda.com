@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { initials } from "@/lib/util";
-import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject } from "./actions";
+import { sendSurvey, remindSurvey, closeSurvey, setSurveySubject, setSurveyShare } from "./actions";
 
-type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null };
+type OpenSurvey = { id: string; name: string; kind: string; due_at: string | null; anonymity?: string; share_token?: string | null };
 type Pick = { key: string; name: string };
 type Status = { responded: number; total: number; roster: { name: string; completed: boolean }[] };
 type Member = { id: string; name: string };
@@ -19,6 +20,8 @@ type Gap = {
   gap?: number | null;
 };
 type GapInfo = { subjectId: string | null; gap: Gap | null };
+type CommentRow = { dimension: string; text: string; author: string };
+type CommentResult = { masked: boolean; respondents: number; comments: CommentRow[] };
 
 // Lead/admin surface: send a date-bound assessment to the team, then remind /
 // close it. The date-bound survey is the "pre-work" you send ahead of a workshop.
@@ -28,8 +31,45 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
   const [pending, startTransition] = useTransition();
   const [kind, setKind] = useState(templates[0]?.key ?? "");
   const [due, setDue] = useState("");
+  const [anon, setAnon] = useState("anonymous");
   const [openRoster, setOpenRoster] = useState<string | null>(null);
+  const [openComments, setOpenComments] = useState<string | null>(null);
+  const [commentData, setCommentData] = useState<Record<string, CommentResult>>({});
+  const [tokens, setTokens] = useState<Record<string, string | null>>({});
+  const [origin, setOrigin] = useState("");
   const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => setOrigin(window.location.origin), []);
+
+  // Per-survey share token: seeded from the server row, then updated locally
+  // as the lead mints / revokes the public link.
+  function tokenFor(s: OpenSurvey): string | null {
+    return s.id in tokens ? tokens[s.id] : s.share_token ?? null;
+  }
+  function toggleShare(s: OpenSurvey) {
+    const on = !tokenFor(s);
+    startTransition(async () => {
+      const res = await setSurveyShare(s.id, on);
+      if (res.error) { flash(res.error); return; }
+      setTokens((m) => ({ ...m, [s.id]: res.token ?? null }));
+      flash(on ? "Public link is live" : "Public link revoked");
+    });
+  }
+  function copyLink(token: string) {
+    const url = `${window.location.origin}/survey/${token}`;
+    void navigator.clipboard?.writeText(url);
+    flash("Link copied");
+  }
+
+  function toggleComments(id: string) {
+    if (openComments === id) { setOpenComments(null); return; }
+    setOpenComments(id);
+    if (!commentData[id]) {
+      const supabase = createClient();
+      supabase.rpc("survey_comments", { p_survey: id }).then(({ data }) => {
+        if (data) setCommentData((m) => ({ ...m, [id]: data as unknown as CommentResult }));
+      });
+    }
+  }
 
   function setSubject(id: string, subjectId: string | null) {
     startTransition(async () => {
@@ -46,7 +86,7 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
 
   function send() {
     startTransition(async () => {
-      const res = await sendSurvey(teamId, kind, due || null);
+      const res = await sendSurvey(teamId, kind, due || null, anon);
       if (res.error) flash(res.error);
       else {
         flash("Assessment sent to the team");
@@ -77,7 +117,8 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
     <div className="card" style={{ marginBottom: 18 }}>
       <div className="cat-head" style={{ marginTop: 0 }}>Send an assessment</div>
       <p className="page-sub" style={{ marginTop: 0 }}>
-        Sends an anonymous survey to the team. Set a due date to schedule it ahead of a workshop.
+        Sends a survey to the team. Choose whether responses are anonymous or attributed to each person.
+        Set a due date to schedule it ahead of a workshop.
       </p>
       <div className="two" style={{ alignItems: "end" }}>
         <div className="field">
@@ -92,6 +133,13 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
           <label>Due date <span className="opt">(optional)</span></label>
           <input className="inp" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
         </div>
+      </div>
+      <div className="field" style={{ marginTop: 10 }}>
+        <label>Responses</label>
+        <select className="inp" value={anon} onChange={(e) => setAnon(e.target.value)}>
+          <option value="anonymous">Anonymous — never tied to a person</option>
+          <option value="attributed">Attributed — linked to each respondent&apos;s name</option>
+        </select>
       </div>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button className="btn-prim" disabled={pending || !kind} onClick={send}>Send to team ▸</button>
@@ -120,9 +168,28 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
                       {st.responded}/{st.total} responded
                     </button>
                   ) : null}
+                  <button className="linkbtn" onClick={() => toggleComments(s.id)} title="Read free-text comments">Comments</button>
                   <button className="linkbtn" disabled={pending} onClick={() => remind(s.id)}>Remind</button>
                   <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => close(s.id)}>Close</button>
                 </div>
+                {openComments === s.id ? (
+                  <div className="roster">
+                    {!commentData[s.id] ? (
+                      <div className="src">Loading comments…</div>
+                    ) : commentData[s.id].masked ? (
+                      <div className="src">Comments stay hidden until at least 3 people respond ({commentData[s.id].respondents}/3).</div>
+                    ) : commentData[s.id].comments.length === 0 ? (
+                      <div className="src">No written comments yet.</div>
+                    ) : (
+                      commentData[s.id].comments.map((c, i) => (
+                        <div className="cmtrow" key={`${s.id}-c-${i}`}>
+                          <span className="cmttext">“{c.text}”</span>
+                          <span className="cmtauthor">— {c.author}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : null}
                 {openRoster === s.id && st ? (
                   <div className="roster">
                     {st.roster.map((m, i) => (
@@ -131,6 +198,20 @@ export function SendSurvey({ teamId, openSurveys, templates, status, members, ga
                         <span className={`pill sm ${m.completed ? "open" : "internal"}`}>{m.completed ? "Responded" : "Pending"}</span>
                       </div>
                     ))}
+                  </div>
+                ) : null}
+                {s.anonymity !== "attributed" ? (
+                  <div className="sharerow">
+                    {tokenFor(s) ? (
+                      <>
+                        <span className="pill sm open">Public link live</span>
+                        <input className="inp sm sharelink" readOnly value={`${origin}/survey/${tokenFor(s)}`} onFocus={(e) => e.currentTarget.select()} />
+                        <button className="linkbtn" onClick={() => copyLink(tokenFor(s)!)}>Copy</button>
+                        <button className="linkbtn" style={{ color: "var(--rust)" }} disabled={pending} onClick={() => toggleShare(s)}>Revoke</button>
+                      </>
+                    ) : (
+                      <button className="linkbtn" disabled={pending} onClick={() => toggleShare(s)} title="Anyone with the link can respond anonymously">+ Public link</button>
+                    )}
                   </div>
                 ) : null}
                 {gaps[s.id] ? (

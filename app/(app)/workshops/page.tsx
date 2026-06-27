@@ -2,32 +2,53 @@ import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin, timeAgo } from "@/lib/util";
 import { weakestDynamic, RECOMMENDED } from "@/lib/grounding";
-import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation } from "./WorkshopsClient";
+import { resolveInstrument } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys } from "@/lib/survey";
+import { WorkshopsClient, type TemplateCard, type WorkshopRow, type Recommendation, type AssessOption, type SeedBlock } from "./WorkshopsClient";
+import { type DashboardData } from "./WorkshopDashboard";
 import { type SessionRow } from "./SessionsTable";
-import { type GalleryItem } from "./CanvasGallery";
-import type { CanvasObj } from "@/components/CanvasStatic";
+import { type TemplateVM } from "./templates/TemplatesClient";
+import { parsePhases } from "./blocks";
+import type { Enums } from "@/types/database.types";
 
-const TABS = ["workshops", "sessions", "canvas"] as const;
-type Tab = (typeof TABS)[number];
+const SECTIONS = ["dashboard", "workshops", "board", "templates"] as const;
+type Section = (typeof SECTIONS)[number];
+
+function bandOf(pct: number): 0 | 1 | 2 {
+  return pct < 45 ? 0 : pct < 62 ? 1 : 2;
+}
+// Seed a targeted agenda from an assessment's weakest areas: open with a
+// temperature check, one focused block per weak area, close with commitments.
+function buildSeedBlocks(weak: { label: string }[]): SeedBlock[] {
+  const blocks: SeedBlock[] = [
+    { title: "Temperature check", activityType: "checkin" as Enums<"activity_type">, duration: 10, prompt: "How is the team feeling about the focus areas today?", phaseLabel: "Open" },
+  ];
+  for (const w of weak) {
+    blocks.push({ title: w.label, activityType: "discussion" as Enums<"activity_type">, duration: 20, prompt: `Where are we on “${w.label}”, and what would move it forward?`, phaseLabel: "Explore" });
+  }
+  blocks.push({ title: "Commitments", activityType: "actions" as Enums<"activity_type">, duration: 20, prompt: "Capture owned actions to lift the weakest areas.", phaseLabel: "Close" });
+  return blocks;
+}
 
 export default async function WorkshopsPage({ searchParams }: { searchParams: { tab?: string } }) {
   const ctx = await requireSession();
   const supabase = createClient();
   const wsId = ctx.workspace.id;
-  const initialTab: Tab = TABS.includes(searchParams.tab as Tab) ? (searchParams.tab as Tab) : "workshops";
+  const initialSection: Section = SECTIONS.includes(searchParams.tab as Section) ? (searchParams.tab as Section) : "dashboard";
 
   const { data: teams } = await supabase
     .from("team")
     .select("id, name, lead_user_id")
     .eq("workspace_id", ctx.workspace.id)
     .is("deleted_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1);
+    .order("created_at", { ascending: true });
   const team = teams?.[0] ?? null;
+  // All teams the user can target when creating a workshop (New-workshop modal).
+  const teamOptions = (teams ?? []).map((t) => ({ id: t.id, name: t.name }));
 
   const { data: templates } = await supabase
     .from("template")
-    .select("id, key, name, category, source, description, default_duration, definition")
+    .select("id, workspace_id, key, name, category, source, description, default_duration, definition")
     .order("category", { ascending: true });
 
   const tplCards: TemplateCard[] = (templates ?? []).map((t) => {
@@ -52,6 +73,36 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     };
   });
 
+  // Template manager view-models for the home "Templates" tab (folds the
+  // standalone manager inline, matching the design). Usage = how many of this
+  // workspace's workshops were built from each template.
+  const { data: tplUsageRows } = await supabase
+    .from("workshop")
+    .select("template_id")
+    .eq("workspace_id", wsId)
+    .not("template_id", "is", null);
+  const tplUsage = new Map<string, number>();
+  for (const u of tplUsageRows ?? []) {
+    if (u.template_id) tplUsage.set(u.template_id, (tplUsage.get(u.template_id) ?? 0) + 1);
+  }
+  const templateVMs: TemplateVM[] = (templates ?? []).map((t) => {
+    const phases = parsePhases(t.definition);
+    const minutes = phases.reduce((s, p) => s + p.minutes, 0) || t.default_duration;
+    return {
+      id: t.id,
+      name: t.name,
+      category: t.category,
+      source: t.source,
+      description: t.description,
+      owned: t.workspace_id === wsId,
+      system: t.workspace_id === null,
+      steps: phases.length,
+      minutes,
+      used: tplUsage.get(t.id) ?? 0,
+      phases,
+    };
+  });
+
   let workshops: WorkshopRow[] = [];
   if (team) {
     const { data: ws } = await supabase
@@ -66,6 +117,47 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
       : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
     const nameById = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Member"]));
     const catById = new Map(tplCards.map((t) => [t.id, t.category]));
+    const tplNameById = new Map(tplCards.map((t) => [t.id, t.name]));
+
+    // Per-workshop outcome rollup (participants / actions / decisions) from the
+    // sessions these workshops have run — drives the rich rows + board cards.
+    const wkIds = rows.map((w) => w.id);
+    const part = new Map<string, number>();
+    const acts = new Map<string, number>();
+    const decs = new Map<string, number>();
+    if (wkIds.length) {
+      const { data: sess } = await supabase
+        .from("session")
+        .select("id, workshop_id")
+        .in("workshop_id", wkIds)
+        .eq("is_dry_run", false);
+      const sessList = sess ?? [];
+      const wkBySession = new Map(sessList.map((s) => [s.id, s.workshop_id]));
+      const sIds = sessList.map((s) => s.id);
+      if (sIds.length) {
+        const [{ data: pr }, { data: ai }, { data: dc }] = await Promise.all([
+          supabase.from("participant").select("session_id").in("session_id", sIds),
+          supabase.from("action_item").select("session_id").in("session_id", sIds),
+          supabase.from("decision").select("session_id").in("session_id", sIds),
+        ]);
+        // participants: peak attendance across a workshop's sessions
+        const perSession = new Map<string, number>();
+        for (const p of pr ?? []) perSession.set(p.session_id, (perSession.get(p.session_id) ?? 0) + 1);
+        for (const [sid, n] of perSession) {
+          const wid = wkBySession.get(sid);
+          if (wid) part.set(wid, Math.max(part.get(wid) ?? 0, n));
+        }
+        for (const a of ai ?? []) {
+          const wid = a.session_id ? wkBySession.get(a.session_id) : null;
+          if (wid) acts.set(wid, (acts.get(wid) ?? 0) + 1);
+        }
+        for (const d of dc ?? []) {
+          const wid = d.session_id ? wkBySession.get(d.session_id) : null;
+          if (wid) decs.set(wid, (decs.get(wid) ?? 0) + 1);
+        }
+      }
+    }
+
     workshops = rows.map((w) => ({
       id: w.id,
       title: w.title,
@@ -74,6 +166,10 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
       scheduledAt: w.scheduled_at,
       creatorName: w.created_by ? nameById.get(w.created_by) ?? null : null,
       category: w.template_id ? catById.get(w.template_id) ?? null : null,
+      templateName: w.template_id ? tplNameById.get(w.template_id) ?? null : null,
+      participants: part.get(w.id) ?? 0,
+      actions: acts.get(w.id) ?? 0,
+      decisions: decs.get(w.id) ?? 0,
     }));
   }
 
@@ -117,6 +213,58 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
 
+  // "From assessment" creation mode: the team's completed assessments with their
+  // composite score + weakest areas, so the New-workshop modal can list them and
+  // seed a targeted agenda. Latest closed survey per instrument kind, capped.
+  let assessOptions: AssessOption[] = [];
+  if (team) {
+    const { data: surveys } = await supabase
+      .from("survey")
+      .select("id, name, kind, status, created_at, definition")
+      .eq("team_id", team.id)
+      .eq("status", "closed")
+      .order("created_at", { ascending: false });
+    const seenKind = new Set<string>();
+    const picks = (surveys ?? []).filter((s) => (seenKind.has(s.kind) ? false : (seenKind.add(s.kind), true))).slice(0, 6);
+    for (const s of picks) {
+      const inst = await resolveInstrument(s.kind as string);
+      if (!inst) continue;
+      const { data: res } = await supabase.rpc("survey_results", { p_survey: s.id, p_strength_items: strengthItemKeys(inst) });
+      const r = res as { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
+      if (!r) continue;
+      const { min, max } = inst.scale;
+      let score: number | null = null;
+      let band: 0 | 1 | 2 = 1;
+      let weak: { label: string; score: number }[] = [];
+      if (!r.masked) {
+        const dims = dimensionMeans(inst, r.items ?? []).filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null);
+        if (dims.length) {
+          const avg = dims.reduce((a, d) => a + d.mean, 0) / dims.length;
+          score = Math.round(avg * 10) / 10;
+          band = bandOf(((avg - min) / (max - min)) * 100);
+          weak = dims
+            .map((d) => ({ label: d.label, score: Math.round(d.mean * 10) / 10, pct: ((d.mean - min) / (max - min)) * 100 }))
+            .sort((a, b) => a.pct - b.pct)
+            .slice(0, 3)
+            .map((d) => ({ label: d.label, score: d.score }));
+        }
+      }
+      assessOptions.push({
+        surveyId: s.id,
+        name: inst.name,
+        teamName: team.name,
+        responses: r.respondents,
+        dateLabel: new Date(s.created_at as string).toLocaleDateString(undefined, { day: "2-digit", month: "short" }),
+        score,
+        scale: max,
+        band,
+        masked: r.masked,
+        weak,
+        seedBlocks: weak.length ? buildSeedBlocks(weak) : [],
+      });
+    }
+  }
+
   // team-scoped assessment instruments — offered as a starting/added module
   const { data: instRows } = canManage
     ? await supabase.from("assessment_template").select("key, name").eq("scope", "team").order("name")
@@ -140,6 +288,7 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     .from("session")
     .select("id, workshop_id, status, started_at, ended_at")
     .eq("workspace_id", wsId)
+    .eq("is_dry_run", false)
     .order("started_at", { ascending: false })
     .limit(100);
   const sList = sessionRows ?? [];
@@ -189,48 +338,113 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
     };
   });
 
-  // ----- Canvas tab (workspace-wide saved canvases) -----
-  const { data: snaps } = await supabase
-    .from("canvas_snapshot")
-    .select("id, title, workshop_id, block_ord, object_count, created_at, data")
-    .eq("workspace_id", wsId)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const cList = snaps ?? [];
-  const cWkIds = Array.from(new Set(cList.map((s) => s.workshop_id)));
-  const { data: cWks } = cWkIds.length
-    ? await supabase.from("workshop").select("id, title, team_id").in("id", cWkIds)
-    : { data: [] as { id: string; title: string; team_id: string }[] };
-  const cWkById = new Map((cWks ?? []).map((w) => [w.id, w]));
-  const cTeamIds = Array.from(new Set((cWks ?? []).map((w) => w.team_id)));
-  const { data: cTeams } = cTeamIds.length
-    ? await supabase.from("team").select("id, name, lead_user_id").in("id", cTeamIds)
-    : { data: [] as { id: string; name: string; lead_user_id: string | null }[] };
-  const cTeamById = new Map((cTeams ?? []).map((t) => [t.id, t]));
-  const admin = isAdmin(ctx.role);
-  const canvasItems: GalleryItem[] = cList.map((s) => {
-    const wk = cWkById.get(s.workshop_id);
-    const tm = wk ? cTeamById.get(wk.team_id) : null;
-    return {
-      id: s.id,
-      title: s.title,
-      workshopId: s.workshop_id,
-      workshopTitle: wk?.title ?? "Workshop",
-      team: tm?.name ?? null,
-      blockOrd: s.block_ord,
-      objectCount: s.object_count,
-      createdAt: s.created_at,
-      manageable: admin || tm?.lead_user_id === ctx.userId,
-      data: (s.data ?? []) as unknown as CanvasObj[],
-    };
-  });
+  // ----- KPI summary row (Workshop App handoff) — all derived from real data -----
+  const now = new Date();
+  const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+  const liveScheduled = workshops.filter((w) => w.status === "live" || w.status === "scheduled").length;
+  const ranThisQuarter = sessions.filter((s) => s.startedAt && new Date(s.startedAt) >= qStart).length;
+  const totalActions = sessions.reduce((s, x) => s + (x.actions ?? 0), 0);
+  const liveCount = workshops.filter((w) => w.status === "live").length;
+  const scheduledCount = workshops.filter((w) => w.status === "scheduled").length;
+  const completedCount = workshops.filter((w) => w.status === "done").length;
+
+  // ----- Dashboard: sessions-run per month (last 8 months) from the non-dry-run
+  // session rows already queried above (workspace-wide, by started_at). -----
+  const monthBuckets: { key: string; label: string }[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthBuckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, label: d.toLocaleDateString(undefined, { month: "short" }) });
+  }
+  const monthCount = new Map<string, number>();
+  for (const s of sList) {
+    if (!s.started_at) continue;
+    const d = new Date(s.started_at);
+    monthCount.set(`${d.getFullYear()}-${d.getMonth()}`, (monthCount.get(`${d.getFullYear()}-${d.getMonth()}`) ?? 0) + 1);
+  }
+  const dashMonths = monthBuckets.map((b) => ({ label: b.label, value: monthCount.get(b.key) ?? 0 }));
+  // delta = recent 4 months vs the prior 4 months; null when the older half is empty
+  const recentHalf = dashMonths.slice(4).reduce((a, m) => a + m.value, 0);
+  const olderHalf = dashMonths.slice(0, 4).reduce((a, m) => a + m.value, 0);
+  const monthDelta = olderHalf > 0 ? Math.round(((recentHalf - olderHalf) / olderHalf) * 100) : null;
+
+  // ----- Action-item follow-through for this team. action_item carries team_id
+  // directly, so we bucket all of the team's items: done vs open, and overdue
+  // (open & due_at in the past) = At risk. The action_status enum is only
+  // open|done, so we cannot distinguish "Not started" — it stays 0 rather than
+  // being invented; open-and-not-overdue items map to "On track". -----
+  let aiDone = 0, aiOpen = 0, aiOverdue = 0;
+  if (team) {
+    const { data: ais } = await supabase
+      .from("action_item")
+      .select("status, due_at")
+      .eq("team_id", team.id);
+    for (const a of ais ?? []) {
+      if (a.status === "done") { aiDone++; continue; }
+      aiOpen++;
+      if (a.due_at && new Date(a.due_at) < now) aiOverdue++;
+    }
+  }
+  const dashActions = { done: aiDone, onTrack: Math.max(0, aiOpen - aiOverdue), atRisk: aiOverdue, notStarted: 0 };
+
+  // ----- Avg alignment: mean of the team-dynamics pct (0-100) → /5 (pct/20).
+  // No data / no pulse → null ("—"). -----
+  let avgAlignment: number | null = null;
+  if (team) {
+    const { data: dyn } = await supabase.rpc("team_dynamics", { p_team: team.id });
+    const pcts = ((dyn ?? []) as { pct: number | null }[])
+      .filter((d) => d.pct != null)
+      .map((d) => d.pct as number);
+    if (pcts.length) {
+      const meanPct = pcts.reduce((a, p) => a + p, 0) / pcts.length;
+      avgAlignment = Math.round((meanPct / 20) * 10) / 10;
+    }
+  }
+
+  // ----- Participation: completed responders of the team's latest closed pulse
+  // (pulse_participation RPC) vs team size. null when unknown. -----
+  let participation: number | null = null;
+  if (team) {
+    const { count: teamSize } = await supabase
+      .from("team_member")
+      .select("user_id", { count: "exact", head: true })
+      .eq("team_id", team.id);
+    const { data: lastPulse } = await supabase
+      .from("pulse")
+      .select("id")
+      .eq("team_id", team.id)
+      .eq("status", "closed")
+      .order("closed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (lastPulse?.id && teamSize && teamSize > 0) {
+      const { data: pp } = await supabase.rpc("pulse_participation", { p_pulse: lastPulse.id });
+      const responders = (pp ?? []).filter((r) => r.completed).length;
+      participation = Math.round((responders / teamSize) * 100);
+    }
+  }
+
+  const dashboard: DashboardData = {
+    kpis: [
+      { num: String(ranThisQuarter), suffix: "", label: "Run this quarter", color: "#2a2a26" },
+      { num: String(liveScheduled), suffix: "", label: "Live & scheduled", color: "#2a2a26" },
+      { num: String(totalActions), suffix: "", label: "Action items", color: "#a8862f" },
+      { num: avgAlignment != null ? avgAlignment.toFixed(1) : "—", suffix: avgAlignment != null ? "/5" : "", label: "Avg alignment", color: "#3f7d5a" },
+      { num: participation != null ? String(participation) : "—", suffix: participation != null ? "%" : "", label: "Participation", color: "#42729e" },
+    ],
+    months: dashMonths,
+    monthDelta,
+    status: { live: liveCount, scheduled: scheduledCount, done: completedCount },
+    actions: dashActions,
+  };
+
+  // Upcoming = scheduled workshops, soonest first, top 3.
+  const upcoming = workshops
+    .filter((w) => w.status === "scheduled" && w.scheduledAt)
+    .sort((a, b) => new Date(a.scheduledAt as string).getTime() - new Date(b.scheduledAt as string).getTime())
+    .slice(0, 3);
 
   return (
     <div>
-      <h1 className="page-title">Workshops</h1>
-      <p className="page-sub">
-        Start from a proven framework, then run it live — we build the agenda for you.
-      </p>
       {team ? (
         <WorkshopsClient
           teamId={team.id}
@@ -240,12 +454,18 @@ export default async function WorkshopsPage({ searchParams }: { searchParams: { 
           recommendation={recommendation}
           surveyInsts={surveyInsts}
           scienceByCategory={scienceByCategory}
-          sessions={sessions}
-          canvasItems={canvasItems}
-          initialTab={initialTab}
+          templateVMs={templateVMs}
+          initialSection={initialSection}
+          dashboard={dashboard}
+          upcoming={upcoming}
+          teamOptions={teamOptions}
+          assessOptions={assessOptions}
         />
       ) : (
-        <div className="card empty">Create a team first to build a workshop.</div>
+        <>
+          <h1 className="page-title">Workshops</h1>
+          <div className="card empty">Create a team first to build a workshop.</div>
+        </>
       )}
     </div>
   );

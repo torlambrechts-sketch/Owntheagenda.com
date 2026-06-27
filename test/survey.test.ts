@@ -3,6 +3,7 @@ import {
   PSYCH_SAFETY_BANG,
   TEAM_EFFECTIVENESS_BANG,
   TEAM_LEARNING_EDMONDSON,
+  ARISTOTLE_TEAM,
   INSTRUMENTS,
   INSTRUMENT_LIST,
   dimensionMeans,
@@ -10,6 +11,7 @@ import {
   climateStrength,
   strengthItemKeys,
   instrumentFromRow,
+  surveyFocus,
 } from "@/lib/survey";
 
 describe("PSYCH_SAFETY_BANG", () => {
@@ -36,6 +38,29 @@ describe("dimensionMeans", () => {
   it("returns null for a dimension with no data", () => {
     const dims = dimensionMeans(PSYCH_SAFETY_BANG, []);
     expect(dims.every((d) => d.mean === null)).toBe(true);
+  });
+  it("excludes non-Likert items (single/multi/text) from the mean", () => {
+    const inst = instrumentFromRow({
+      key: "mixed",
+      name: "Mixed",
+      definition: {
+        scale: { min: 1, max: 5, minLabel: "Low", maxLabel: "High" },
+        dimensions: [{ key: "d1", label: "D1", blurb: "" }],
+        items: [
+          { key: "d1_1", dimension: "d1", text: "Likert", type: "likert" },
+          { key: "d1_2", dimension: "d1", text: "Pick one", type: "single", options: ["A", "B"] },
+          { key: "d1_3", dimension: "d1", text: "Free text", type: "text" },
+        ],
+      },
+    })!;
+    // Even if non-Likert items somehow carry a numeric stat, they must not skew
+    // the dimension mean — only the Likert item counts.
+    const dims = dimensionMeans(inst, [
+      { item_key: "d1_1", mean: 4, n: 3 },
+      { item_key: "d1_2", mean: 1, n: 3 },
+      { item_key: "d1_3", mean: 1, n: 3 },
+    ]);
+    expect(dims.find((d) => d.key === "d1")?.mean).toBe(4);
   });
 });
 
@@ -74,6 +99,53 @@ describe("instrument registry", () => {
   });
 });
 
+describe("ARISTOTLE_TEAM psychometric contract", () => {
+  const pillars = ["psych_safety", "dependability", "structure_clarity", "meaning", "impact"];
+
+  it("has 5 pillars on a 1–5 Likert scale", () => {
+    expect(ARISTOTLE_TEAM.dimensions.map((d) => d.key).sort()).toEqual([...pillars].sort());
+    expect(ARISTOTLE_TEAM.scale.min).toBe(1);
+    expect(ARISTOTLE_TEAM.scale.max).toBe(5);
+  });
+
+  it("is balanced: 6 items per pillar (30 total)", () => {
+    expect(ARISTOTLE_TEAM.items).toHaveLength(30);
+    for (const p of pillars) {
+      expect(ARISTOTLE_TEAM.items.filter((i) => i.dimension === p)).toHaveLength(6);
+    }
+  });
+
+  it("carries 1–2 reverse-keyed items per pillar for acquiescence control", () => {
+    for (const p of pillars) {
+      const rev = ARISTOTLE_TEAM.items.filter((i) => i.dimension === p && i.reverse).length;
+      expect(rev).toBeGreaterThanOrEqual(1);
+      expect(rev).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("has unique item keys, all referencing declared pillars", () => {
+    const keys = ARISTOTLE_TEAM.items.map((i) => i.key);
+    expect(new Set(keys).size).toBe(keys.length);
+    const dims = new Set(ARISTOTLE_TEAM.dimensions.map((d) => d.key));
+    for (const it of ARISTOTLE_TEAM.items) expect(dims.has(it.dimension)).toBe(true);
+  });
+
+  it("reflects reverse items across the scale midpoint before averaging", () => {
+    // psych_safety: forward ps_1..ps_4 = 5; reverse ps_5,ps_6 raw = 1 → flips to 5.
+    // All six should land on the same pole, so the pillar mean is 5, not diluted.
+    const items = [
+      { item_key: "ps_1", mean: 5, n: 4 },
+      { item_key: "ps_2", mean: 5, n: 4 },
+      { item_key: "ps_3", mean: 5, n: 4 },
+      { item_key: "ps_4", mean: 5, n: 4 },
+      { item_key: "ps_5", mean: 1, n: 4 },
+      { item_key: "ps_6", mean: 1, n: 4 },
+    ];
+    const safety = dimensionMeans(ARISTOTLE_TEAM, items).find((d) => d.key === "psych_safety");
+    expect(safety?.mean).toBe(5);
+  });
+});
+
 describe("individualDimensionMeans", () => {
   it("averages a single person's items per dimension", () => {
     const dims = individualDimensionMeans(PSYCH_SAFETY_BANG, { safety_1: 6, safety_2: 4, int_1: 2 });
@@ -106,5 +178,40 @@ describe("instrumentFromRow", () => {
     expect(instrumentFromRow({ key: "x", name: "X", definition: null })).toBeNull();
     expect(instrumentFromRow({ key: "x", name: "X", definition: {} })).toBeNull();
     expect(instrumentFromRow({ key: "x", name: "X", definition: { scale: def.scale, dimensions: [], items: [] } })).toBeNull();
+  });
+});
+
+describe("surveyFocus", () => {
+  it("names the weakest dimension when there's a meaningful spread", () => {
+    const { focus, even } = surveyFocus([
+      { key: "safety", label: "Safety", mean: 3.1 },
+      { key: "integration", label: "Integration", mean: 5.4 },
+    ]);
+    expect(even).toBe(false);
+    expect(focus.map((d) => d.key)).toEqual(["safety"]);
+  });
+  it("groups near-lowest dimensions within 0.3", () => {
+    const { focus } = surveyFocus([
+      { key: "a", label: "A", mean: 3.0 },
+      { key: "b", label: "B", mean: 3.2 },
+      { key: "c", label: "C", mean: 5.0 },
+    ]);
+    expect(focus.map((d) => d.key).sort()).toEqual(["a", "b"]);
+  });
+  it("flags even when the team scores flat across dimensions", () => {
+    const { focus, even } = surveyFocus([
+      { key: "a", label: "A", mean: 4.9 },
+      { key: "b", label: "B", mean: 5.1 },
+    ]);
+    expect(even).toBe(true);
+    expect(focus).toHaveLength(0);
+  });
+  it("returns nothing actionable with fewer than two scored dimensions", () => {
+    const { focus, even } = surveyFocus([
+      { key: "a", label: "A", mean: 3.0 },
+      { key: "b", label: "B", mean: null },
+    ]);
+    expect(focus).toHaveLength(0);
+    expect(even).toBe(false);
   });
 });

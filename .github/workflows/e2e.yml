@@ -1,0 +1,39 @@
+name: e2e
+
+# Browser/E2E verification of the Workshops UI. Runs the real app and drives the
+# auth-gated flows as the seeded "E2E Sandbox" user. The public Supabase URL +
+# publishable key fall back to known values in lib/supabase/config.ts, and the
+# test password defaults to the demo convention, so this runs with NO secrets.
+# Override via repo secrets (E2E_PASSWORD, NEXT_PUBLIC_SUPABASE_*) if desired.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      E2E_EMAIL: ${{ vars.E2E_EMAIL || 'e2e@owntheagenda.test' }}
+      E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || 'owntheagenda' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7

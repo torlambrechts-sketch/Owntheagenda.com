@@ -1,0 +1,211 @@
+"use server";
+
+import { createClient } from "@/lib/supabase/server";
+import { resolveInstrument } from "@/lib/assessments";
+import { dimensionMeans, strengthItemKeys, instrumentFromRow } from "@/lib/survey";
+
+// Lazy per-assessment detail loader. The Overview lists every assessment cheaply
+// (one query); the rich section-scoring is only resolved when a row is opened,
+// so we never run the per-survey RPC loop across the whole list.
+export type SectionScore = { key: string; label: string; blurb: string; mean: number; pct: number; band: 0 | 1 | 2 };
+export type DetailQuestion = { key: string; dimension: string; text: string };
+// Per-question roll-up — derived from the same `survey_results` RPC items, only
+// surfaced once results are unmasked. Powers the design's "Question breakdown".
+export type QuestionScore = { key: string; dimension: string; text: string; mean: number; pct: number; band: 0 | 1 | 2 };
+export type AssessmentDetail = {
+  surveyId: string;
+  instrumentName: string;
+  scale: { min: number; max: number; minLabel: string; maxLabel: string };
+  description: string | null;
+  source: string | null;
+  questions: DetailQuestion[];
+  sections: { key: string; label: string; count: number }[];
+  respondents: number;
+  invited: number | null; // team size the survey was sent to — the response-rate denominator
+  masked: boolean;
+  submissions: string[]; // anonymous submission timestamps (only when unmasked)
+  scores: SectionScore[]; // empty when masked / no responses yet
+  questionScores: QuestionScore[]; // per-question means (empty when masked / no responses)
+  overall: number | null; // overall mean on the instrument scale
+  lowestLabel: string | null;
+  belowCount: number;
+  targetLowPct: number; // healthy-band lower edge as a % of the scale (for the band marker)
+  linkedWorkshop: { id: string; title: string } | null; // a workshop carrying this survey
+  activity: { id: number; label: string; actor: string; at: string }[]; // audit events (admins)
+};
+
+// Human labels for the assessment audit actions.
+const ACTION_LABEL: Record<string, string> = {
+  "assessment.opened": "Assessment opened",
+  "assessment.closed": "Assessment closed",
+  "assessment.reminded": "Reminder sent",
+};
+
+// Generalised banding by position on the instrument's scale. The design's hard
+// 3.0/1–5 threshold becomes a scale-relative band so it works for 1–7 (the
+// leadership-team instruments) as well as 1–5. TARGET_LOW_PCT is the lower edge
+// of the "healthy" band — the design draws its target band from here upward.
+const TARGET_LOW_PCT = 45;
+function bandOf(pct: number): 0 | 1 | 2 {
+  return pct < TARGET_LOW_PCT ? 0 : pct < 62 ? 1 : 2;
+}
+
+export async function loadAssessmentDetail(surveyId: string): Promise<{ error?: string; detail?: AssessmentDetail }> {
+  const supabase = createClient();
+  const { data: survey } = await supabase
+    .from("survey")
+    .select("id, kind, name, status, team_id, definition")
+    .eq("id", surveyId)
+    .single();
+  if (!survey) return { error: "Assessment not found." };
+
+  // Prefer the survey's frozen definition snapshot (so a custom build or an
+  // edited instrument shows its real questions), falling back to the live
+  // catalog instrument by kind.
+  const inst =
+    instrumentFromRow({ key: survey.kind as string, name: (survey.name ?? survey.kind) as string, definition: survey.definition }) ??
+    (await resolveInstrument(survey.kind as string));
+  if (!inst) return { error: "Instrument definition is unavailable." };
+
+  const { min, max } = inst.scale;
+  const questions: DetailQuestion[] = inst.items.map((it) => ({ key: it.key, dimension: it.dimension, text: it.text }));
+  const sections = inst.dimensions.map((d) => ({
+    key: d.key,
+    label: d.label,
+    count: inst.items.filter((it) => it.dimension === d.key).length,
+  }));
+
+  // Response-rate denominator: how many people the assessment was sent to —
+  // distinct members across every targeted team (primary + survey_team) plus
+  // external email invites, matching the Overview's assessment_suite_overview.
+  let invited: number | null = null;
+  {
+    const { data: stTeams } = await supabase.from("survey_team").select("team_id").eq("survey_id", surveyId);
+    const teamIds = Array.from(new Set([survey.team_id as string | null, ...((stTeams ?? []).map((r) => r.team_id as string))].filter((x): x is string => !!x)));
+    let memberCount = 0;
+    if (teamIds.length) {
+      const { data: tmRows } = await supabase.from("team_member").select("user_id").in("team_id", teamIds);
+      memberCount = new Set((tmRows ?? []).map((r) => r.user_id as string)).size;
+    }
+    const { count: inviteCount } = await supabase.from("survey_invite").select("id", { count: "exact", head: true }).eq("survey_id", surveyId);
+    invited = memberCount + (inviteCount ?? 0) || null;
+  }
+
+  // Aggregate results — masked server-side until the minimum responder count is
+  // met, so individual answers are never exposed.
+  const { data: res } = await supabase.rpc("survey_results", { p_survey: surveyId, p_strength_items: strengthItemKeys(inst) });
+  const r = res as { respondents: number; masked: boolean; items: { item_key: string; mean: number; n: number }[] } | null;
+
+  // Anonymous submission timestamps — surfaced only once results are unmasked,
+  // so a small response set can't be tied back to an individual. respondent_id
+  // is never read here.
+  // Anonymous responses store respondent_id = NULL, so a direct table read
+  // (RLS: own rows only) returns nothing. The submission timestamps come from a
+  // SECURITY DEFINER RPC, manager-gated and masked under the floor — never the
+  // respondent_id. Non-managers get an empty list (they still see counts).
+  let submissions: string[] = [];
+  if (r && !r.masked) {
+    const { data: subs } = await supabase.rpc("survey_submissions", { p_survey: surveyId });
+    submissions = ((subs ?? []) as { submitted_at: string }[]).map((s) => s.submitted_at);
+  }
+
+  let scores: SectionScore[] = [];
+  let questionScores: QuestionScore[] = [];
+  let overall: number | null = null;
+  let lowestLabel: string | null = null;
+  let belowCount = 0;
+  if (r && !r.masked) {
+    const dims = dimensionMeans(inst, r.items ?? []);
+    scores = dims
+      .filter((d): d is { key: string; label: string; blurb: string; mean: number } => d.mean != null)
+      .map((d) => {
+        const pct = ((d.mean - min) / (max - min)) * 100;
+        return { key: d.key, label: d.label, blurb: d.blurb, mean: d.mean, pct, band: bandOf(pct) };
+      });
+    if (scores.length) {
+      overall = scores.reduce((a, s) => a + s.mean, 0) / scores.length;
+      const lowest = scores.reduce((lo, s) => (s.mean < lo.mean ? s : lo), scores[0]);
+      lowestLabel = lowest.label;
+      belowCount = scores.filter((s) => s.band === 0).length;
+    }
+    // Per-question breakdown from the same RPC item means — Likert/rating items
+    // only (the ones the instrument actually scores), mapped to their text. A
+    // rating-10 item bands on its own 1–10 scale so its bar matches its mean,
+    // while Likert items band on the instrument scale.
+    const meanByItem = new Map((r.items ?? []).map((it) => [it.item_key, it.mean]));
+    const typeByItem = new Map(inst.items.map((it) => [it.key, it.type ?? "likert"]));
+    questionScores = questions
+      .map((q) => {
+        const mean = meanByItem.get(q.key);
+        if (mean == null) return null;
+        const pct = typeByItem.get(q.key) === "rating10"
+          ? ((mean - 1) / 9) * 100
+          : ((mean - min) / (max - min)) * 100;
+        return { key: q.key, dimension: q.dimension, text: q.text, mean, pct: Math.max(0, Math.min(100, pct)), band: bandOf(pct) };
+      })
+      .filter((q): q is QuestionScore => q != null);
+  }
+
+  // A workshop carrying this survey (the flow engine pins it on a step's
+  // survey_id) — lets the assessment link straight to its follow-up workshop.
+  let linkedWorkshop: { id: string; title: string } | null = null;
+  const { data: linkBlock } = await supabase
+    .from("block")
+    .select("workshop_id")
+    .eq("survey_id", surveyId)
+    .limit(1)
+    .maybeSingle();
+  if (linkBlock?.workshop_id) {
+    const { data: ws } = await supabase
+      .from("workshop")
+      .select("id, title")
+      .eq("id", linkBlock.workshop_id)
+      .maybeSingle();
+    if (ws) linkedWorkshop = { id: ws.id as string, title: ws.title as string };
+  }
+
+  // Activity log for this assessment — audit_log is readable by workspace
+  // admins via RLS, so non-admins simply get an empty list.
+  const { data: events } = await supabase
+    .from("audit_log")
+    .select("id, action, actor_id, created_at")
+    .eq("entity_type", "survey")
+    .eq("entity_id", surveyId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  const actorIds = Array.from(new Set((events ?? []).map((e) => e.actor_id).filter((x): x is string => !!x)));
+  const { data: profs } = actorIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", actorIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const nameById = new Map((profs ?? []).map((p) => [p.id, p.full_name || p.display_name || p.email || "Someone"]));
+  const activity = (events ?? []).map((e) => ({
+    id: e.id as number,
+    label: ACTION_LABEL[e.action as string] ?? (e.action as string),
+    actor: e.actor_id ? nameById.get(e.actor_id as string) ?? "Someone" : "System",
+    at: e.created_at as string,
+  }));
+
+  return {
+    detail: {
+      surveyId,
+      instrumentName: inst.name,
+      scale: inst.scale,
+      description: null,
+      source: null,
+      questions,
+      sections,
+      respondents: r?.respondents ?? 0,
+      invited,
+      masked: r ? r.masked : true,
+      submissions,
+      scores,
+      questionScores,
+      overall: overall == null ? null : Math.round(overall * 100) / 100,
+      lowestLabel,
+      belowCount,
+      targetLowPct: TARGET_LOW_PCT,
+      linkedWorkshop,
+      activity,
+    },
+  };
+}

@@ -21,6 +21,51 @@ export async function buildFromTemplate(
   return { id: (data as any)?.id as string };
 }
 
+// Create an empty draft workshop (no blocks, no session) and land in the builder.
+// Backs the "Blank" mode of the New-workshop slide-over.
+export async function createBlankWorkshop(
+  teamId: string,
+  title: string,
+): Promise<{ id?: string; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_blank_workshop", {
+    p_team: teamId,
+    p_title: title,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/workshops");
+  return { id: data as string };
+}
+
+// Create a draft workshop pre-seeded with an agenda (the "From assessment" mode:
+// blocks targeting the assessment's weakest areas). One RPC for the gated draft,
+// one bulk insert for the blocks (RLS-scoped to the workshop just created).
+export async function createSeededWorkshop(
+  teamId: string,
+  title: string,
+  blocks: { title: string; activityType: Enums<"activity_type">; duration: number; prompt?: string | null }[],
+): Promise<{ id?: string; error?: string }> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("create_blank_workshop", { p_team: teamId, p_title: title });
+  if (error) return { error: error.message };
+  const id = data as string;
+  if (blocks.length) {
+    const rows = blocks.map((b, i) => ({
+      workshop_id: id,
+      ord: i + 1,
+      title: b.title.trim() || "Step",
+      activity_type: b.activityType,
+      duration: b.duration,
+      prompt: b.prompt || null,
+      config: {} as never,
+    }));
+    const { error: be } = await supabase.from("block").insert(rows);
+    if (be) return { id, error: be.message };
+  }
+  revalidatePath("/workshops");
+  return { id };
+}
+
 // Run an on-demand session: create an ad-hoc workshop with one starting module
 // and start it. Returns the workshop id to navigate straight into the run.
 export async function quickStart(
@@ -38,6 +83,19 @@ export async function quickStart(
   });
   if (error) return { error: error.message };
   return { workshopId: data as string };
+}
+
+// Launch a live (or dry-run) session from the "Run a workshop" launcher.
+// A dry run rehearses without recording to the workshop record.
+export async function launchRun(
+  workshopId: string,
+  dry: boolean,
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("start_session", { p_workshop: workshopId, p_dry: dry });
+  if (error) return { error: error.message };
+  revalidatePath(`/run/${workshopId}`);
+  return {};
 }
 
 // Attach a specific open assessment to a survey step (or null to detach → auto-match).
@@ -81,17 +139,21 @@ export async function scheduleWorkshop(
   return {};
 }
 
-export async function setWorkshopObjective(
+// Structured, ordered objectives list. `objective` (legacy single column) is
+// kept in sync with the first entry so existing readers stay correct.
+export async function setWorkshopObjectives(
   id: string,
-  objective: string,
+  objectives: string[],
 ): Promise<{ error?: string }> {
+  const clean = objectives.map((o) => o.trim()).filter(Boolean);
   const supabase = createClient();
   const { error } = await supabase
     .from("workshop")
-    .update({ objective: objective.trim() || null })
+    .update({ objectives: clean, objective: clean[0] ?? null })
     .eq("id", id);
   if (error) return { error: error.message };
   revalidatePath(`/workshops/${id}`);
+  revalidatePath(`/workshops/${id}/overview`);
   return {};
 }
 
@@ -116,6 +178,8 @@ export async function addBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  ownerName?: string | null;
+  phase?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -136,6 +200,8 @@ export async function addBlock(input: {
     duration: input.duration,
     prompt: input.prompt || null,
     linked_dynamic: input.linkedDynamic || null,
+    owner_name: input.ownerName?.trim() || null,
+    phase: input.phase ?? null,
     config: (input.config ?? {}) as never,
   });
   if (error) return { error: error.message };
@@ -151,6 +217,8 @@ export async function updateBlock(input: {
   duration: number;
   prompt?: string | null;
   linkedDynamic?: Enums<"team_dynamic"> | null;
+  ownerName?: string | null;
+  phase?: string | null;
   config?: Record<string, unknown>;
 }): Promise<{ error?: string }> {
   const supabase = createClient();
@@ -162,6 +230,8 @@ export async function updateBlock(input: {
       duration: input.duration,
       prompt: input.prompt || null,
       linked_dynamic: input.linkedDynamic || null,
+      owner_name: input.ownerName?.trim() || null,
+      phase: input.phase ?? null,
       config: (input.config ?? {}) as never,
     })
     .eq("id", input.blockId);
@@ -193,6 +263,23 @@ export async function reorderBlocks(
       .eq("id", ids[i]);
     if (error) return { error: error.message };
   }
+  revalidatePath(`/workshops/${workshopId}`);
+  return {};
+}
+
+// Persist a full kanban layout: each item carries its new phase column, and the
+// array order is the new linear agenda order (ord). One round-trip via an RPC
+// that is gated by can_manage_workshop and scoped to the workshop server-side.
+export async function setAgendaLayout(
+  workshopId: string,
+  items: { id: string; phase: string | null }[],
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc("set_agenda_layout", {
+    p_workshop: workshopId,
+    p_items: items.map((it) => ({ id: it.id, phase: it.phase ?? "" })),
+  });
+  if (error) return { error: error.message };
   revalidatePath(`/workshops/${workshopId}`);
   return {};
 }

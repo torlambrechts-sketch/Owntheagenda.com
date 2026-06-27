@@ -1,16 +1,33 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  createProgram,
+  createFlow,
+  createFlowSteps,
+  startPlay,
+  remindNonResponders,
   setProgramStep,
-  startPulse,
+  startAssessment,
   buildWorkshop,
   scheduleRepulse,
   syncProgram,
+  addStep,
+  removeStep,
+  moveStep,
+  setBranch,
+  setFlowTask,
+  toggleActionItem,
+  assignFlowTask,
 } from "./actions";
+import { ReadinessGate } from "./ReadinessGate";
+import { Plays } from "./Plays";
+import { FlowBuilder } from "./FlowBuilder";
+import { FlowComposer, type ComposerStep } from "./FlowComposer";
+import { FlowsTable } from "./FlowsTable";
+import { FlowMiniMap } from "./FlowMiniMap";
+import { SideWindow } from "@/components/SideWindow";
 
 export type StepView = {
   id: string;
@@ -19,10 +36,13 @@ export type StepView = {
   title: string;
   status: string;
   gate: string | null;
+  config: Record<string, unknown>;
   scheduledAt: string | null;
   completedAt: string | null;
   live: string | null;
   ready: boolean;
+  done: number | null;
+  target: number | null;
 };
 export type ProgramView = {
   id: string;
@@ -30,19 +50,37 @@ export type ProgramView = {
   status: string;
   currentOrd: number;
   teamId: string | null;
+  kind: string;
+  playKey: string | null;
+  minResponses: number;
+  assessmentKind: string | null;
+  dueAt: string | null;
   steps: StepView[];
+  tasks: TaskView[];
 };
+export type TaskView = {
+  id: string;
+  kind: string;
+  title: string;
+  ownerId: string | null;
+  ownerName: string | null;
+  dueAt: string | null;
+  status: string;
+  source: "flow" | "action";
+};
+export type Member = { id: string; name: string };
+export type Template = { id: string; name: string; key: string | null; category: string };
+export type Instrument = { key: string; name: string };
 type Named = { id: string; name: string };
 
 const STEP_LINK: Record<string, { href: string; label: string }> = {
   assessment: { href: "/assessments", label: "Open assessments" },
-  launch: { href: "/insight/leadership-teams", label: "Track responses" },
-  interpret: { href: "/insight/leadership-teams", label: "View results" },
+  launch: { href: "/insight", label: "Track responses" },
+  interpret: { href: "/insight", label: "View results" },
   workshop: { href: "/workshops", label: "Open workshops" },
   commit: { href: "/actions", label: "Open actions" },
-  repulse: { href: "/insight/leadership-teams", label: "Re-pulse" },
+  repulse: { href: "/insight", label: "Re-pulse" },
 };
-const STATUS_PILL: Record<string, string> = { active: "open", completed: "open", archived: "draft" };
 
 function plusDays(n: number) {
   const d = new Date();
@@ -56,22 +94,26 @@ export function WorkflowClient({
   programs,
   teams,
   templates,
+  assessments,
+  members,
 }: {
   workspaceId: string;
   canManage: boolean;
   programs: ProgramView[];
   teams: Named[];
-  templates: Named[];
+  templates: Template[];
+  assessments: Instrument[];
+  members: Member[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [creating, setCreating] = useState(false);
-  const [title, setTitle] = useState("");
-  const [teamId, setTeamId] = useState(teams[0]?.id ?? "");
   const [toast, setToast] = useState<string | null>(null);
-  // per-program transient inputs for the workshop template + re-pulse date pickers
+  // per-program transient inputs + builder toggle
   const [tmplFor, setTmplFor] = useState<Record<string, string>>({});
   const [dateFor, setDateFor] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<Record<string, boolean>>({});
+  const [viewFlow, setViewFlow] = useState<ProgramView | null>(null);
+  const templateName = (id: string) => templates.find((t) => t.id === id)?.name ?? "a workshop";
 
   function flash(m: string) {
     setToast(m);
@@ -88,196 +130,312 @@ export function WorkflowClient({
     });
   }
 
-  function create() {
-    const t = title.trim();
-    if (!t) return;
+  function createComposed(
+    title: string,
+    teamId: string | null,
+    minResponses: number,
+    steps: ComposerStep[],
+    assessmentKind: string | null,
+    collectDays: number,
+    anonymity: string,
+  ) {
     run(
-      () => createProgram(workspaceId, t, teamId || null),
-      () => {
-        setTitle("");
-        setCreating(false);
-      },
+      () => createFlowSteps(workspaceId, title, teamId, minResponses, steps, assessmentKind, collectDays, anonymity),
+      () => flash("Flow created"),
     );
   }
+  const instrumentName = (k: string | null) => (k ? assessments.find((a) => a.key === k)?.name ?? k : null);
+
+  // New flow → create a starter flow and open it straight in the builder.
+  function onNewFlow() {
+    startTransition(async () => {
+      const res = await createFlow(workspaceId, "Untitled flow", null, 4);
+      if (res.error) { flash(res.error); return; }
+      if (res.id) router.push(`/flow/${res.id}`);
+    });
+  }
+
+  // Render a single flow's run surface (stage cards + inline builder) for the
+  // expanded table row. Keeps all the contextual run actions in one place.
+  function renderStages(p: ProgramView): ReactNode {
+    const hasTeam = !!p.teamId;
+    const isFlow = p.kind === "flow";
+    const isEditing = !!editing[p.id];
+    return (
+      <div className="wfx-run">
+        <div className="wfx-run-h">
+          {isFlow ? (
+            <button
+              className="btn-sec sm"
+              disabled={pending}
+              onClick={() => setEditing((m) => ({ ...m, [p.id]: !m[p.id] }))}
+            >
+              {isEditing ? "Done editing" : "Edit steps"}
+            </button>
+          ) : null}
+          <button className="btn-sec sm" disabled={pending} onClick={() => run(() => syncProgram(p.id))}>
+            Refresh status
+          </button>
+          {!hasTeam ? <span className="wfx-prog-note">Link a team to start a pulse and build a workshop.</span> : null}
+        </div>
+
+        {isEditing ? (
+          <FlowBuilder
+            program={p}
+            templates={templates}
+            pending={pending}
+            onAdd={(afterOrd, kind, t) => run(() => addStep(p.id, afterOrd, kind, t))}
+            onRemove={(sid) => run(() => removeStep(sid))}
+            onMove={(sid, dir) => run(() => moveStep(sid, dir))}
+            onBranch={(sid, d, o, v, tt, et) => run(() => setBranch(sid, d, o, v, tt, et))}
+          />
+        ) : (
+          <div className="wfx-steps flow">
+            {p.steps.map((s) => {
+              const link = STEP_LINK[s.kind];
+              const isActive = s.status === "active";
+              const showGate = isActive && s.kind === "launch" && s.done != null && s.target != null;
+              return (
+                <div className={`wfx-step ${s.status}`} key={s.id}>
+                  <div className="wfx-step-top">
+                    <span className="wfx-num">{s.ord}</span>
+                    <span className={`wfx-tag ${s.status}`}>
+                      {s.status === "done"
+                        ? "Done"
+                        : s.status === "active"
+                          ? "In progress"
+                          : s.status === "skipped"
+                            ? "Skipped"
+                            : "Pending"}
+                    </span>
+                  </div>
+                  <h4>{s.title}</h4>
+
+                  {showGate ? (
+                    <ReadinessGate
+                      done={s.done ?? 0}
+                      target={s.target ?? 3}
+                      ready={s.ready}
+                      canManage={canManage}
+                      pending={pending}
+                      onRemind={() =>
+                        run(
+                          () =>
+                            remindNonResponders(p.id).then((r) => {
+                              if (!("error" in r)) flash(`Reminded ${r.count} ${r.count === 1 ? "person" : "people"}`);
+                              return r;
+                            }) as Promise<{ error?: string }>,
+                        )
+                      }
+                      onStartNow={() => run(() => setProgramStep(s.id, "done"))}
+                    />
+                  ) : s.live ? (
+                    <p className={`wfx-live${s.ready ? " ready" : ""}`}>
+                      {s.live}
+                      {s.ready ? " · ready" : ""}
+                    </p>
+                  ) : s.gate ? (
+                    <p className="wfx-gate">{s.gate}</p>
+                  ) : (
+                    <p className="wfx-gate" />
+                  )}
+
+                  {canManage && isActive && s.kind === "assessment" ? (
+                    <div className="wfx-spawn">
+                      {instrumentName(p.assessmentKind) ? (
+                        <span className="wfx-instr">{instrumentName(p.assessmentKind)}</span>
+                      ) : (
+                        <span className="wfx-instr muted">Team pulse</span>
+                      )}
+                      <button
+                        className="btn-prim sm"
+                        disabled={pending || !hasTeam}
+                        onClick={() => run(() => startAssessment(p.id))}
+                      >
+                        Start assessment
+                      </button>
+                    </div>
+                  ) : null}
+                  {canManage && isActive && s.kind === "workshop" ? (
+                    <div className="wfx-spawn">
+                      <select
+                        className="inp sm"
+                        value={tmplFor[p.id] ?? ""}
+                        onChange={(e) => setTmplFor((m) => ({ ...m, [p.id]: e.target.value }))}
+                      >
+                        <option value="">Choose template…</option>
+                        {templates.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn-prim sm"
+                        disabled={pending || !tmplFor[p.id]}
+                        onClick={() => run(() => buildWorkshop(p.id, tmplFor[p.id]))}
+                      >
+                        Build workshop
+                      </button>
+                    </div>
+                  ) : null}
+                  {canManage && isActive && s.kind === "repulse" && !s.live ? (
+                    <div className="wfx-spawn">
+                      <input
+                        className="inp sm"
+                        type="date"
+                        value={dateFor[p.id] ?? plusDays(30)}
+                        onChange={(e) => setDateFor((m) => ({ ...m, [p.id]: e.target.value }))}
+                      />
+                      <button
+                        className="btn-prim sm"
+                        disabled={pending}
+                        onClick={() => run(() => scheduleRepulse(p.id, dateFor[p.id] ?? plusDays(30)))}
+                      >
+                        Schedule re-pulse
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="wfx-acts">
+                    {link ? (
+                      <Link className="linkbtn xs" href={link.href}>
+                        {link.label} →
+                      </Link>
+                    ) : null}
+                  </div>
+
+                  {canManage ? (
+                    <div className="wfx-manage">
+                      {s.status !== "done" ? (
+                        <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "done"))}>
+                          Mark done
+                        </button>
+                      ) : (
+                        <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "active"))}>
+                          Reopen
+                        </button>
+                      )}
+                      {s.status === "pending" ? (
+                        <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "active"))}>
+                          Start
+                        </button>
+                      ) : s.status !== "done" && s.status !== "skipped" ? (
+                        <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "skipped"))}>
+                          Skip
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Summary KPIs over the real flows (no dummy data).
+  const flowTotal = programs.length;
+  const flowActive = programs.filter((p) => p.status === "active").length;
+  const flowDone = programs.filter((p) => p.status === "completed").length;
+  const flowDrafts = programs.filter((p) => p.status === "draft").length;
+  const openTasks = programs.reduce(
+    (n, p) => n + p.tasks.filter((t) => t.status !== "done" && t.status !== "skipped").length,
+    0,
+  );
+  const completionRate = flowTotal ? Math.round((flowDone / flowTotal) * 100) : 0;
+  const flowKpis = [
+    { big: String(flowActive), title: "Active flows", sub: `${flowDrafts} draft${flowDrafts === 1 ? "" : "s"} · ${flowTotal} total` },
+    { big: String(flowDone), title: "Completed", sub: `of ${flowTotal} flow${flowTotal === 1 ? "" : "s"}` },
+    { big: String(openTasks), title: "Open tasks", sub: "across all flows" },
+    { big: `${completionRate}%`, title: "Completion rate", sub: "completed of all" },
+  ];
 
   return (
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Workflow</h1>
+          <h1 className="page-title">Flows</h1>
           <p className="page-sub">
-            One operating loop from assessment through workshop, commitments and
-            re-measurement. Start the pulse, build the workshop and schedule the
-            re-pulse — each stage advances on its own as the response threshold,
-            the workshop and the re-pulse complete.
+            Run an assessment, wait for responses, then run the workshop on the
+            results — as one tracked Flow. Build one below (use the full
+            operating loop preset for commitments and re-measurement), or
+            launch a Play to start in one click.
           </p>
         </div>
         {canManage ? (
-          <button className="btn-prim" onClick={() => setCreating((v) => !v)}>
-            {creating ? "Cancel" : "New program"}
+          <button className="btn-prim" disabled={pending} onClick={onNewFlow}>
+            ＋ New flow
           </button>
         ) : null}
       </div>
 
-      {creating ? (
-        <div className="wfx-create">
-          <input
-            className="inp"
-            autoFocus
-            placeholder="Program name — e.g. Leadership psychological safety loop"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && create()}
-          />
-          <select className="inp" value={teamId} onChange={(e) => setTeamId(e.target.value)}>
-            <option value="">No team</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-          <button className="btn-prim" disabled={pending || !title.trim()} onClick={create}>
-            Create program
-          </button>
+      {programs.length ? (
+        <div className="wf-kpis">
+          {flowKpis.map((k) => (
+            <div className="wf-kpi" key={k.title}>
+              <div className="wf-kpi-big">{k.big}</div>
+              <div className="wf-kpi-t">{k.title}</div>
+              <div className="wf-kpi-s">{k.sub}</div>
+            </div>
+          ))}
         </div>
+      ) : null}
+
+      {canManage ? (
+        <Plays
+          teams={teams}
+          pending={pending}
+          onLaunch={(pk, name, tk, n, ak, tid) => run(() => startPlay(workspaceId, tid, pk, name, tk, n, ak))}
+        />
+      ) : null}
+
+      {canManage ? (
+        <FlowComposer
+          teams={teams}
+          assessments={assessments}
+          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+          pending={pending}
+          onCreate={createComposed}
+        />
       ) : null}
 
       {programs.length === 0 ? (
         <div className="empty">
-          No programs yet.{" "}
-          {canManage ? "Start one to tie an assessment and workshop into a tracked loop." : "An admin can start one."}
+          No flows yet.{" "}
+          {canManage ? "Build one above — or launch a Play — to tie an assessment and workshop together." : "An admin can start one."}
         </div>
       ) : (
-        programs.map((p) => {
-          const hasTeam = !!p.teamId;
-          return (
-            <div className="wfx-prog" key={p.id}>
-              <div className="wfx-prog-h">
-                <h3>{p.title}</h3>
-                <span className={`pill sm ${STATUS_PILL[p.status] ?? "draft"}`}>
-                  {p.status === "completed" ? "Completed" : p.status === "archived" ? "Archived" : "Active"}
-                </span>
-                <span className="wfx-prog-meta">
-                  Stage {Math.min(p.currentOrd, p.steps.length)} of {p.steps.length}
-                </span>
-                {canManage ? (
-                  <button className="btn-sec sm" disabled={pending} onClick={() => run(() => syncProgram(p.id))}>
-                    Refresh status
-                  </button>
-                ) : null}
-              </div>
-              <div className="wfx-steps">
-                {p.steps.map((s) => {
-                  const link = STEP_LINK[s.kind];
-                  const isActive = s.status === "active";
-                  return (
-                    <div className={`wfx-step ${s.status}`} key={s.id}>
-                      <div className="wfx-step-top">
-                        <span className="wfx-num">{s.ord}</span>
-                        <span className={`wfx-tag ${s.status}`}>
-                          {s.status === "done"
-                            ? "Done"
-                            : s.status === "active"
-                              ? "In progress"
-                              : s.status === "skipped"
-                                ? "Skipped"
-                                : "Pending"}
-                        </span>
-                      </div>
-                      <h4>{s.title}</h4>
-                      {s.live ? (
-                        <p className={`wfx-live${s.ready ? " ready" : ""}`}>{s.live}{s.ready ? " · ready" : ""}</p>
-                      ) : s.gate ? (
-                        <p className="wfx-gate">{s.gate}</p>
-                      ) : (
-                        <p className="wfx-gate" />
-                      )}
-
-                      {/* contextual spawn actions on the active step */}
-                      {canManage && isActive && s.kind === "assessment" ? (
-                        <button className="btn-prim sm" disabled={pending || !hasTeam} onClick={() => run(() => startPulse(p.id))}>
-                          Start pulse
-                        </button>
-                      ) : null}
-                      {canManage && isActive && s.kind === "workshop" ? (
-                        <div className="wfx-spawn">
-                          <select
-                            className="inp sm"
-                            value={tmplFor[p.id] ?? ""}
-                            onChange={(e) => setTmplFor((m) => ({ ...m, [p.id]: e.target.value }))}
-                          >
-                            <option value="">Choose template…</option>
-                            {templates.map((t) => (
-                              <option key={t.id} value={t.id}>{t.name}</option>
-                            ))}
-                          </select>
-                          <button
-                            className="btn-prim sm"
-                            disabled={pending || !tmplFor[p.id]}
-                            onClick={() => run(() => buildWorkshop(p.id, tmplFor[p.id]))}
-                          >
-                            Build workshop
-                          </button>
-                        </div>
-                      ) : null}
-                      {canManage && isActive && s.kind === "repulse" && !s.live ? (
-                        <div className="wfx-spawn">
-                          <input
-                            className="inp sm"
-                            type="date"
-                            value={dateFor[p.id] ?? plusDays(30)}
-                            onChange={(e) => setDateFor((m) => ({ ...m, [p.id]: e.target.value }))}
-                          />
-                          <button
-                            className="btn-prim sm"
-                            disabled={pending}
-                            onClick={() => run(() => scheduleRepulse(p.id, dateFor[p.id] ?? plusDays(30)))}
-                          >
-                            Schedule re-pulse
-                          </button>
-                        </div>
-                      ) : null}
-
-                      <div className="wfx-acts">
-                        {link ? (
-                          <Link className="linkbtn xs" href={link.href}>
-                            {link.label} →
-                          </Link>
-                        ) : null}
-                      </div>
-
-                      {canManage ? (
-                        <div className="wfx-manage">
-                          {s.status !== "done" ? (
-                            <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "done"))}>
-                              Mark done
-                            </button>
-                          ) : (
-                            <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "active"))}>
-                              Reopen
-                            </button>
-                          )}
-                          {s.status === "pending" ? (
-                            <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "active"))}>
-                              Start
-                            </button>
-                          ) : s.status !== "done" && s.status !== "skipped" ? (
-                            <button className="linkbtn xs" disabled={pending} onClick={() => run(() => setProgramStep(s.id, "skipped"))}>
-                              Skip
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-              {canManage && !hasTeam ? (
-                <div className="wfx-prog-note">Link this program to a team to start a pulse and build a workshop.</div>
-              ) : null}
-            </div>
-          );
-        })
+        <FlowsTable
+          programs={programs}
+          teams={teams}
+          members={members}
+          canManage={canManage}
+          pending={pending}
+          onToggleTask={(t, status) =>
+            run(() => (t.source === "action" ? toggleActionItem(t.id) : setFlowTask(t.id, status)))
+          }
+          onAssignTask={(taskId, ownerId, ownerName) => run(() => assignFlowTask(taskId, ownerId, ownerName))}
+          onView={setViewFlow}
+          renderExpanded={renderStages}
+        />
       )}
+
+      <SideWindow
+        open={!!viewFlow}
+        onClose={() => setViewFlow(null)}
+        title={viewFlow?.title ?? "Flow"}
+        subtitle="Flow visualization"
+        size="wide"
+        footer={viewFlow ? (
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link className="btn-sec" href={`/workflow/${viewFlow.id}`}>Flow detail</Link>
+            {canManage ? <Link className="btn-prim" href={`/flow/${viewFlow.id}`}>Open builder →</Link> : null}
+          </div>
+        ) : null}
+      >
+        {viewFlow ? <FlowMiniMap steps={viewFlow.steps} templateName={templateName} /> : null}
+      </SideWindow>
 
       {toast ? <div className="toast">{toast}</div> : null}
     </>

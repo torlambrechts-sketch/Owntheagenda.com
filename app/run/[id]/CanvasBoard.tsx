@@ -57,7 +57,16 @@ type Obj = {
   z: number;
 };
 
-type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "text" | "connector" | "pen" | "marker" | "eraser" | "hand";
+type Tool = "select" | "sticky" | "rect" | "ellipse" | "diamond" | "triangle" | "hexagon" | "parallelogram" | "star" | "text" | "connector" | "pen" | "marker" | "eraser" | "hand";
+
+// clip-path per shape kind (matches the BoardEditor's advanced shape set).
+const CLIP_PATHS: Record<string, string | undefined> = {
+  diamond: "polygon(50% 0,100% 50%,50% 100%,0 50%)",
+  triangle: "polygon(50% 0,100% 100%,0 100%)",
+  hexagon: "polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)",
+  parallelogram: "polygon(25% 0,100% 0,75% 100%,0 100%)",
+  star: "polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)",
+};
 
 // History op = a state transition we can apply; apply() returns its inverse,
 // so undo and redo are symmetric (local, per-client).
@@ -800,12 +809,21 @@ export function CanvasBoard({
   const showLineStyles = tool === "connector" || selObj?.kind === "connector";
   const cursor = tool === "hand" ? "grab" : tool === "select" ? "default" : "crosshair";
 
+  const [fs, setFs] = useState(false);
+  const fsStyle: React.CSSProperties | undefined = fs
+    ? { position: "fixed", inset: 0, zIndex: 200, margin: 0, borderRadius: 0, maxWidth: "none", maxHeight: "none" }
+    : undefined;
+
   const TOOLS: { key: Tool; label: string; icon: React.ReactNode }[] = [
     { key: "select", label: "Select / move", icon: <path d="M4 3l7 16 2-7 7-2z" /> },
     { key: "sticky", label: "Sticky note", icon: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M14 20v-5h5" /></> },
     { key: "rect", label: "Rectangle", icon: <rect x="4" y="6" width="16" height="12" rx="1.5" /> },
     { key: "ellipse", label: "Ellipse", icon: <circle cx="12" cy="12" r="8" /> },
     { key: "diamond", label: "Diamond", icon: <path d="M12 3l9 9-9 9-9-9z" /> },
+    { key: "triangle", label: "Triangle", icon: <path d="M12 4l9 16H3z" /> },
+    { key: "hexagon", label: "Hexagon", icon: <path d="M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9z" /> },
+    { key: "parallelogram", label: "Parallelogram", icon: <path d="M8 5h12l-4 14H4z" /> },
+    { key: "star", label: "Star", icon: <path d="M12 3l2.6 6 6.4.5-4.9 4.2 1.6 6.3L12 17l-5.7 3 1.6-6.3L3 9.5 9.4 9z" /> },
     { key: "text", label: "Text", icon: <><path d="M5 5h14" /><path d="M12 5v14" /></> },
     { key: "connector", label: "Connector", icon: <><circle cx="5" cy="6" r="2" /><circle cx="19" cy="18" r="2" /><path d="M7 7c6 1 5 9 10 10" /></> },
     { key: "pen", label: "Pen", icon: <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /> },
@@ -815,7 +833,7 @@ export function CanvasBoard({
   ];
 
   return (
-    <div className="canvaswrap">
+    <div className="canvaswrap" style={fsStyle}>
       <div className="canvashead">
         <div>
           <div className="pact">{stepLabel}</div>
@@ -833,6 +851,11 @@ export function CanvasBoard({
               {ready ? "✓ You're ready" : "I'm ready"}
             </button>
           ) : null}
+          <button className="ready" title={fs ? "Exit fullscreen" : "Fullscreen"} aria-label={fs ? "Exit fullscreen" : "Fullscreen"} onClick={() => setFs((v) => !v)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {fs ? <><path d="M9 3v6H3M21 9h-6V3M3 15h6v6M15 21v-6h6" /></> : <><path d="M3 9V3h6M21 9V3h-6M3 15v6h6M21 15v6h-6" /></>}
+            </svg>
+          </button>
         </div>
       </div>
       {prompt ? <div className="canvasprompt">{prompt}</div> : null}
@@ -850,7 +873,7 @@ export function CanvasBoard({
         <div className="ctools" onPointerDown={(e) => e.stopPropagation()}>
           {TOOLS.map((tl, i) => (
             <span key={tl.key} style={{ display: "contents" }}>
-              {(i === 1 || i === 6 || i === 9) ? <span className="cdiv" /> : null}
+              {(i === 1 || i === 10 || i === 13) ? <span className="cdiv" /> : null}
               <button
                 className={`ctool${tool === tl.key ? " active" : ""}`}
                 title={tl.label}
@@ -1047,14 +1070,14 @@ export function CanvasBoard({
               </div>
             );
           }
-          // rect / ellipse / diamond / text
+          // rect / ellipse / diamond / triangle / hexagon / parallelogram / star / text
           const isText = o.kind === "text";
           const shapeStyle: React.CSSProperties = {
             ...common,
             background: isText ? "transparent" : o.fill ?? "#fff",
             borderColor: isText ? "transparent" : o.stroke ?? "rgba(0,0,0,.16)",
-            borderRadius: o.kind === "rect" ? 8 : o.kind === "ellipse" ? "50%" : 0,
-            clipPath: o.kind === "diamond" ? "polygon(50% 0,100% 50%,50% 100%,0 50%)" : undefined,
+            borderRadius: o.kind === "rect" ? 8 : o.kind === "roundrect" ? 14 : o.kind === "pill" ? 999 : o.kind === "ellipse" ? "50%" : 0,
+            clipPath: CLIP_PATHS[o.kind],
           };
           return (
             <div key={o.id} data-cid={o.id} className={`cshape ${o.kind}${sel ? " sel" : ""}${isText ? " ctext" : ""}`} style={shapeStyle}>

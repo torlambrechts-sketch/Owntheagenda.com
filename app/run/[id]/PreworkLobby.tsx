@@ -67,13 +67,20 @@ export function PreworkLobby({
   return (
     <div className="prework">
       <div className="prework-head">
-        <div className="prework-brand"><LogoMark size={26} /><span className="pre-eyebrow">Early input</span></div>
+        <div className="prework-brand">
+          <LogoMark size={26} /><span className="pre-eyebrow">Early input</span>
+          <span className="pre-status">Preparation open</span>
+        </div>
         <h1>{title}</h1>
         <p className="lede">
           Add your thoughts and ideas across the agenda before the session starts. Getting input in early
           makes the live time shorter and sharper. Steps marked private stay hidden until the group reveals
           them live.
         </p>
+        <div className="pre-seednote">
+          Anything added here is captured and seeds the live agenda when the session starts — pre-reads,
+          talking points, poll options and board notes all carry into the room and into the final report.
+        </div>
         {err ? <div className="form-err">{err}</div> : null}
       </div>
 

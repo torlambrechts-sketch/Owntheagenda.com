@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { ordinal } from "@/lib/util";
 import { QuadrantPlot } from "@/components/QuadrantPlot";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
+import { ResultsExport } from "@/components/ResultsExport";
 import {
   dimensionMeans,
   climateStrength,
   strengthItemKeys,
+  surveyFocus,
+  instrumentFromRow,
   type ItemStat,
   type SurveyInstrument,
 } from "@/lib/survey";
@@ -18,6 +22,8 @@ import {
 
 type Benchmark = { pool_n: number; ready: boolean; percentile: number | null };
 type Results = { respondents: number; masked: boolean; items: ItemStat[]; strength_sd: number | null; composite: number | null; benchmark: Benchmark | null };
+type CommentRow = { dimension: string; text: string; author: string };
+type Comments = { masked: boolean; respondents: number; comments: CommentRow[] };
 
 export function SurveyModule({
   blockId,
@@ -47,12 +53,18 @@ export function SurveyModule({
   onToggleReady: () => void;
 }) {
   const supabase = useMemo(() => createClient(), []);
-  const inst = instrument;
   const [surveyId, setSurveyId] = useState<string | null>(initialSurveyId);
-  const [scores, setScores] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<Results | null>(null);
+  const [comments, setComments] = useState<Comments | null>(null);
   const [busy, setBusy] = useState(false);
+  const [snapInst, setSnapInst] = useState<SurveyInstrument | null>(null);
+  const [initialAnswers, setInitialAnswers] = useState<Record<string, AnswerValue>>({});
+  const [draftReady, setDraftReady] = useState(false);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Prefer the survey's own snapshot definition (locked at open) over the live
+  // catalog instrument, so a later template edit can't reinterpret responses.
+  const inst = snapInst ?? instrument;
 
   const loadResults = useCallback(
     async (sid: string) => {
@@ -61,6 +73,13 @@ export function SurveyModule({
       if (data) setResults(data as unknown as Results);
     },
     [supabase, inst],
+  );
+  const loadComments = useCallback(
+    async (sid: string) => {
+      const { data } = await supabase.rpc("survey_comments", { p_survey: sid });
+      if (data) setComments(data as unknown as Comments);
+    },
+    [supabase],
   );
   const loadMine = useCallback(
     async (sid: string) => {
@@ -83,8 +102,39 @@ export function SurveyModule({
   }, [blockId, supabase]);
 
   useEffect(() => {
-    if (surveyId) { loadResults(surveyId); loadMine(surveyId); }
-  }, [surveyId, loadResults, loadMine]);
+    if (surveyId) { loadResults(surveyId); loadMine(surveyId); loadComments(surveyId); }
+  }, [surveyId, loadResults, loadMine, loadComments]);
+
+  // Resolve the instrument from the bound survey's snapshot definition (falls
+  // back to the catalog instrument for legacy rows / non-team readers).
+  useEffect(() => {
+    if (!surveyId) return;
+    let active = true;
+    supabase.from("survey").select("kind, name, definition").eq("id", surveyId).maybeSingle().then(({ data }) => {
+      if (!active || !data) return;
+      const i = instrumentFromRow({ key: data.kind as string, name: data.name as string, definition: (data as { definition?: unknown }).definition });
+      if (i) setSnapInst(i);
+    });
+    return () => { active = false; };
+  }, [surveyId, supabase]);
+
+  // Load + debounce-save a server-side draft for cross-device resume.
+  useEffect(() => {
+    if (!surveyId) { setDraftReady(true); return; }
+    let active = true;
+    supabase.rpc("get_survey_draft", { p_survey: surveyId }).then(({ data }) => {
+      if (!active) return;
+      if (data && typeof data === "object") setInitialAnswers(data as Record<string, AnswerValue>);
+      setDraftReady(true);
+    });
+    return () => { active = false; };
+  }, [surveyId, supabase]);
+  const saveDraft = useCallback((answers: Record<string, AnswerValue>) => {
+    if (!surveyId) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void supabase.rpc("save_survey_draft", { p_survey: surveyId, p_scores: answers }); }, 600);
+  }, [supabase, surveyId]);
+  useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
   useEffect(() => {
     const ch = supabase
@@ -94,7 +144,7 @@ export function SurveyModule({
         if (sid && sid !== surveyId) setSurveyId(sid);
       })
       .subscribe();
-    const poll = setInterval(() => { if (surveyId) loadResults(surveyId); }, 6000);
+    const poll = setInterval(() => { if (surveyId) { loadResults(surveyId); loadComments(surveyId); } }, 6000);
     return () => { supabase.removeChannel(ch); clearInterval(poll); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockId, surveyId]);
@@ -105,23 +155,24 @@ export function SurveyModule({
     setBusy(false);
     if (!error && data) setSurveyId(data as string);
   }
-  async function submit() {
+  async function submit(all: Record<string, AnswerValue>) {
     if (!surveyId) return;
-    setBusy(true);
-    await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores });
-    setBusy(false);
+    const { scores, answers } = splitAnswers(all);
+    const { error } = await supabase.rpc("submit_survey_response", { p_survey: surveyId, p_scores: scores, p_answers: answers });
+    if (error) throw error;
     setSubmitted(true);
     loadResults(surveyId);
+    loadComments(surveyId);
   }
 
   if (!inst) return <div className="assess-empty">Unknown instrument.</div>;
 
-  const allRated = inst.items.every((it) => scores[it.key]);
   const dims = results && !results.masked ? dimensionMeans(inst, results.items) : null;
   const strength = results && !results.masked ? climateStrength(results.strength_sd) : null;
   const strengthLabel = inst.dimensions.find((d) => d.key === inst.strengthDimension)?.label.toLowerCase() ?? "agreement";
   const max = inst.scale.max;
   const respondents = results?.respondents ?? 0;
+  const focus = dims ? surveyFocus(dims) : null;
 
   return (
     <div className="assesswrap">
@@ -155,25 +206,18 @@ export function SurveyModule({
           <>
             {!submitted ? (
               <div className="assess-form">
-                <p className="assess-lead">{inst.scale.min} = {inst.scale.minLabel} · {inst.scale.max} = {inst.scale.maxLabel}. Anonymous in aggregate.</p>
-                {inst.dimensions.map((d) => (
-                  <div key={d.key} className="svgroup">
-                    <div className="svgroup-h">{d.label}</div>
-                    {inst.items.filter((it) => it.dimension === d.key).map((it) => (
-                      <div className="asq" key={it.key}>
-                        <div className="asq-q"><span>{it.text}</span></div>
-                        <div className="asopts sv7">
-                          {Array.from({ length: max }, (_, i) => i + 1).map((v) => (
-                            <button key={v} className={scores[it.key] === v ? "on" : ""} onClick={() => setScores((s) => ({ ...s, [it.key]: v }))}>{v}</button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                <div className="mactions">
-                  <button className="btn-prim" disabled={!allRated || busy} onClick={submit}>{busy ? "Submitting…" : "Submit my read"}</button>
-                </div>
+                {draftReady ? (
+                  <AssessmentRunner
+                    instrument={{ name: inst.name, scale: inst.scale, dimensions: inst.dimensions, items: inst.items }}
+                    initialAnswers={initialAnswers}
+                    draftKey={`otaa:block:${blockId}:${surveyId}`}
+                    onChange={saveDraft}
+                    privacyNote="Anonymous in aggregate — individual answers are never shown."
+                    estimateMins={2}
+                    submitLabel="Submit my read ›"
+                    onSubmit={submit}
+                  />
+                ) : null}
               </div>
             ) : (
               <div className="assess-done">✓ Your read is in. Results reveal once at least 3 people respond.</div>
@@ -195,6 +239,17 @@ export function SurveyModule({
                   ) : null}
                 </div>
               ) : null}
+              {focus && (focus.focus.length > 0 || focus.even) ? (
+                <div className={`aa-focus${focus.even ? " even" : ""}`}>
+                  {focus.even ? (
+                    <span>The team scores evenly here — no single area stands out. Use the session to deepen the whole picture.</span>
+                  ) : (
+                    <span>
+                      <b>Where to focus:</b> {focus.focus.map((d) => d.label).join(" & ")} — the team&apos;s weakest read. Spend the session here.
+                    </span>
+                  )}
+                </div>
+              ) : null}
               {dims ? <QuadrantPlot inst={inst} dims={dims} /> : null}
               {dims ? dims.map((d) => {
                 const pct = d.mean == null ? 0 : Math.round((d.mean / max) * 100);
@@ -211,6 +266,27 @@ export function SurveyModule({
               }) : (
                 <div className="svdim-blurb">Results appear once at least 3 people respond.</div>
               )}
+              {dims ? (
+                <ResultsExport
+                  surveyName={title}
+                  instrumentName={inst.name}
+                  scaleMax={max}
+                  respondents={respondents}
+                  composite={results?.composite ?? null}
+                  dims={dims.map((d) => ({ key: d.key, label: d.label, mean: d.mean }))}
+                />
+              ) : null}
+              {comments && !comments.masked && comments.comments.length > 0 ? (
+                <div className="aa-comments">
+                  <div className="aa-comments-h">In their own words <span className="n">{comments.comments.length}</span></div>
+                  {comments.comments.map((c, i) => (
+                    <div className="cmtrow" key={`cmt-${i}`}>
+                      <span className="cmttext">“{c.text}”</span>
+                      <span className="cmtauthor">— {c.author}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </>
         )}

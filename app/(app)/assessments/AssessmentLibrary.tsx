@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AssessmentRunner, splitAnswers, type AnswerValue } from "@/components/AssessmentRunner";
+import { toCsv, downloadText, fileSlug } from "@/lib/exporting";
 
 export type TraitCopy = { definition: string; advantages: string[]; risks: string[]; statements: string[] };
 export type CatalogDim = { key: string; label: string; blurb: string; copy?: TraitCopy | null };
-export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean };
+export type CatalogItemDef = { key: string; dimension: string; text: string; reverse?: boolean; type?: "likert" | "rating10" | "yesno" | "single" | "multi" | "text" | "number"; options?: string[]; required?: boolean };
 export type CatalogItem = {
   key: string;
   name: string;
@@ -21,6 +23,10 @@ export type CatalogItem = {
   mins: number;
   completedByMe: boolean;
   myScores: Record<string, number> | null;
+  // individual scope: the instrument as it was when I last took it (snapshot), so
+  // the report maps my stored answers even if the template was edited since. A
+  // fresh re-take still uses the live `dimensions`/`items` above.
+  reportInst?: { dimensions: CatalogDim[]; items: CatalogItemDef[]; scale: { min: number; max: number; minLabel: string; maxLabel: string } } | null;
   external: string | null; // route for instruments handled elsewhere (e.g. leadership)
   openSurveyId: string | null; // team scope: an open survey to contribute a response to
   teamReport: { dims: { key: string; mean: number }[]; respondents: number; masked: boolean } | null;
@@ -111,14 +117,11 @@ export function AssessmentLibrary({
   const [view, setView] = useState<View>("library");
   const [libTab, setLibTab] = useState<LibTab>("assessments");
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [runIdx, setRunIdx] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
   const [scores, setScores] = useState<DimScore[]>([]);
   const [sample, setSample] = useState(false);
   const [teamMode, setTeamMode] = useState(false);
   const [mode, setMode] = useState<"admin" | "candidate">("admin");
   const [exp, setExp] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [sharedKeys, setSharedKeys] = useState<Set<string>>(() => new Set(catalog.filter((c) => c.myShared).map((c) => c.key)));
   const [assignOpen, setAssignOpen] = useState(false);
@@ -140,22 +143,27 @@ export function AssessmentLibrary({
     // that hands off — rather than bouncing straight out of the library.
     setActiveKey(c.key); setExp(new Set()); setAssignOpen(false); go("detail");
   }
-  function startRun() { setRunIdx(0); setAnswers(active?.myScores ?? {}); go("run"); }
+  function startRun() { go("run"); }
   function viewSample() { if (!active) return; setSample(true); setTeamMode(false); setScores(sampleScores(active)); setMode("admin"); setExp(new Set()); go("report"); }
-  function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(c, c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
+  // Resolve the instrument used to read a past result: the take-time snapshot
+  // when present, else the live item.
+  function reportInstFor(c: CatalogItem): CatalogItem {
+    return c.reportInst ? { ...c, dimensions: c.reportInst.dimensions, items: c.reportInst.items, scale: c.reportInst.scale } : c;
+  }
+  function viewMine(c: CatalogItem) { setSample(false); setTeamMode(false); setScores(scoreFrom(reportInstFor(c), c.myScores!)); setMode("candidate"); setExp(new Set()); go("report"); }
   function viewTeam(c: CatalogItem) { setSample(false); setTeamMode(true); setScores(scoreFromAggregate(c)); setMode("admin"); setExp(new Set()); go("report"); }
 
-  async function finishRun() {
+  async function finishRun(all: Record<string, AnswerValue>) {
     if (!active) return;
-    setBusy(true);
+    const { scores, answers } = splitAnswers(all);
     // Team instruments contribute to the team's open survey; individual ones
-    // persist a personal response.
+    // persist a personal response. Numeric scores are scored; non-numeric
+    // (single/multi/text) ride along in p_answers for the team path.
     const { error } = active.scope === "team" && active.openSurveyId
-      ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: answers })
-      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: answers });
-    setBusy(false);
-    if (error) { flash(error.message); return; }
-    setSample(false); setTeamMode(false); setScores(scoreFrom(active, answers)); setMode("candidate"); setExp(new Set());
+      ? await supabase.rpc("submit_survey_response", { p_survey: active.openSurveyId, p_scores: scores, p_answers: answers })
+      : await supabase.rpc("submit_individual_response", { p_workspace: workspaceId, p_template_key: active.key, p_scores: scores, p_answers: answers });
+    if (error) { flash(error.message); throw error; }
+    setSample(false); setTeamMode(false); setScores(scoreFrom(active, scores)); setMode("candidate"); setExp(new Set());
     go("report");
     flash(active.scope === "team" && active.openSurveyId ? "Your response is in — the team report builds as members complete it" : "Saved — your report is ready");
   }
@@ -228,6 +236,44 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
     w.document.write(html); w.document.close();
   }
 
+  // Structured exports of the same report — for a spreadsheet or a tool.
+  // Mirrors the print view's privacy: a candidate's own view exports bands, not
+  // raw means (admin / team-aggregate views export means too).
+  function exportWho() {
+    if (!active) return "report";
+    return sample ? "Sample profile" : teamMode ? `${active.name} · team` : userName;
+  }
+  function exportCsv() {
+    if (!active) return;
+    const who = exportWho();
+    const rows: (string | number | null)[][] = [
+      ["Assessment", active.name],
+      ["Who", who],
+      ["Scale", `${active.scale.min}-${active.scale.max}`],
+      [],
+      cand ? ["Dimension", "Band"] : ["Dimension", "Mean", "Band"],
+      ...scores.map((s) => (cand ? [s.label, BANDS[s.band]] : [s.label, Number(s.mean.toFixed(2)), BANDS[s.band]])),
+    ];
+    downloadText(`${fileSlug(`${active.name}-${who}`)}.csv`, "text/csv", toCsv(rows));
+  }
+  function exportJson() {
+    if (!active) return;
+    const who = exportWho();
+    const payload = {
+      assessment: active.name,
+      who,
+      scale: { min: active.scale.min, max: active.scale.max },
+      dimensions: scores.map((s) => ({
+        key: s.key,
+        label: s.label,
+        band: BANDS[s.band],
+        ...(cand ? {} : { mean: s.mean, pct: s.pct }),
+      })),
+      exportedAt: new Date().toISOString(),
+    };
+    downloadText(`${fileSlug(`${active.name}-${who}`)}.json`, "application/json", JSON.stringify(payload, null, 2));
+  }
+
   // ---------- library ----------
   // Workshop-style boxed card: an icon "preview" box, name, and meta line.
   const card = (c: CatalogItem) => (
@@ -257,6 +303,9 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
             <div className="a-pt">Assessments</div>
             <div className="a-ps">Personality and team assessments you can run inside a workshop or take on their own.</div>
           </div>
+          <div className="a-pr">
+            <Link className="btn-sec" href="/assessments">‹ Assessment overview</Link>
+          </div>
         </div>
         {assignedToMe.length ? (
           <div className="a-assigned">
@@ -275,12 +324,12 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
           <div className="wk-strip">
             {[...personality, ...team].map(card)}
             {isAdmin ? (
-              <Link className="wcard-more" href="/library/new">
+              <Link className="wcard-more" href="/builder">
                 <span className="wcard-ring">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
                 </span>
-                <span className="wcard-nl">More assessments</span>
-                <span className="wcard-more-sub">Create a custom one</span>
+                <span className="wcard-nl">Build an assessment</span>
+                <span className="wcard-more-sub">Start from a template</span>
               </Link>
             ) : null}
           </div>
@@ -476,48 +525,18 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
 
   // ---------- run ----------
   if (view === "run") {
-    const n = active.items.length;
-    const it = active.items[runIdx];
-    const answered = active.items.filter((x) => answers[x.key] != null).length;
-    const pct = Math.round((answered / n) * 100);
-    const cur = answers[it.key];
-    const last = runIdx === n - 1;
-    const opts: number[] = [];
-    for (let v = active.scale.min; v <= active.scale.max; v++) opts.push(v);
-    const label = (v: number) => v === active.scale.min ? active.scale.minLabel : v === active.scale.max ? active.scale.maxLabel : String(v);
     return (
       <>
-        <div className="a-phead">
-          <button className="a-back" onClick={() => go("detail")} aria-label="Back">‹</button>
-          <div>
-            <div className="a-pt">{active.name}</div>
-            <div className="a-ps">Answer as honestly as you can — there are no right or wrong answers.</div>
-          </div>
-        </div>
-        <div className="a-run">
-          <div className="a-progress"><span style={{ width: `${pct}%` }} /></div>
-          <div className="a-runmeta"><span>Question {runIdx + 1} of {n}</span><span>{answered} / {n} answered</span></div>
-          <div className="a-qcard">
-            <div className="a-qnum">This statement fits me</div>
-            <div className="a-qtext">{it.text}</div>
-            <div className="a-likert">
-              {opts.map((v) => (
-                <div key={v} className={`a-lopt${cur === v ? " on" : ""}`} onClick={() => setAnswers((a) => ({ ...a, [it.key]: v }))}>
-                  <span className="a-lr" />{label(v)}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="a-runnav">
-            <button className="btn-sec" disabled={runIdx === 0} onClick={() => setRunIdx((i) => Math.max(0, i - 1))}>‹ Back</button>
-            <div className="sp" />
-            {last ? (
-              <button className="btn-prim" disabled={cur == null || busy} onClick={finishRun}>{busy ? "Saving…" : "See my report ›"}</button>
-            ) : (
-              <button className="btn-prim" disabled={cur == null} onClick={() => setRunIdx((i) => Math.min(n - 1, i + 1))}>Next ›</button>
-            )}
-          </div>
-        </div>
+        <AssessmentRunner
+          instrument={{ name: active.name, scale: active.scale, dimensions: active.dimensions, items: active.items }}
+          initialAnswers={active.myScores ?? undefined}
+          draftKey={`otaa:run:${workspaceId}:${active.key}`}
+          estimateMins={active.mins}
+          privacyNote={active.scope === "team" ? "Anonymous in aggregate — individual answers are never shown." : "Private to you."}
+          submitLabel="See my report ›"
+          onBack={() => go("detail")}
+          onSubmit={finishRun}
+        />
         <Toast toast={toast} />
       </>
     );
@@ -527,7 +546,7 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
   const cand = mode === "candidate";
   // Personal trend: per-dimension movement since the first take (own report only).
   const showTrend = !sample && !teamMode && active.myHistory.length > 1;
-  const firstScores = showTrend ? scoreFrom(active, active.myHistory[0].scores) : [];
+  const firstScores = showTrend ? scoreFrom(reportInstFor(active), active.myHistory[0].scores) : [];
   return (
     <>
       <div className="a-phead">
@@ -542,7 +561,9 @@ ul{margin:0 0 6px 18px;padding:0}li{margin:2px 0}.foot{color:#7a817b;font-size:1
               {sharedKeys.has(active.key) ? "✓ Shared with team" : "Share with team"}
             </button>
           ) : null}
-          <button className="btn-sec" onClick={exportReport}>⤓ Export</button>
+          <button className="btn-sec" onClick={exportReport}>⤓ PDF</button>
+          <button className="btn-sec" onClick={exportCsv}>CSV</button>
+          <button className="btn-sec" onClick={exportJson}>JSON</button>
         </div>
       </div>
       <div className="a-report">

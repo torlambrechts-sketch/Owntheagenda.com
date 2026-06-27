@@ -94,6 +94,14 @@ const ICONS = {
       <path d="M3 9h18M8 18v2.5M16 18v2.5" />
     </svg>
   ),
+  whiteboard: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+    </svg>
+  ),
   org: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <path d="M3 21V7l6-3 6 3v14" />
@@ -124,19 +132,23 @@ const ICONS = {
 };
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
-  { href: "/insight/leadership-teams", label: "Leadership Teams", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/insight/trends", label: "Trends", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/insight/reports", label: "Reports", icon: ICONS.health, group: "Insight", facilitatorHidden: true },
-  { href: "/workflow", label: "Workflow", icon: ICONS.workflow, group: "Effectiveness" },
-  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Effectiveness" },
-  { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Effectiveness" },
-  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Effectiveness" },
-  { href: "/organization", label: "Organization", icon: ICONS.org, group: "Organization", adminOnly: true },
-  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Organization" },
-  { href: "/members", label: "Members", icon: ICONS.members, group: "Organization" },
-  { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Organization", adminOnly: true },
+  // Dashboard now hosts the merged Insights surface (Dashboard tab + analytics
+  // tabs) at /insight; the standalone /dashboard route redirects here.
+  { href: "/insight", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
+  // Workshops & Assessments — the things teams build and run.
+  { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops & Assessments" },
+  { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops & Assessments" },
+  { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Workshops & Assessments" },
+  // Administration — flows, actions and org management.
+  { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Administration" },
+  { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Administration" },
+  { href: "/organization", label: "Organization", icon: ICONS.org, group: "Administration", adminOnly: true },
+  { href: "/teams", label: "Teams", icon: ICONS.teams, group: "Administration" },
+  { href: "/members", label: "Members", icon: ICONS.members, group: "Administration" },
+  { href: "/integrations", label: "Integrations", icon: ICONS.integrations, group: "Administration", adminOnly: true },
+  // Help — guidance + the assessment Frameworks reference.
   { href: "/help", label: "Help & Science", icon: ICONS.help, group: "Help" },
+  { href: "/assessments/frameworks", label: "Frameworks", icon: ICONS.library, group: "Help" },
 ];
 
 // Per-section contextual help: route segment → the guide's slug.
@@ -168,9 +180,12 @@ export function Shell({
   const [wsOpen, setWsOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("nav-collapsed") === "1"); } catch { /* no storage */ }
   }, []);
+  // Close the mobile nav drawer whenever the route changes (tapping a link).
+  useEffect(() => { setMobileNavOpen(false); }, [path]);
   function toggleCollapsed() {
     setCollapsed((c) => {
       const next = !c;
@@ -178,62 +193,80 @@ export function Shell({
       return next;
     });
   }
+  // The logo tile is the natural thing to tap: on a phone it opens the menu
+  // drawer; on desktop it collapses/expands the text nav as before.
+  function onLogoClick() {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width:980px)").matches) {
+      setMobileNavOpen((o) => !o);
+    } else {
+      toggleCollapsed();
+    }
+  }
   const unread = chrome.notifications.filter((n) => !n.read).length;
   const active = (href: string) => path === href || path.startsWith(href + "/");
-  const current = NAV.find((n) => active(n.href));
+  // Per-nav-item active. "/assessments" must NOT light up on the
+  // Builder/Templates sub-routes, nor on Frameworks (now a Help item);
+  // query-only links (Take survey demo) never do.
+  const navItemActive = (href: string) => {
+    if (href.includes("?")) return false;
+    if (href === "/assessments") return path === "/assessments" || (path.startsWith("/assessments/") && !path.startsWith("/assessments/builder") && !path.startsWith("/assessments/templates") && !path.startsWith("/assessments/take") && !path.startsWith("/assessments/frameworks"));
+    // "Workshops" (the section landing) owns the home, templates, builder and a
+    // specific workshop (/workshops/<id>), but NOT the Whiteboards or Run
+    // sibling nav items.
+    if (href === "/workshops") return path === "/workshops" || (path.startsWith("/workshops/") && !path.startsWith("/workshops/whiteboards"));
+    return active(href);
+  };
+  // Breadcrumb: prefer an exact route match, then the longest prefix.
+  const current = NAV.find((n) => !n.href.includes("?") && path === n.href) ?? NAV.find((n) => navItemActive(n.href));
   const admin = isAdmin(chrome.role);
   const facilitator = chrome.role === "facilitator";
   const visibleNav = NAV.filter((n) => (!n.adminOnly || admin) && !(n.facilitatorHidden && facilitator));
-  // The Organization section collapses to a single rail icon (the text menu
-  // keeps the sub-links). Non-admins land on Teams — the first tab they can see.
+  // The Organization sub-pages collapse to a single "Organization" entry (its
+  // own tabs route within the page). Non-admins land on Teams — their first tab.
+  const ORG_TABS = ["/organization", "/teams", "/members", "/integrations"];
   const orgHref = admin ? "/organization" : "/teams";
-  const orgActive = ["/organization", "/teams", "/members", "/integrations"].some((h) => active(h));
-  // Insight collapses to one rail icon; the text menu keeps the three sub-pages.
-  const insightHref = "/insight/leadership-teams";
-  const insightActive = active("/insight");
-  const groups = ["Workspace", "Insight", "Effectiveness", "Organization", "Help"].filter((g) =>
-    visibleNav.some((n) => n.group === g),
-  );
+  const orgActive = ORG_TABS.some((h) => active(h));
+
+  // Sidebar groups, in order. Each is one labelled section in the text menu and
+  // one icon in the collapsed rail.
+  const GROUP_ORDER = ["Workspace", "Workshops & Assessments", "Administration", "Help"];
+  const GROUP_ICON: Record<string, JSX.Element> = {
+    "Workspace": ICONS.dashboard,
+    "Workshops & Assessments": ICONS.workshops,
+    "Administration": ICONS.org,
+    "Help": ICONS.help,
+  };
+  const groups = GROUP_ORDER.filter((g) => visibleNav.some((n) => n.group === g));
+  // A group is active when any of its items is — Organization tabs fold into orgActive.
+  const groupActive = (g: string) =>
+    visibleNav.some((n) => n.group === g && (ORG_TABS.includes(n.href) ? orgActive : navItemActive(n.href)));
+  // Rail target: the group's first visible item (Organization → its landing tab).
+  const groupHref = (g: string) => {
+    const first = visibleNav.find((n) => n.group === g);
+    if (!first) return "/dashboard";
+    return ORG_TABS.includes(first.href) ? orgHref : first.href;
+  };
   const helpSlug = SECTION_HELP[path.split("/")[1] ?? ""];
   const helpHref = helpSlug ? `/help/${helpSlug}` : "/help";
   const canSwitch = chrome.workspaces.length > 1;
 
   return (
-    <div className={`app${collapsed ? " collapsed" : ""}`}>
+    <div className={`app${collapsed ? " collapsed" : ""}${mobileNavOpen ? " mobile-open" : ""}`}>
+      {/* mobile drawer scrim */}
+      <div className="mobile-scrim" onClick={() => setMobileNavOpen(false)} aria-hidden="true" />
       {/* icon rail */}
       <nav className="rail" aria-label="Sections">
-        <button className="logo-tile" onClick={toggleCollapsed} title={collapsed ? "Expand menu" : "Collapse menu"} aria-label={collapsed ? "Expand menu" : "Collapse menu"}>
+        <button className="logo-tile" onClick={onLogoClick} title="Menu" aria-label="Menu">
           <LogoMark size={40} />
         </button>
-        {(() => {
-          let orgDone = false;
-          let insightDone = false;
-          return visibleNav.map((n) => {
-            if (n.group === "Organization") {
-              if (orgDone) return null;
-              orgDone = true;
-              return (
-                <Link key="org-rail" className={`ri${orgActive ? " active" : ""}`} href={orgHref} title="Organization">
-                  {ICONS.org}
-                </Link>
-              );
-            }
-            if (n.group === "Insight") {
-              if (insightDone) return null;
-              insightDone = true;
-              return (
-                <Link key="insight-rail" className={`ri${insightActive ? " active" : ""}`} href={insightHref} title="Insight">
-                  {ICONS.health}
-                </Link>
-              );
-            }
-            return (
-              <Link key={n.href} className={`ri${active(n.href) ? " active" : ""}`} href={n.href} title={n.label}>
-                {n.icon}
-              </Link>
-            );
-          });
-        })()}
+        {collapsed ? (
+          <button className="rail-expand" onClick={onLogoClick} title="Expand menu" aria-label="Expand menu">›</button>
+        ) : null}
+        {groups.map((g) => (
+          <Link key={g} className={`ri${groupActive(g) ? " active" : ""}`} href={groupHref(g)} title={g}>
+            {GROUP_ICON[g]}
+          </Link>
+        ))}
         <div className="spacer" />
         <div className="av sm" title={chrome.userName}>
           {initials(chrome.userName)}
@@ -248,33 +281,37 @@ export function Shell({
           </span>
           <button className="nav-collapse" onClick={toggleCollapsed} title="Collapse menu" aria-label="Collapse menu">‹</button>
         </div>
-        {groups.map((g) => (
-          <div className="grp" key={g}>
-            <h4>{g}</h4>
-            {g === "Organization" ? (
-              <Link href={orgHref} className={orgActive ? "active" : ""}>
-                <span className="dot" />
-                Organization
-              </Link>
-            ) : (
-              visibleNav.filter((n) => n.group === g).map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={active(n.href) ? "active" : ""}
-                >
+        {groups.map((g) => {
+          // List the group's items; the Organization sub-tabs fold into a
+          // single "Organization" link rendered in place.
+          const items = visibleNav.filter((n) => n.group === g && !ORG_TABS.includes(n.href));
+          const hasOrg = visibleNav.some((n) => n.group === g && ORG_TABS.includes(n.href));
+          return (
+            <div className="grp" key={g}>
+              <h4>{g}</h4>
+              {items.map((n) => (
+                <Link key={n.href} href={n.href} className={navItemActive(n.href) ? "active" : ""}>
                   <span className="dot" />
                   {n.label}
                 </Link>
-              ))
-            )}
-          </div>
-        ))}
+              ))}
+              {hasOrg ? (
+                <Link href={orgHref} className={orgActive ? "active" : ""}>
+                  <span className="dot" />
+                  Organization
+                </Link>
+              ) : null}
+            </div>
+          );
+        })}
       </aside>
 
       {/* main */}
       <main className="main">
         <div className="appbar">
+          <button className="mobile-menu-btn" onClick={() => setMobileNavOpen(true)} aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+          </button>
           <div className="crumb">
             {current ? (
               current.group === current.label ? (

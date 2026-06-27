@@ -225,8 +225,8 @@ export default async function ReadoutPage({ params }: { params: { id: string } }
       {blockList.map((b) => {
         const act = ACTIVITY[b.activity_type] ?? { label: b.activity_type, cls: "" };
         const ag = aggByOrd.get(b.ord);
-        const isFeedback = b.activity_type === "feedback";
-        const isIdeaVote = b.activity_type === "brainstorm" || b.activity_type === "vote";
+        const isFeedback = b.activity_type === "feedback" || b.activity_type === "retrospective";
+        const isIdeaVote = b.activity_type === "brainstorm" || b.activity_type === "vote" || b.activity_type === "hmw";
         const blockIdeas = ideaList.filter((i) => i.block_ord === b.ord);
         const lanes: string[] = (b.config as any)?.lanes ?? [];
 

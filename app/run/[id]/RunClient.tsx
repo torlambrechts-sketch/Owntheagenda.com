@@ -13,6 +13,8 @@ import { SurveyModule } from "./SurveyModule";
 import { SessionPulse } from "./SessionPulse";
 import { PlanBoard } from "./PlanBoard";
 import { DecisionsPanel } from "./DecisionsPanel";
+import { DesignModule, rendererFor, phaseVisOf, ReactionBar, BlockCommentThread } from "./RunModules";
+import { Icon, actIcon } from "@/app/(app)/workshops/visuals";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import type { SurveyInstrument } from "@/lib/survey";
 import type { Enums, Json } from "@/types/database.types";
@@ -34,7 +36,7 @@ export type Participant = {
   isFacilitator: boolean;
   ready: boolean;
 };
-export type Action = { id: string; text: string; owner: string | null; due: string | null; done: boolean };
+export type Action = { id: string; text: string; owner: string | null; due: string | null; done: boolean; blockOrd: number | null };
 
 type SessionState = {
   id: string;
@@ -42,6 +44,7 @@ type SessionState = {
   timerRunning: boolean;
   timerEndsAt: string | null;
   timerRemaining: number;
+  isDryRun?: boolean;
 };
 
 function mmss(total: number) {
@@ -84,6 +87,7 @@ export function RunClient({
   instruments,
   session: initialSession,
   isFacilitator,
+  initialRole,
   userId,
   userName,
   initialParticipants,
@@ -98,6 +102,7 @@ export function RunClient({
   instruments: Record<string, SurveyInstrument>;
   session: SessionState;
   isFacilitator: boolean;
+  initialRole?: "facilitator" | "participant";
   userId: string;
   userName: string;
   initialParticipants: Participant[];
@@ -116,8 +121,10 @@ export function RunClient({
   const [now, setNow] = useState(() => Date.now());
   const [summary, setSummary] = useState<number[]>([0, 0, 0, 0, 0]);
   const [myValue, setMyValue] = useState<number | null>(null);
+  // Honour the launcher's role choice, but a non-facilitator can only ever take
+  // the participant view.
   const [view, setView] = useState<"facilitator" | "participant">(
-    isFacilitator ? "facilitator" : "participant",
+    isFacilitator ? (initialRole ?? "facilitator") : "participant",
   );
   const [actText, setActText] = useState("");
   const [actOwnerId, setActOwnerId] = useState("");
@@ -135,12 +142,32 @@ export function RunClient({
   );
   const block = blocks.find((b) => b.ord === session.currentBlockOrd) ?? blocks[0];
   const acting = isFacilitator && view === "facilitator";
+  // Legacy brainstorm/hmw keep the rich IdeaModule board. Design types
+  // (checkin, vote, …) and the other legacy aliases now route to the new
+  // DesignModule renderers below.
   const moduleMode =
-    block?.activityType === "brainstorm" ? "brainstorm" as const
-    : block?.activityType === "vote" ? "poll" as const
-    : block?.activityType === "feedback" ? "feedback" as const
-    : block?.activityType === "checkin" && !!(block?.config as Record<string, unknown>)?.capture ? "brainstorm" as const
+    block?.activityType === "brainstorm" || block?.activityType === "hmw" ? "brainstorm" as const
     : null;
+  // Renderer the new design dispatcher owns (null for canvas/survey/assess/
+  // charter/manual/ideaBrainstorm/outcome which keep their existing paths).
+  const designKey = block ? rendererFor(block.activityType) : "fallback";
+  const designMode =
+    !!block &&
+    block.activityType !== "canvas" &&
+    block.activityType !== "manual" &&
+    block.activityType !== "charter" &&
+    block.activityType !== "assess" &&
+    block.activityType !== "survey" &&
+    block.activityType !== "outcome" &&
+    !moduleMode &&
+    designKey !== "canvas" &&
+    designKey !== "ideaBrainstorm" &&
+    designKey !== "survey" &&
+    designKey !== "assess" &&
+    designKey !== "charter" &&
+    designKey !== "manual" &&
+    designKey !== "outcome";
+  const pv = block ? phaseVisOf(block.activityType) : null;
 
   const reloadParticipants = useCallback(async () => {
     const { data: parts } = await supabase
@@ -167,11 +194,11 @@ export function RunClient({
   const reloadActions = useCallback(async () => {
     const { data } = await supabase
       .from("action_item")
-      .select("id, text, owner_name, due_at, status")
+      .select("id, text, owner_name, due_at, status, block_ord")
       .eq("session_id", sid)
       .order("created_at", { ascending: true });
     setActions(
-      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done" })),
+      (data ?? []).map((a) => ({ id: a.id, text: a.text, owner: a.owner_name, due: a.due_at, done: a.status === "done", blockOrd: a.block_ord ?? null })),
     );
   }, [supabase, sid]);
 
@@ -301,7 +328,10 @@ export function RunClient({
     setEndErr(null);
     if (!confirm("Close the session for everyone? This finalises it and opens the readout.")) return;
     const { error } = await supabase.rpc("end_session", { p_session: sid });
-    if (error) setEndErr(error.message);
+    if (error) { setEndErr(error.message); return; }
+    // Best-effort audit; never blocks closing the session. Records how many
+    // measures were captured at sign-off.
+    try { await supabase.rpc("log_event", { p_action: "session.completed", p_entity_type: "workshop", p_entity_id: workshopId, p_meta: { measures: actions.length } }); } catch { /* non-fatal */ }
   }
   async function toggleReady() {
     const me = participants.find((p) => p.userId === userId);
@@ -312,6 +342,7 @@ export function RunClient({
     await supabase.rpc("add_action", {
       p_session: sid,
       p_text: actText.trim(),
+      p_block_ord: session.currentBlockOrd,
       ...(actOwnerId ? { p_owner_id: actOwnerId } : {}),
       ...(actDue ? { p_due: actDue } : {}),
     });
@@ -379,7 +410,11 @@ export function RunClient({
         <button className="runbtn" title="Previous step" disabled={!acting || session.currentBlockOrd <= 1}
           onClick={() => phase(session.currentBlockOrd - 1)}>‹</button>
         <div className="phase">
-          <div className="step">Step {session.currentBlockOrd} of {N}</div>
+          <div className="step">
+            Step {session.currentBlockOrd} of {N}
+            <span className="rb-live"><span className="rb-live-dot" />Live</span>
+            {session.isDryRun ? <span className="rb-dry" title="Rehearsal — not recorded to the workshop">Dry run</span> : null}
+          </div>
           <div className="name">
             {block?.title}
             {block?.linkedDynamic ? (
@@ -471,7 +506,11 @@ export function RunClient({
         ) : (
           <div className="roletag">Participant</div>
         )}
-        {acting ? <button className="exitbtn" onClick={endSession}>Close ▸</button> : null}
+        {acting ? <button className="exitbtn" onClick={endSession}>End session</button> : null}
+      </div>
+
+      <div className="run-progress" aria-hidden>
+        <div className="run-progress-fill" style={{ width: `${Math.round((Math.min(session.currentBlockOrd, N) / Math.max(N, 1)) * 100)}%` }} />
       </div>
 
       {endErr ? (
@@ -489,6 +528,26 @@ export function RunClient({
       ) : null}
 
       <div className="runbody">
+        <nav className="runagenda" aria-label="Run of show">
+          <div className="runagenda-h">Agenda</div>
+          {blocks.map((b) => {
+            const cur = b.ord === session.currentBlockOrd;
+            const done = b.ord < session.currentBlockOrd;
+            return (
+              <button
+                key={b.id}
+                type="button"
+                className={`runrail-step${cur ? " on" : done ? " done" : ""}`}
+                disabled={!acting}
+                onClick={() => { if (acting) phase(b.ord); }}
+                title={`${ACTIVITY[b.activityType]?.label ?? b.activityType} · ${b.title}`}
+              >
+                <span className="runrail-n">{done ? "✓" : b.ord}</span>
+                <span className="runrail-t">{b.title}</span>
+              </button>
+            );
+          })}
+        </nav>
         {block?.activityType === "canvas" ? (
           <div className="stage canvasstage">
             <CanvasBoard
@@ -573,6 +632,61 @@ export function RunClient({
               onToggleReady={toggleReady}
             />
           </div>
+        ) : designMode && pv ? (
+          <div className="stage canvasstage">
+            <div style={{ maxWidth: 760, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".6px",
+                    color: pv.accent, background: pv.tint, border: `1px solid ${pv.border}`,
+                    borderRadius: 999, padding: "4px 10px",
+                  }}>
+                    <Icon name={actIcon(block!.activityType)} size={13} color={pv.accent} /> {pv.label}
+                  </span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 600, color: "var(--muted)",
+                    background: "var(--canvas-2)", borderRadius: 999, padding: "4px 10px",
+                  }}>{block?.duration ?? 0} min</span>
+                </div>
+                <h2 style={{ fontFamily: "var(--font-display)", fontSize: 26, fontWeight: 600, margin: 0, color: "var(--ink)" }}>
+                  {block?.title}
+                </h2>
+                {block?.prompt && designKey !== "framing" ? (
+                  <div style={{ fontSize: 14.5, color: "var(--muted)", lineHeight: 1.55, marginTop: 8 }}>{block.prompt}</div>
+                ) : null}
+              </div>
+              <DesignModule
+                key={session.currentBlockOrd}
+                type={block!.activityType}
+                sessionId={sid}
+                blockOrd={session.currentBlockOrd}
+                title={block?.title ?? ""}
+                prompt={block?.prompt ?? null}
+                config={(block?.config ?? {}) as Record<string, unknown>}
+                userId={userId}
+                userName={userName}
+                isFacilitator={isFacilitator}
+                acting={acting}
+                showReady={!isFacilitator || view === "participant"}
+                ready={!!me?.ready}
+                onToggleReady={toggleReady}
+                participants={participants.map((p) => ({ userId: p.userId, name: p.name }))}
+              />
+              <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <ReactionBar />
+                <div style={{ display: "flex", gap: 8 }}>
+                  {acting ? (
+                    <>
+                      <button className="btn-sec sm" disabled={session.currentBlockOrd <= 1} onClick={() => phase(session.currentBlockOrd - 1)}>‹ Previous</button>
+                      <button className="btn-prim sm" disabled={session.currentBlockOrd >= N} onClick={() => phase(session.currentBlockOrd + 1)}>Mark done &amp; next ›</button>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
         ) : moduleMode ? (
           <div className="stage canvasstage">
             <IdeaModule
@@ -624,23 +738,6 @@ export function RunClient({
 
         <aside className="runside">
           <div className="rs">
-            <h5>Run of show {acting ? <span style={{ color: "var(--faint)" }}>tap to jump</span> : null}</h5>
-            {blocks.map((b) => {
-              const state = b.ord < session.currentBlockOrd ? "done" : b.ord === session.currentBlockOrd ? "now" : "";
-              return (
-                <div
-                  className={`mini-step ${state}${acting ? " click" : ""}`}
-                  key={b.ord}
-                  onClick={() => acting && phase(b.ord)}
-                >
-                  <span className="n">{b.ord < session.currentBlockOrd ? "✓" : b.ord}</span>
-                  {b.title}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rs">
             <h5>Agreement · fist of five</h5>
             <div className="fist">
               {[1, 2, 3, 4, 5].map((v) => (
@@ -665,21 +762,25 @@ export function RunClient({
               Commitments
               <span style={{ color: "var(--faint)" }}>{actions.length}</span>
             </h5>
-            {actions.map((a) => (
-              <div className={`actrow${a.done ? " done" : ""}`} key={a.id}>
-                <div className={`chk${a.done ? " on" : ""}`} onClick={() => toggleAction(a.id)} />
-                <div className="txt">
-                  {a.text}
-                  {a.owner || a.due ? (
-                    <span className="who">
-                      {a.owner ? `Owner · ${a.owner}` : ""}
-                      {a.owner && a.due ? " · " : ""}
-                      {a.due ? `Due ${new Date(a.due).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
-                    </span>
-                  ) : null}
+            {actions.map((a) => {
+              const srcBlock = a.blockOrd != null ? blocks.find((b) => b.ord === a.blockOrd)?.title ?? null : null;
+              return (
+                <div className={`actrow${a.done ? " done" : ""}`} key={a.id}>
+                  <div className={`chk${a.done ? " on" : ""}`} onClick={() => toggleAction(a.id)} />
+                  <div className="txt">
+                    {a.text}
+                    {a.owner || a.due ? (
+                      <span className="who">
+                        {a.owner ? `Owner · ${a.owner}` : ""}
+                        {a.owner && a.due ? " · " : ""}
+                        {a.due ? `Due ${new Date(a.due).toLocaleDateString(undefined, { month: "short", day: "numeric" })}` : ""}
+                      </span>
+                    ) : null}
+                    {srcBlock ? <span className="who" style={{ display: "block" }}>Captured in · {srcBlock}</span> : null}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div style={{ marginTop: 10 }}>
               <input className="inp" placeholder="Quick commitment…" value={actText}
                 onChange={(e) => setActText(e.target.value)} style={{ marginBottom: 6 }} />
@@ -692,6 +793,17 @@ export function RunClient({
               </div>
               <button className="btn-prim btn-full" onClick={addAction} disabled={!actText.trim()}>Add commitment</button>
             </div>
+          </div>
+
+          <div className="rs">
+            <h5>Discussion <span style={{ color: "var(--faint)" }}>this block</span></h5>
+            <BlockCommentThread
+              key={session.currentBlockOrd}
+              sessionId={sid}
+              blockOrd={session.currentBlockOrd}
+              userId={userId}
+              userName={userName}
+            />
           </div>
 
           <DecisionsPanel

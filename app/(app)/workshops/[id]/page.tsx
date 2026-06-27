@@ -3,7 +3,19 @@ import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
-import { BuilderClient, type BlockRow } from "./BuilderClient";
+import { RECOMMENDED, DYNAMIC_LABEL, type DynamicReading } from "@/lib/grounding";
+import type { Enums } from "@/types/database.types";
+import { BuilderClient, type BlockRow, type BlockSuggestion } from "./BuilderClient";
+
+// How each weak dynamic becomes a single, droppable agenda block. Kept here (not
+// in the run engine) because it only seeds the builder; a facilitator edits after.
+const SUGGEST_BLOCK: Record<string, { activity: Enums<"activity_type">; title: string; prompt: string; minutes: number }> = {
+  psych_safety: { activity: "checkin", title: "Safety check-in", prompt: "How safe does it feel to speak up in this team right now?", minutes: 10 },
+  trust: { activity: "discuss", title: "Trust audit", prompt: "Where do we genuinely rely on each other — and where do we quietly hedge?", minutes: 15 },
+  conflict_norms: { activity: "retrospective", title: "How we disagree — Start / Stop / Continue", prompt: "What should we start, stop and continue in how we handle conflict?", minutes: 15 },
+  role_clarity: { activity: "canvas", title: "Roles & ownership canvas", prompt: "Map who owns what, and where ownership is ambiguous.", minutes: 15 },
+  decision_rights: { activity: "outcome", title: "Decision rights", prompt: "Turn the murkiest recurring calls into prioritised, owned decisions.", minutes: 12 },
+};
 
 export default async function BuilderPage({
   params,
@@ -15,7 +27,7 @@ export default async function BuilderPage({
 
   const { data: workshop } = await supabase
     .from("workshop")
-    .select("id, title, status, team_id, workspace_id, scheduled_at, objective")
+    .select("id, title, status, team_id, workspace_id, scheduled_at, objective, objectives")
     .eq("id", params.id)
     .maybeSingle();
   if (!workshop || workshop.workspace_id !== ctx.workspace.id) notFound();
@@ -28,7 +40,7 @@ export default async function BuilderPage({
 
   const { data: blocks } = await supabase
     .from("block")
-    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, config, survey_id")
+    .select("id, ord, title, activity_type, duration, prompt, linked_dynamic, owner_name, phase, config, survey_id")
     .eq("workshop_id", workshop.id)
     .order("ord", { ascending: true });
 
@@ -39,11 +51,41 @@ export default async function BuilderPage({
     duration: b.duration,
     prompt: b.prompt,
     linkedDynamic: b.linked_dynamic,
+    ownerName: b.owner_name,
+    phase: (b.phase ?? null) as BlockRow["phase"],
     config: (b.config ?? {}) as BlockRow["config"],
   }));
 
   const canManage =
     isAdmin(ctx.role) || (team ? team.lead_user_id === ctx.userId : false);
+
+  // Grounded block suggestions: the team's below-band pulse dynamics, each mapped
+  // to one targeted agenda block. Only computed for managers (who can add them).
+  let suggestions: BlockSuggestion[] = [];
+  if (canManage) {
+    const { data: dyn } = await supabase.rpc("team_dynamics", { p_team: workshop.team_id });
+    const readings = ((dyn ?? []) as DynamicReading[]).filter((r) => r.responses > 0 && r.pct != null);
+    const below = readings.filter((r) => (r.pct as number) < r.target_low);
+    const pool = (below.length ? below : readings)
+      .slice()
+      .sort((a, b) => (b.target_low - (b.pct ?? 0)) - (a.target_low - (a.pct ?? 0)))
+      .slice(0, 3);
+    suggestions = pool.flatMap((r): BlockSuggestion[] => {
+      const tpl = SUGGEST_BLOCK[r.dynamic];
+      if (!tpl) return [];
+      const rec = RECOMMENDED[r.dynamic];
+      return [{
+        id: `sg-${r.dynamic}`,
+        title: tpl.title,
+        activityType: tpl.activity,
+        duration: tpl.minutes,
+        prompt: tpl.prompt,
+        linkedDynamic: r.dynamic as Enums<"team_dynamic">,
+        dynamicLabel: DYNAMIC_LABEL[r.dynamic] ?? r.label ?? r.dynamic,
+        why: rec?.why ?? "address the team's lowest reading",
+      }];
+    });
+  }
 
   // Assessment binding: each survey step can pin a specific open assessment (or
   // send a new one) instead of the runtime newest-open-by-kind auto-match.
@@ -113,16 +155,22 @@ export default async function BuilderPage({
 
   return (
     <div>
-      <Link href="/workshops" className="linkbtn" style={{ fontSize: 12 }}>
-        ‹ Workshops
-      </Link>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Link href="/workshops" className="linkbtn" style={{ fontSize: 12 }}>
+          ‹ Workshops
+        </Link>
+        <Link href={`/workshops/${workshop.id}/overview`} className="linkbtn" style={{ fontSize: 12 }}>
+          Overview →
+        </Link>
+      </div>
       <BuilderClient
-        workshop={{ id: workshop.id, title: workshop.title, scheduledAt: workshop.scheduled_at, objective: workshop.objective }}
+        workshop={{ id: workshop.id, title: workshop.title, scheduledAt: workshop.scheduled_at, objective: workshop.objective, objectives: workshop.objectives ?? [] }}
         teamId={workshop.team_id}
         teamName={team?.name ?? ""}
         canManage={canManage}
         blocks={rows}
         assessments={assessments}
+        suggestions={suggestions}
       />
     </div>
   );

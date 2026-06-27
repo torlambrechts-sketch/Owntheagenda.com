@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { SideWindow } from "@/components/SideWindow";
 import { useTableControls } from "@/components/TableControls";
@@ -306,14 +307,14 @@ export function MembersClient({
             {memberView.map((m) => (
               <tr key={m.membershipId}>
                 <td>
-                  <div className="person">
+                  <Link className="person" href={`/members/${m.userId}`} style={{ color: "inherit", textDecoration: "none" }}>
                     <span className="av">{initials(m.name)}</span>
                     <span>
                       {m.name}
                       {m.isSelf ? " (you)" : ""}
                       <small>{m.email}</small>
                     </span>
-                  </div>
+                  </Link>
                 </td>
                 <td>
                   {canManage && !m.isSelf ? (

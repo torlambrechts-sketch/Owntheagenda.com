@@ -325,6 +325,7 @@ export function IdeaModule({
     const { error } = await supabase.rpc("add_action", {
       p_session: sessionId,
       p_text: i.text,
+      p_block_ord: blockOrd,
       ...(ownerId ? { p_owner_id: ownerId } : ownerName ? { p_owner: ownerName } : {}),
     });
     if (error) {
@@ -600,7 +601,21 @@ export function IdeaModule({
             const max = Math.max(1, ...opts.map((o) => countFor(o.id)));
             const ranked = [...opts].sort((a, b) => countFor(b.id) - countFor(a.id));
             if (opts.length === 0)
-              return <div className="idea-empty">{isFacilitator ? "Seeding options…" : "Waiting for the facilitator to open voting…"}</div>;
+              return isFacilitator ? (
+                <div className="pollseed">
+                  <p className="idea-empty" style={{ margin: "0 0 8px", textAlign: "left" }}>Add the options to vote on — one per line, then open voting.</p>
+                  <textarea
+                    className="inp"
+                    rows={4}
+                    placeholder={"Option A\nOption B\nOption C"}
+                    value={drafts["option"] ?? ""}
+                    onChange={(e) => setDrafts((d) => ({ ...d, option: e.target.value }))}
+                  />
+                  <button className="btn-prim" style={{ marginTop: 8 }} disabled={!(drafts["option"] ?? "").trim()} onClick={() => addIdea("option")}>Open voting ▸</button>
+                </div>
+              ) : (
+                <div className="idea-empty">Waiting for the facilitator to open voting…</div>
+              );
             return ranked.map((o) => {
               const c = countFor(o.id);
               const mine = iVoted(o.id);

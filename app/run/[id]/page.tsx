@@ -9,9 +9,13 @@ import { RunClient, type RunBlock, type Participant, type Action } from "./RunCl
 
 export default async function RunPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { role?: string };
 }) {
+  const initialRole: "facilitator" | "participant" | undefined =
+    searchParams?.role === "participant" ? "participant" : searchParams?.role === "facilitator" ? "facilitator" : undefined;
   const ctx = await requireSession();
   const supabase = createClient();
 
@@ -112,7 +116,7 @@ export default async function RunPage({
 
   const { data: actions } = await supabase
     .from("action_item")
-    .select("id, text, owner_name, due_at, status")
+    .select("id, text, owner_name, due_at, status, block_ord")
     .eq("session_id", session.id)
     .order("created_at", { ascending: true });
   const initialActions: Action[] = (actions ?? []).map((a) => ({
@@ -121,6 +125,7 @@ export default async function RunPage({
     owner: a.owner_name,
     due: a.due_at,
     done: a.status === "done",
+    blockOrd: a.block_ord ?? null,
   }));
 
   // Resolve the instrument catalog from the template library (data-driven).
@@ -141,8 +146,10 @@ export default async function RunPage({
         timerRunning: session.timer_running,
         timerEndsAt: session.timer_ends_at,
         timerRemaining: session.timer_remaining,
+        isDryRun: session.is_dry_run,
       }}
       isFacilitator={session.facilitator_id === ctx.userId}
+      initialRole={initialRole}
       userId={ctx.userId}
       userName={userName}
       initialParticipants={participants}
