@@ -390,3 +390,57 @@ textarea.m2-input { font-family: inherit; }
 .m2-cad span { font-size: 11.5px; color: var(--muted); }
 
 .m2-ob-foot { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+
+/* =====================================================================
+   Scorecard band bars
+   ===================================================================== */
+.m2-bands { display: flex; flex-direction: column; gap: 16px; margin-top: 6px; }
+.m2-band-row { display: grid; grid-template-columns: 180px 1fr 40px; align-items: center; gap: 14px; }
+@media (max-width: 640px) { .m2-band-row { grid-template-columns: 1fr; gap: 6px; } }
+.m2-band-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
+.m2-band-label > span:first-child { flex: 1; }
+.m2-band-track { position: relative; height: 12px; border-radius: 999px; background: var(--canvas-2); overflow: hidden; }
+.m2-band-zone { position: absolute; top: 0; bottom: 0; background: rgba(63,125,90,.16); border-left: 1px dashed rgba(63,125,90,.4); border-right: 1px dashed rgba(63,125,90,.4); }
+.m2-band-fill { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 999px; opacity: .85; }
+.m2-band-mark { position: absolute; top: -2px; width: 4px; height: 16px; border-radius: 3px; background: var(--ink); transform: translateX(-2px); }
+.m2-band-val { font-family: var(--font-display); font-size: 16px; font-weight: 600; text-align: right; }
+@media (max-width: 640px) { .m2-band-val { text-align: left; font-size: 14px; } }
+
+/* =====================================================================
+   List rows / tables (assessments, workshops, members, actions)
+   ===================================================================== */
+.m2-list { display: flex; flex-direction: column; gap: 10px; }
+.m2-row {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; text-decoration: none; color: inherit;
+  transition: border-color 150ms, transform 150ms;
+}
+.m2-row.link:hover { border-color: var(--forest); transform: translateY(-1px); }
+.m2-row-ic { width: 38px; height: 38px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.m2-row-main { flex: 1; min-width: 0; }
+.m2-row-title { font-weight: 600; font-size: 14px; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m2-row-sub { font-size: 12.5px; color: var(--muted); }
+.m2-row-end { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+@media (max-width: 560px) { .m2-row-end .m2-row-when { display: none; } }
+
+/* card grid for catalogs */
+.m2-catalog { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.m2-cat-card { display: flex; flex-direction: column; gap: 8px; padding: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.m2-cat-card h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.m2-cat-card p { margin: 0; font-size: 12.5px; color: #585850; line-height: 1.5; flex: 1; }
+
+/* member avatar list */
+.m2-mem { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.m2-mem:last-child { border-bottom: none; }
+.m2-mem-av { width: 38px; height: 38px; border-radius: 50%; background: var(--forest); color: #fff; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.m2-mem-main { flex: 1; min-width: 0; }
+.m2-mem-name { font-weight: 600; font-size: 13.5px; }
+.m2-mem-role { font-size: 12px; color: var(--muted); }
+
+/* journey milestone grid (full) */
+.m2-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.m2-badge-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 18px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.m2-badge-card.locked { opacity: .55; }
+.m2-badge-ic { width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+.m2-badge-name { font-size: 13px; font-weight: 600; }
+.m2-badge-desc { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
