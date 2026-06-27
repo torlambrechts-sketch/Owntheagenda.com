@@ -25,17 +25,21 @@ export default async function WhiteboardsPage() {
 
   const { data: boards } = await supabase
     .from("whiteboard")
-    .select("id, title, accent, icon, is_template, description, created_by, updated_at")
+    .select("id, title, accent, icon, is_template, description, template_key, created_by, updated_at")
     .eq("workspace_id", wsId)
     .order("updated_at", { ascending: false });
   const rows = (boards ?? []) as {
     id: string; title: string; accent: string; icon: string; is_template: boolean;
-    description: string | null; created_by: string | null; updated_at: string;
+    description: string | null; template_key: string | null; created_by: string | null; updated_at: string;
   }[];
 
   const boardRows = rows.filter((b) => !b.is_template);
   const tplRows = rows.filter((b) => b.is_template);
   const allIds = rows.map((b) => b.id);
+
+  // Real "uses" per template = boards created from it (whiteboard.template_key).
+  const usesByTemplate = new Map<string, number>();
+  for (const b of boardRows) if (b.template_key) usesByTemplate.set(b.template_key, (usesByTemplate.get(b.template_key) ?? 0) + 1);
 
   // Objects for every board (preview) + collaborators per board.
   const objByBoard = new Map<string, WBObject[]>();
@@ -87,6 +91,7 @@ export default async function WhiteboardsPage() {
     title: t.title,
     desc: t.desc,
     accent: t.accent,
+    uses: usesByTemplate.get(t.id) ?? 0,
     objects: t.els
       .filter((e) => e.kind !== "connector")
       .map((e, i) => ({
@@ -102,6 +107,7 @@ export default async function WhiteboardsPage() {
     desc: t.description ?? "Saved template.",
     accent: t.accent,
     fromBoardId: t.id,
+    uses: usesByTemplate.get(t.id) ?? 0,
     objects: objByBoard.get(t.id) ?? [],
   }));
 
@@ -110,18 +116,12 @@ export default async function WhiteboardsPage() {
   ).map(([id, name]) => ({ id, name }));
 
   return (
-    <div>
-      <h1 className="page-title">Whiteboards</h1>
-      <p className="page-sub">
-        Infinite canvases for thinking together — sticky storms, mind maps, flows and matrices.
-      </p>
-      <WhiteboardsClient
-        teamId={teamId}
-        boards={boardCards}
-        templates={[...builtinCards, ...dbTemplateCards]}
-        ownerOptions={ownerOptions}
-        currentUserId={ctx.userId}
-      />
-    </div>
+    <WhiteboardsClient
+      teamId={teamId}
+      boards={boardCards}
+      templates={[...builtinCards, ...dbTemplateCards]}
+      ownerOptions={ownerOptions}
+      currentUserId={ctx.userId}
+    />
   );
 }
