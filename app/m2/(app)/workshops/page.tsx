@@ -66,14 +66,14 @@ export default async function M2Workshops() {
                 <span className="m2-row-ic" style={{ background: "var(--interview-bg)", color: "var(--interview-fg)" }}>
                   <Presentation size={18} />
                 </span>
-                <div className="m2-row-main">
+                <Link className="m2-row-main" href={`/m2/workshops/${w.id}`} style={{ textDecoration: "none", color: "inherit" }}>
                   <div className="m2-row-title">{w.title}</div>
                   <div className="m2-row-sub">
                     {w.scheduled_at
                       ? new Date(w.scheduled_at).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
                       : "Not scheduled"}
                   </div>
-                </div>
+                </Link>
                 <div className="m2-row-end">
                   <span className={`m2-pill ${STATUS_TINT[w.status] ?? "draft"}`}>{w.status}</span>
                   {runnable ? (

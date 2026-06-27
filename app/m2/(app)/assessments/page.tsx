@@ -1,4 +1,5 @@
-import { ClipboardList, ClipboardCheck, Plus, Library } from "lucide-react";
+import Link from "next/link";
+import { ClipboardList, ClipboardCheck, Plus, Library, CheckCircle2 } from "lucide-react";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveTeam } from "@/lib/m2/context";
@@ -7,7 +8,11 @@ import { startAssessment } from "./actions";
 
 const STATUS_TINT: Record<string, string> = { draft: "draft", open: "open", closed: "interview" };
 
-export default async function M2Assessments() {
+export default async function M2Assessments({
+  searchParams,
+}: {
+  searchParams: { done?: string };
+}) {
   const ctx = await requireSession();
   const supabase = createClient();
   const wsId = ctx.workspace.id;
@@ -59,6 +64,12 @@ export default async function M2Assessments() {
       </div>
 
       {/* Your assessments */}
+      {searchParams?.done ? (
+        <div className="m2-banner">
+          <CheckCircle2 size={18} /> Thanks — your responses are in. +10 XP banked per answer.
+        </div>
+      ) : null}
+
       <div className="m2-sec-head" style={{ marginTop: 4 }}>
         <h2>Your assessments</h2>
       </div>
@@ -83,6 +94,11 @@ export default async function M2Assessments() {
                 </div>
               </div>
               <div className="m2-row-end">
+                {p.status === "open" ? (
+                  <Link className="m2-btn sm" href={`/m2/assessments/${p.id}/take`}>
+                    Respond
+                  </Link>
+                ) : null}
                 <span className={`m2-pill ${STATUS_TINT[p.status] ?? "draft"}`}>{p.status}</span>
               </div>
             </div>
