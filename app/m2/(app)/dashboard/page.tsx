@@ -15,6 +15,7 @@ import {
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveTeam } from "@/lib/m2/context";
+import { getScorecard } from "@/lib/m2/scorecard";
 import { levelProgress, type JourneyLevel } from "@/lib/m2/journey";
 import { isManagerOrAbove } from "@/lib/util";
 import { Icon } from "@/components/m2/Icon";
@@ -63,7 +64,7 @@ export default async function M2Dashboard() {
     earnedRes,
     allMilestonesRes,
     workshopsRes,
-    pulsesRes,
+    sc,
   ] = await Promise.all([
     supabase.from("team_member").select("*", { count: "exact", head: true }).eq("team_id", team.id),
     supabase.from("team_journey").select("xp, level, streak, longest_streak").eq("team_id", team.id).maybeSingle(),
@@ -72,10 +73,10 @@ export default async function M2Dashboard() {
     supabase.from("team_milestone").select("milestone:milestone(key, name, description, icon, tint)").eq("team_id", team.id).order("earned_at", { ascending: false }),
     supabase.from("milestone").select("key, name, description, icon, tint, sort").order("sort", { ascending: true }),
     supabase.from("workshop").select("id, title, scheduled_at").eq("team_id", team.id),
-    supabase.from("pulse").select("id, created_at").eq("team_id", team.id).order("created_at", { ascending: false }).limit(2),
+    getScorecard(supabase, team.id),
   ]);
 
-  const teamSize = memberCountRes.count ?? 0;
+  const teamSize = sc.teamSize || (memberCountRes.count ?? 0);
   const journey = journeyRes.data;
   const levels = (levelsRes.data ?? []) as JourneyLevel[];
   const cycle = cycleRes.data;
@@ -104,30 +105,17 @@ export default async function M2Dashboard() {
     totalActions = totalRes.count ?? 0;
   }
 
-  // Team pulse: average score of the latest pulse vs the previous one.
-  const pulses = pulsesRes.data ?? [];
-  let pulseScore: number | null = null;
-  let pulseDelta: number | null = null;
-  if (pulses.length) {
-    const latestAvg = await pulseAverage(supabase, pulses[0].id);
-    pulseScore = latestAvg;
-    if (pulses[1]) {
-      const prevAvg = await pulseAverage(supabase, pulses[1].id);
-      if (latestAvg != null && prevAvg != null) pulseDelta = Math.round((latestAvg - prevAvg) * 10) / 10;
-    }
-  }
-
-  // Assessment participation: responses to the latest pulse / team size.
-  let responded = 0;
-  if (pulses.length) {
-    const { data: r } = await supabase.from("pulse_response").select("respondent_id").eq("pulse_id", pulses[0].id);
-    responded = new Set((r ?? []).map((x) => x.respondent_id)).size;
-  }
+  // Pulse / participation come from the scorecard (definer aggregates that
+  // respect pulse_response anonymity), with the cycle's stored % as a fallback.
+  const hasPulse = sc.hasData;
+  const pulseScore = sc.pulse5;
+  const pulseDelta = sc.delta5;
+  const responded = sc.responded;
   const participationPct =
-    cycle?.participation_pct != null
-      ? Number(cycle.participation_pct)
-      : teamSize > 0
-        ? Math.round((responded / teamSize) * 100)
+    teamSize > 0
+      ? Math.round((responded / teamSize) * 100)
+      : cycle?.participation_pct != null
+        ? Number(cycle.participation_pct)
         : 0;
 
   const prog = journey ? levelProgress(journey.xp, levels) : null;
@@ -233,7 +221,7 @@ export default async function M2Dashboard() {
           <div className="m2-kpi-num">
             {responded} <small>/ {teamSize}</small>
           </div>
-          <div className="m2-kpi-sub">{pulses.length ? "responses in this cycle" : "no assessment sent yet"}</div>
+          <div className="m2-kpi-sub">{hasPulse ? "responses in this cycle" : "no assessment sent yet"}</div>
           <div className="m2-bar">
             <span style={{ width: `${participationPct}%` }} />
           </div>
@@ -331,7 +319,7 @@ export default async function M2Dashboard() {
             <span style={{ fontWeight: 600, fontSize: 15 }}>Your next step</span>
           </div>
           <div style={{ fontSize: 13, color: "#585850", lineHeight: 1.55, marginBottom: "auto" }}>
-            {nextStep({ hasCycle: !!cycle, responded, teamSize, openActions, hasPulse: pulses.length > 0 })}
+            {nextStep({ hasCycle: !!cycle, responded, teamSize, openActions, hasPulse })}
           </div>
           <Link className="m2-btn" href={nextStepHref({ hasCycle: !!cycle, responded, teamSize, openActions })} style={{ marginTop: 14, alignSelf: "flex-start" }}>
             <Send size={14} /> {nextStepCta({ hasCycle: !!cycle, responded, teamSize, openActions })}
@@ -343,13 +331,6 @@ export default async function M2Dashboard() {
 }
 
 // ----- helpers -----
-
-async function pulseAverage(supabase: ReturnType<typeof createClient>, pulseId: string): Promise<number | null> {
-  const { data } = await supabase.from("pulse_response").select("score").eq("pulse_id", pulseId);
-  if (!data || data.length === 0) return null;
-  const sum = data.reduce((a, r) => a + (r.score ?? 0), 0);
-  return Math.round((sum / data.length) * 10) / 10;
-}
 
 function nextStep(s: { hasCycle: boolean; responded: number; teamSize: number; openActions: number; hasPulse: boolean }): string {
   if (!s.hasCycle) return "Start your first measurement cycle to set a baseline and unlock the team journey.";

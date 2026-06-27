@@ -36,20 +36,14 @@ export default async function M2Assessments({
 
   const sentList = sent.data ?? [];
 
-  // Response counts per pulse, for the "Your assessments" list.
-  const pulseIds = sentList.map((p) => p.id);
+  // Response counts per pulse via the definer aggregate (anonymity-safe).
   const respCount = new Map<string, number>();
-  if (pulseIds.length) {
-    const { data: rr } = await supabase.from("pulse_response").select("pulse_id, respondent_id").in("pulse_id", pulseIds);
-    const seen = new Map<string, Set<string>>();
-    for (const r of rr ?? []) {
-      if (!r.pulse_id) continue;
-      const s = seen.get(r.pulse_id) ?? new Set<string>();
-      if (r.respondent_id) s.add(r.respondent_id);
-      seen.set(r.pulse_id, s);
-    }
-    for (const [k, v] of seen) respCount.set(k, v.size);
-  }
+  await Promise.all(
+    sentList.map(async (p) => {
+      const { data } = await supabase.rpc("m2_pulse_participation", { p_pulse: p.id });
+      respCount.set(p.id, (data ?? [])[0]?.responded ?? 0);
+    }),
+  );
 
   return (
     <div>

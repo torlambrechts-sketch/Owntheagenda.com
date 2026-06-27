@@ -35,7 +35,7 @@ export default async function M2Team() {
   const [membersRes, journeyRes, levelsRes, earnedRes, allMsRes, sc, lead] = await Promise.all([
     supabase
       .from("team_member")
-      .select("id, role_title, is_lead, user:profile(full_name, display_name, email)")
+      .select("id, user_id, role_title, is_lead")
       .eq("team_id", team.id),
     supabase.from("team_journey").select("xp, level, streak, longest_streak").eq("team_id", team.id).maybeSingle(),
     supabase.from("journey_level").select("level, name, min_xp, icon, blurb").order("min_xp", { ascending: true }),
@@ -45,8 +45,16 @@ export default async function M2Team() {
     supabase.from("team").select("lead_user_id").eq("id", team.id).maybeSingle(),
   ]);
 
-  const members = (membersRes.data ?? []).map((m) => {
-    const u = m.user as unknown as { full_name: string | null; display_name: string | null; email: string | null } | null;
+  // team_member.user_id references auth.users (no FK to profile), so profiles
+  // are fetched separately and joined in app code.
+  const memberRows = membersRes.data ?? [];
+  const userIds = memberRows.map((m) => m.user_id);
+  const { data: profiles } = userIds.length
+    ? await supabase.from("profile").select("id, full_name, display_name, email").in("id", userIds)
+    : { data: [] as { id: string; full_name: string | null; display_name: string | null; email: string | null }[] };
+  const profById = new Map((profiles ?? []).map((p) => [p.id, p]));
+  const members = memberRows.map((m) => {
+    const u = profById.get(m.user_id);
     return {
       id: m.id,
       name: u?.full_name || u?.display_name || u?.email || "Member",

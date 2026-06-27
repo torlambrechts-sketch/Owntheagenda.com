@@ -1424,6 +1424,14 @@ export type Database = {
         Args: { p_xp: number }
         Returns: number
       }
+      m2_pulse_scorecard: {
+        Args: { p_pulse: string }
+        Returns: { dynamic: string; pct: number; respondents: number }[]
+      }
+      m2_pulse_participation: {
+        Args: { p_pulse: string }
+        Returns: { responded: number; team_size: number }[]
+      }
       create_program: {
         Args: { p_workspace: string; p_title: string; p_team?: string | null }
         Returns: string

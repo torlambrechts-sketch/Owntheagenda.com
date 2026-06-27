@@ -1,25 +1,29 @@
 import type { createClient } from "@/lib/supabase/server";
 
-// Computes a team's latest-pulse scorecard: the average score per team dynamic
-// against its healthy band, reused by the Insights and Team screens.
+// Computes a team's latest-pulse scorecard via SECURITY DEFINER aggregates
+// (m2_pulse_scorecard / m2_pulse_participation) so anonymity RLS on
+// pulse_response doesn't under-count. Reused by Dashboard, Insights and Team.
 
 export type DynamicRow = {
   key: string;
   label: string;
-  score: number | null;
+  score: number | null; // 0–100
   low: number;
   high: number;
-  /** "watch" below the band, "healthy" inside, "strong" above. */
   status: "watch" | "healthy" | "strong" | "none";
 };
 
 export type Scorecard = {
   hasData: boolean;
-  overall: number | null;
-  delta: number | null;
+  overall: number | null; // 0–100 health index
+  delta: number | null; // vs previous pulse, 0–100 points
   dynamics: DynamicRow[];
   pulseId: string | null;
   responded: number;
+  teamSize: number;
+  /** Overall expressed on the original 1–5 Likert scale (for "team pulse"). */
+  pulse5: number | null;
+  delta5: number | null;
 };
 
 function classify(score: number | null, low: number, high: number): DynamicRow["status"] {
@@ -27,6 +31,16 @@ function classify(score: number | null, low: number, high: number): DynamicRow["
   if (score < low) return "watch";
   if (score > high) return "strong";
   return "healthy";
+}
+
+async function overallPct(
+  supabase: ReturnType<typeof createClient>,
+  pulseId: string,
+): Promise<number | null> {
+  const { data } = await supabase.rpc("m2_pulse_scorecard", { p_pulse: pulseId });
+  const rows = data ?? [];
+  if (!rows.length) return null;
+  return Math.round(rows.reduce((a, r) => a + Number(r.pct), 0) / rows.length);
 }
 
 export async function getScorecard(
@@ -37,21 +51,17 @@ export async function getScorecard(
     .from("dynamic_band")
     .select("dynamic, label, target_low, target_high, ord")
     .order("ord", { ascending: true });
-
-  const { data: pulses } = await supabase
-    .from("pulse")
-    .select("id, created_at")
-    .eq("team_id", teamId)
-    .order("created_at", { ascending: false })
-    .limit(2);
-
   const bandList = bands ?? [];
+
   const empty: Scorecard = {
     hasData: false,
     overall: null,
     delta: null,
     pulseId: null,
     responded: 0,
+    teamSize: 0,
+    pulse5: null,
+    delta5: null,
     dynamics: bandList.map((b) => ({
       key: String(b.dynamic),
       label: b.label,
@@ -61,31 +71,31 @@ export async function getScorecard(
       status: "none" as const,
     })),
   };
+
+  const { data: pulses } = await supabase
+    .from("pulse")
+    .select("id, created_at")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false })
+    .limit(2);
   if (!pulses || pulses.length === 0) return empty;
 
   const latest = pulses[0].id;
-  const { data: rows } = await supabase
-    .from("pulse_response")
-    .select("dynamic, score, respondent_id")
-    .eq("pulse_id", latest);
-  if (!rows || rows.length === 0) return empty;
+  const [{ data: scRows }, { data: part }] = await Promise.all([
+    supabase.rpc("m2_pulse_scorecard", { p_pulse: latest }),
+    supabase.rpc("m2_pulse_participation", { p_pulse: latest }),
+  ]);
 
-  const avgByDynamic = (list: { dynamic: string | null; score: number | null }[]) => {
-    const acc = new Map<string, { sum: number; n: number }>();
-    for (const r of list) {
-      const d = String(r.dynamic);
-      const cur = acc.get(d) ?? { sum: 0, n: 0 };
-      cur.sum += r.score ?? 0;
-      cur.n += 1;
-      acc.set(d, cur);
-    }
-    return acc;
-  };
+  const rows = scRows ?? [];
+  const byDyn = new Map(rows.map((r) => [String(r.dynamic), Number(r.pct)]));
+  const participation = (part ?? [])[0] ?? { responded: 0, team_size: 0 };
 
-  const latestAvg = avgByDynamic(rows);
+  if (rows.length === 0) {
+    return { ...empty, teamSize: participation.team_size, responded: participation.responded };
+  }
+
   const dynamics: DynamicRow[] = bandList.map((b) => {
-    const a = latestAvg.get(String(b.dynamic));
-    const score = a && a.n ? Math.round(a.sum / a.n) : null;
+    const score = byDyn.has(String(b.dynamic)) ? Math.round(byDyn.get(String(b.dynamic))!) : null;
     return {
       key: String(b.dynamic),
       label: b.label,
@@ -99,19 +109,24 @@ export async function getScorecard(
   const scored = dynamics.map((d) => d.score).filter((s): s is number => s != null);
   const overall = scored.length ? Math.round(scored.reduce((a, b) => a + b, 0) / scored.length) : null;
 
-  // Delta vs the previous pulse's overall.
   let delta: number | null = null;
   if (pulses[1]) {
-    const { data: prev } = await supabase
-      .from("pulse_response")
-      .select("score")
-      .eq("pulse_id", pulses[1].id);
-    if (prev && prev.length) {
-      const prevOverall = Math.round(prev.reduce((a, r) => a + (r.score ?? 0), 0) / prev.length);
-      if (overall != null) delta = overall - prevOverall;
-    }
+    const prevOverall = await overallPct(supabase, pulses[1].id);
+    if (overall != null && prevOverall != null) delta = overall - prevOverall;
   }
 
-  const responded = new Set(rows.map((r) => r.respondent_id)).size;
-  return { hasData: true, overall, delta, dynamics, pulseId: latest, responded };
+  // 0–100 → 1–5 for the "team pulse" stat.
+  const toFive = (pct: number | null) => (pct == null ? null : Math.round((pct / 25 + 1) * 10) / 10);
+
+  return {
+    hasData: true,
+    overall,
+    delta,
+    dynamics,
+    pulseId: latest,
+    responded: participation.responded,
+    teamSize: participation.team_size,
+    pulse5: toFive(overall),
+    delta5: delta == null ? null : Math.round((delta / 25) * 10) / 10,
+  };
 }
