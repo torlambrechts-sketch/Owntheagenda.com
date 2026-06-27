@@ -1,7 +1,7 @@
-import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/workspace";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/util";
+import { DashboardOverview } from "../dashboard/DashboardOverview";
 import { DYNAMIC_LABEL } from "@/lib/grounding";
 import { resolveInstrument } from "@/lib/assessments";
 import {
@@ -44,7 +44,19 @@ type DynRow = {
 
 export default async function InsightPage() {
   const ctx = await requireSession();
-  if (ctx.role === "facilitator") redirect("/dashboard");
+  // Dashboard + Insights are one surface now. Scoped facilitators only get the
+  // Dashboard tab (no workspace-wide analytics) — render it without loading any
+  // of the admin rollups below.
+  if (ctx.role === "facilitator") {
+    const empty: DashboardProps = {
+      kpis: { activeAssessments: 0, avgScore: null, responses: 0, belowThreshold: 0, workshopsScheduled: 0, participation: null },
+      trend: [], participationByTeam: [], sections: [], workshops: [], teams: [],
+      assessmentRows: [], defaultAssessmentId: null, defaultDetail: null,
+      workshopOutcomes: [], workshopKpis: { workshopsRun: 0, avgLift: null, actionsDone: 0, actionsTotal: 0, attendance: null },
+      reports: { schedules: [], runs: [], canManage: false },
+    };
+    return <InsightDashboard {...empty} facilitator dashboardSlot={<DashboardOverview />} />;
+  }
   const supabase = createClient();
 
   // ---- workspace Health rollup (one row per team) ----
@@ -476,7 +488,7 @@ export default async function InsightPage() {
     reports,
   };
 
-  return <InsightDashboard {...props} />;
+  return <InsightDashboard {...props} dashboardSlot={<DashboardOverview />} />;
 }
 
 // Short axis label for the participation bar chart (first word, capped).

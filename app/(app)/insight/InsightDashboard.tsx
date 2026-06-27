@@ -118,6 +118,10 @@ export type DashboardProps = {
   workshopOutcomes: WorkshopOutcomeRow[];
   workshopKpis: WorkshopKpis;
   reports: ReportsData;
+  // The merged workspace-dashboard, rendered as the first "Dashboard" tab.
+  dashboardSlot?: React.ReactNode;
+  // Scoped facilitators only get the Dashboard tab (no workspace analytics).
+  facilitator?: boolean;
 };
 
 /* ===================== colour helpers ===================== */
@@ -329,6 +333,7 @@ function KpiStrip({ kpis }: { kpis: KpiVM }) {
 
 /* ===================== TabBand (ported) ===================== */
 const TABS = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "overview", label: "Overview" },
   { id: "assessment", label: "By assessment" },
   { id: "workshop", label: "By workshop" },
@@ -1166,7 +1171,7 @@ function RowMenu({ schedule, pending, onSend, onToggle, onDelete }: {
 const RANGE_DAYS: Record<string, number> = { "Last 30 days": 30, "Last 3 months": 90, "Last 6 months": 180, "Last 12 months": 365 };
 
 export function InsightDashboard(props: DashboardProps) {
-  const [tab, setTab] = useState<TabId>("overview");
+  const [tab, setTab] = useState<TabId>("dashboard");
   const [selected, setSelected] = useState<string | null>(props.defaultAssessmentId);
   const [detail, setDetail] = useState<AssessmentDetailVM | null>(props.defaultDetail);
   const [pending, startTransition] = useTransition();
@@ -1202,18 +1207,28 @@ export function InsightDashboard(props: DashboardProps) {
     selectAssessment(id);
   }
 
+  // Facilitators get only the workspace dashboard (no tab band, no analytics).
+  if (props.facilitator) {
+    return <div style={{ fontFamily: "'Inter',system-ui,sans-serif", color: "#2a2a26" }}>{props.dashboardSlot}</div>;
+  }
+
   return (
     <div style={{ fontFamily: "'Inter',system-ui,sans-serif", color: "#2a2a26" }}>
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 18 }}>
-        <h1 className="page-title" style={{ margin: 0 }}>Insights</h1>
-        <Toolbar range={range} setRange={setRange} rows={scopedRows} onTab={setTab} onToast={flash} />
-      </div>
-
       <div style={{ margin: "2px 0 20px" }}>
         <TabBand tab={tab} setTab={setTab} />
       </div>
 
-      <KpiStrip kpis={props.kpis} />
+      {tab === "dashboard" ? (
+        props.dashboardSlot
+      ) : (
+        <>
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16, margin: "2px 0 18px" }}>
+            <h1 className="page-title" style={{ margin: 0 }}>Insights</h1>
+            <Toolbar range={range} setRange={setRange} rows={scopedRows} onTab={setTab} onToast={flash} />
+          </div>
+          <KpiStrip kpis={props.kpis} />
+        </>
+      )}
 
       {tab === "overview" && <OverviewPanel {...props} assessmentRows={scopedRows} onOpen={openFromOverview} />}
       {tab === "team" && <TeamPanel teams={props.teams} />}

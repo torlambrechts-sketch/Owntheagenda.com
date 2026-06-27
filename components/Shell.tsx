@@ -132,13 +132,14 @@ const ICONS = {
 };
 
 const NAV: { href: string; label: string; icon: JSX.Element; group: string; adminOnly?: boolean; facilitatorHidden?: boolean }[] = [
-  { href: "/dashboard", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
+  // Dashboard now hosts the merged Insights surface (Dashboard tab + analytics
+  // tabs) at /insight; the standalone /dashboard route redirects here.
+  { href: "/insight", label: "Dashboard", icon: ICONS.dashboard, group: "Workspace" },
   // Workshops & Assessments — the things teams build and run.
   { href: "/workshops", label: "Workshops", icon: ICONS.workshops, group: "Workshops & Assessments" },
   { href: "/workshops/whiteboards", label: "Whiteboards", icon: ICONS.whiteboard, group: "Workshops & Assessments" },
   { href: "/assessments", label: "Assessments", icon: ICONS.assess, group: "Workshops & Assessments" },
-  // Administration — analytics, flows, actions and org management.
-  { href: "/insight", label: "Insights", icon: ICONS.health, group: "Administration", facilitatorHidden: true },
+  // Administration — flows, actions and org management.
   { href: "/workflow", label: "Flows", icon: ICONS.workflow, group: "Administration" },
   { href: "/actions", label: "Actions", icon: ICONS.actions, group: "Administration" },
   { href: "/organization", label: "Organization", icon: ICONS.org, group: "Administration", adminOnly: true },
