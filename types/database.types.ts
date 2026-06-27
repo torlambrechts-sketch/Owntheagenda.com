@@ -19,6 +19,228 @@ export type Database = {
   }
   public: {
     Tables: {
+      journey_level: {
+        Row: {
+          level: number
+          name: string
+          min_xp: number
+          icon: string
+          blurb: string | null
+          created_at: string
+        }
+        Insert: {
+          level: number
+          name: string
+          min_xp: number
+          icon?: string
+          blurb?: string | null
+          created_at?: string
+        }
+        Update: {
+          level?: number
+          name?: string
+          min_xp?: number
+          icon?: string
+          blurb?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      milestone: {
+        Row: {
+          id: string
+          key: string
+          name: string
+          description: string | null
+          icon: string
+          tint: string
+          xp_reward: number
+          sort: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          name: string
+          description?: string | null
+          icon?: string
+          tint?: string
+          xp_reward?: number
+          sort?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          name?: string
+          description?: string | null
+          icon?: string
+          tint?: string
+          xp_reward?: number
+          sort?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      onboarding_framework: {
+        Row: {
+          key: string
+          name: string
+          description: string
+          icon: string
+          tint: string
+          question_count: number
+          est_minutes: number
+          template_id: string | null
+          recommended: boolean
+          sort: number
+          created_at: string
+        }
+        Insert: {
+          key: string
+          name: string
+          description: string
+          icon?: string
+          tint?: string
+          question_count?: number
+          est_minutes?: number
+          template_id?: string | null
+          recommended?: boolean
+          sort?: number
+          created_at?: string
+        }
+        Update: {
+          key?: string
+          name?: string
+          description?: string
+          icon?: string
+          tint?: string
+          question_count?: number
+          est_minutes?: number
+          template_id?: string | null
+          recommended?: boolean
+          sort?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      cycle: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string | null
+          seq: number
+          label: string | null
+          season: string | null
+          framework_key: string | null
+          cadence_weeks: number
+          status: string
+          participation_pct: number | null
+          started_at: string
+          closed_at: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          team_id?: string | null
+          seq?: number
+          label?: string | null
+          season?: string | null
+          framework_key?: string | null
+          cadence_weeks?: number
+          status?: string
+          participation_pct?: number | null
+          started_at?: string
+          closed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          team_id?: string | null
+          seq?: number
+          label?: string | null
+          season?: string | null
+          framework_key?: string | null
+          cadence_weeks?: number
+          status?: string
+          participation_pct?: number | null
+          started_at?: string
+          closed_at?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_journey: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string
+          xp: number
+          level: number
+          streak: number
+          longest_streak: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          team_id: string
+          xp?: number
+          level?: number
+          streak?: number
+          longest_streak?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          team_id?: string
+          xp?: number
+          level?: number
+          streak?: number
+          longest_streak?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_milestone: {
+        Row: {
+          id: string
+          workspace_id: string
+          team_id: string
+          milestone_id: string
+          cycle_id: string | null
+          earned_at: string
+        }
+        Insert: {
+          id?: string
+          workspace_id: string
+          team_id: string
+          milestone_id: string
+          cycle_id?: string | null
+          earned_at?: string
+        }
+        Update: {
+          id?: string
+          workspace_id?: string
+          team_id?: string
+          milestone_id?: string
+          cycle_id?: string | null
+          earned_at?: string
+        }
+        Relationships: []
+      }
       program: {
         Row: {
           id: string
@@ -1541,6 +1763,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      level_for_xp: {
+        Args: { p_xp: number }
+        Returns: number
+      }
+      m2_pulse_scorecard: {
+        Args: { p_pulse: string }
+        Returns: { dynamic: string; pct: number; respondents: number }[]
+      }
+      m2_pulse_participation: {
+        Args: { p_pulse: string }
+        Returns: { responded: number; team_size: number }[]
+      }
       create_program: {
         Args: { p_workspace: string; p_title: string; p_team?: string | null }
         Returns: string
